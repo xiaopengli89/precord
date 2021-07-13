@@ -37,6 +37,12 @@ fn main() {
         println!("================");
     }
 
+    let output = if let Some(output) = output {
+        output
+    } else {
+        return;
+    };
+
     let mut max = 100.0f32;
     for process in processes.iter() {
         for p in &process.cpu_percents {
@@ -127,7 +133,7 @@ struct Opts {
     #[clap(short, long)]
     process: Vec<sysinfo::Pid>,
     #[clap(short, long)]
-    output: String,
+    output: Option<String>,
     #[clap(short, long, default_value = "1")]
     interval: u64,
     #[clap(short, long, default_value = "30")]
