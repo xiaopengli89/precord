@@ -136,7 +136,7 @@ impl ProcessInfo {
 }
 
 #[derive(Clap, Debug)]
-#[clap(version = "1.0", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.1.0", author = "Xiaopeng Li <x.friday@outlook.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(short, long)]

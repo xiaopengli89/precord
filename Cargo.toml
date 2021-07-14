@@ -9,6 +9,10 @@ edition = "2018"
 [dependencies]
 futures = "0.3.15"
 futures-timer = "3.0.2"
-heim = { git = "https://github.com/heim-rs/heim", features = ["process"] }
 plotters = "0.3"
 clap = "3.0.0-beta.2"
+
+[dependencies.heim]
+git = "https://github.com/heim-rs/heim"
+rev = "b292f15"
+features = ["process"]

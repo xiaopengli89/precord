@@ -642,7 +642,7 @@ dependencies = [
 [[package]]
 name = "heim"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "heim-common",
  "heim-process",
@@ -652,7 +652,7 @@ dependencies = [
 [[package]]
 name = "heim-common"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "cfg-if",
  "core-foundation",
@@ -670,7 +670,7 @@ dependencies = [
 [[package]]
 name = "heim-cpu"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "cfg-if",
  "futures",
@@ -688,7 +688,7 @@ dependencies = [
 [[package]]
 name = "heim-host"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "cfg-if",
  "heim-common",
@@ -705,7 +705,7 @@ dependencies = [
 [[package]]
 name = "heim-net"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -721,7 +721,7 @@ dependencies = [
 [[package]]
 name = "heim-process"
 version = "0.1.1-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "heim-runtime"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "futures",
  "futures-timer",
