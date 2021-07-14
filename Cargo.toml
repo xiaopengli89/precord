@@ -3,6 +3,8 @@ name = "precord"
 version = "0.1.0"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
 edition = "2018"
+repository = "https://github.com/xiaopengli89/precord"
+license = "Apache-2.0 OR MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
