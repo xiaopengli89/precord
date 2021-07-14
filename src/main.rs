@@ -1,8 +1,8 @@
 use clap::{AppSettings, Clap};
+use heim::process::{Pid, Process, CpuUsage};
+use heim::units::ratio;
 use plotters::prelude::*;
-use std::thread;
 use std::time::Duration;
-use sysinfo::{ProcessExt, SystemExt};
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -16,26 +16,29 @@ fn main() {
     let interval = opts.interval;
     let times = opts.times;
 
-    let mut system =
-        sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_processes());
-
-    let mut processes: Vec<ProcessInfo> = pids
-        .into_iter()
-        .map(|pid| {
-            system.refresh_process(pid);
-            ProcessInfo::new(pid, system.process(pid).unwrap().name().to_owned())
-        })
-        .collect();
-
-    for _ in 0..times {
-        thread::sleep(Duration::from_secs(interval));
-
-        for process in processes.iter_mut() {
-            let cpu_percent = process.poll_cpu_percent(&mut system);
-            println!("{}({}): {:.2}%", &process.name, process.pid, cpu_percent);
+    let processes = futures::executor::block_on(async move {
+        let mut processes: Vec<ProcessInfo> = vec![];
+        for pid in pids {
+            processes.push(ProcessInfo::new(pid).await);
         }
-        println!("================");
-    }
+
+        for _ in 0..times {
+            futures_timer::Delay::new(Duration::from_secs(interval)).await;
+
+            for process in processes.iter_mut() {
+                let cpu_percent = process.poll_cpu_percent().await;
+                println!(
+                    "{}({}): {:.2}%",
+                    &process.name,
+                    process.process.pid(),
+                    cpu_percent
+                );
+            }
+            println!("================");
+        }
+
+        processes
+    });
 
     let output = if let Some(output) = output {
         output
@@ -79,7 +82,7 @@ fn main() {
             .label(format!(
                 "{}({}) / AVG({:.2}%)",
                 &process.name,
-                process.pid,
+                process.process.pid(),
                 process.avg_cpu_percent()
             ))
             .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
@@ -94,25 +97,31 @@ fn main() {
 }
 
 struct ProcessInfo {
-    pid: sysinfo::Pid,
+    process: Process,
     name: String,
+    prev_cpu_usage: CpuUsage,
     cpu_percents: Vec<f32>,
 }
 
 impl ProcessInfo {
-    fn new(pid: sysinfo::Pid, name: String) -> Self {
+    async fn new(pid: Pid) -> Self {
+        let process = heim::process::get(pid).await.unwrap();
+        let name = process.name().await.unwrap();
+        let prev_cpu_usage = process.cpu_usage().await.unwrap();
         Self {
-            pid,
+            process,
             name,
+            prev_cpu_usage,
             cpu_percents: vec![],
         }
     }
 
-    fn poll_cpu_percent(&mut self, system: &mut sysinfo::System) -> f32 {
-        system.refresh_process(self.pid);
-        let process = system.process(self.pid).unwrap();
+    async fn poll_cpu_percent(&mut self) -> f32 {
+        let cpu_usage = self.process.cpu_usage().await.unwrap();
+        let cpu_percent = (cpu_usage.clone()
+            - std::mem::replace(&mut self.prev_cpu_usage, cpu_usage))
+        .get::<ratio::percent>();
 
-        let cpu_percent = process.cpu_usage();
         self.cpu_percents.push(cpu_percent);
         cpu_percent
     }
@@ -131,7 +140,7 @@ impl ProcessInfo {
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(short, long)]
-    process: Vec<sysinfo::Pid>,
+    process: Vec<Pid>,
     #[clap(short, long)]
     output: Option<String>,
     #[clap(short, long, default_value = "1")]
