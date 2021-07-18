@@ -176,12 +176,8 @@ impl ProcessInfo {
     }
 
     fn poll_gpu_percent(&mut self) -> f32 {
-        let gpu_percent;
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            gpu_percent = 0.0;
-        }
+        #[allow(unused_mut)]
+        let mut gpu_percent= 0.0;
 
         #[cfg(target_os = "windows")]
         {
@@ -189,11 +185,19 @@ impl ProcessInfo {
             let stdin = helper_process.process.stdin.as_mut().unwrap();
             let stdout = &mut helper_process.stdout;
 
-            stdin.write_all(r#""#.as_bytes()).unwrap();
+            stdin.write_all(format!(r#"(Get-Counter "\GPU Engine(pid_{}*engtype_3D)\Utilization Percentage").CounterSamples.CookedValue
+            "#, self.process.pid()).as_bytes()).unwrap();
             let mut r = String::new();
             stdout.read_line(&mut r).unwrap();
 
-            gpu_percent = r.trim().parse().unwrap();
+            gpu_percent += r.trim().parse::<f32>().unwrap();
+
+            stdin.write_all(format!(r#"(Get-Counter "\GPU Engine(pid_{}*engtype_VideEncode)\Utilization Percentage").CounterSamples.CookedValue
+            "#, self.process.pid()).as_bytes()).unwrap();
+            let mut r = String::new();
+            stdout.read_line(&mut r).unwrap();
+
+            gpu_percent += r.trim().parse::<f32>().unwrap();
         }
 
         gpu_percent
