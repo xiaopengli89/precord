@@ -144,7 +144,7 @@ impl ProcessInfo {
 
         #[cfg(target_os = "windows")]
         if categories.contains(&"gpu".to_owned()) {
-            let h = process::Command::new("powershell")
+            let mut h = process::Command::new("powershell")
                 .args(&["-Command", "-"])
                 .stdin(process::Stdio::piped())
                 .stdout(process::Stdio::piped())
