@@ -2,8 +2,9 @@ use clap::{AppSettings, Clap};
 use heim::process::{CpuUsage, Pid, Process};
 use heim::units::ratio;
 use plotters::prelude::*;
+use std::io::BufReader;
 #[cfg(target_os = "windows")]
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, Write};
 use std::process;
 use std::time::Duration;
 
@@ -129,7 +130,7 @@ struct ProcessInfo {
     value_percents: Vec<Vec<f32>>,
     prev_cpu_usage: CpuUsage,
     #[allow(dead_code)]
-    helper_process: Option<process::Child>,
+    helper_process: Option<HelperProcess>,
 }
 
 impl ProcessInfo {
@@ -143,14 +144,17 @@ impl ProcessInfo {
 
         #[cfg(target_os = "windows")]
         if categories.contains(&"gpu".to_owned()) {
-            helper_process = Some(
-                process::Command::new("powershell")
-                    .args(&["-Command", "-"])
-                    .stdin(process::Stdio::piped())
-                    .stdout(process::Stdio::piped())
-                    .spawn()
-                    .unwrap(),
-            );
+            let h = process::Command::new("powershell")
+                .args(&["-Command", "-"])
+                .stdin(process::Stdio::piped())
+                .stdout(process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            let o = BufReader::new(h.stdout.take().unwrap());
+            helper_process = Some(HelperProcess {
+                process: h,
+                stdout: o,
+            });
         }
 
         Self {
@@ -172,15 +176,19 @@ impl ProcessInfo {
     }
 
     fn poll_gpu_percent(&mut self) -> f32 {
-        #[allow(unused_mut)]
-        let mut gpu_percent = 0.0;
+        let gpu_percent;
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            gpu_percent = 0.0;
+        }
 
         #[cfg(target_os = "windows")]
         {
             let helper_process = self.helper_process.as_mut().unwrap();
-            let stdin = helper_process.stdin.as_mut().unwrap();
-            let stdout = helper_process.stdout.as_mut().unwrap();
-            let mut stdout = BufReader::new(stdout);
+            let stdin = helper_process.process.stdin.as_mut().unwrap();
+            let stdout = &mut helper_process.stdout;
+
             stdin.write_all(r#""#.as_bytes()).unwrap();
             let mut r = String::new();
             stdout.read_line(&mut r).unwrap();
@@ -198,6 +206,12 @@ impl ProcessInfo {
             self.value_percents[idx].iter().sum::<f32>() / (self.value_percents[idx].len() as f32)
         }
     }
+}
+
+#[allow(dead_code)]
+struct HelperProcess {
+    process: process::Child,
+    stdout: BufReader<process::ChildStdout>,
 }
 
 #[derive(Clap, Debug, Clone)]
