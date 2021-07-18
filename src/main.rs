@@ -184,17 +184,22 @@ impl ProcessInfo {
             let helper_process = self.helper_process.as_mut().unwrap();
             let stdin = helper_process.process.stdin.as_mut().unwrap();
             let stdout = &mut helper_process.stdout;
-
-            stdin.write_all(format!(r#"(Get-Counter "\GPU Engine(pid_{}*engtype_3D)\Utilization Percentage").CounterSamples.CookedValue
-            "#, self.process.pid()).as_bytes()).unwrap();
             let mut r = String::new();
+
+            stdin.write_all(format!(
+                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue",
+                self.process.pid()
+            ).as_bytes()).unwrap();
             stdout.read_line(&mut r).unwrap();
 
             gpu_percent += r.trim().parse::<f32>().unwrap();
 
-            stdin.write_all(format!(r#"(Get-Counter "\GPU Engine(pid_{}*engtype_VideEncode)\Utilization Percentage").CounterSamples.CookedValue
-            "#, self.process.pid()).as_bytes()).unwrap();
-            let mut r = String::new();
+            r.clear();
+
+            stdin.write_all(format!(
+                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue",
+                self.process.pid()
+            ).as_bytes()).unwrap();
             stdout.read_line(&mut r).unwrap();
 
             gpu_percent += r.trim().parse::<f32>().unwrap();
