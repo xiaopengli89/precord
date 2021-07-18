@@ -187,7 +187,7 @@ impl ProcessInfo {
             let mut r = String::new();
 
             stdin.write_all(format!(
-                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue",
+                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
                 self.process.pid()
             ).as_bytes()).unwrap();
             stdout.read_line(&mut r).unwrap();
@@ -197,7 +197,7 @@ impl ProcessInfo {
             r.clear();
 
             stdin.write_all(format!(
-                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue",
+                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
                 self.process.pid()
             ).as_bytes()).unwrap();
             stdout.read_line(&mut r).unwrap();
