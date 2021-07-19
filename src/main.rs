@@ -42,6 +42,13 @@ fn main() {
 
                             message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
                         }
+                        "mem" => {
+                            let mem_usage = process.poll_mem_usage().await;
+
+                            process.value_percents[idx].push(mem_usage);
+
+                            message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                        }
                         "gpu" => {
                             let gpu_percent = process.poll_gpu_percent(powershell.as_mut());
 
@@ -74,16 +81,32 @@ fn main() {
     let areas = root.split_evenly((opts.category.len(), 1));
 
     for (idx_c, area) in areas.into_iter().enumerate() {
-        let mut max = 100.0f32;
+        let mut max = 0.0f32;
         for process in processes.iter() {
             for p in &process.value_percents[idx_c] {
                 max = max.max(*p);
             }
         }
 
-        let caption = match opts.category[idx_c].as_str() {
-            "cpu" => "Process CPU Usage",
-            "gpu" => "Process GPU Usage",
+        let caption;
+        let unit;
+
+        match opts.category[idx_c].as_str() {
+            "cpu" => {
+                caption = "Process CPU Usage";
+                unit = "%";
+                max = max.max(100.0);
+            }
+            "mem" => {
+                caption = "Process MEM Usage";
+                unit = "M";
+                max += 100.0;
+            }
+            "gpu" => {
+                caption = "Process GPU Usage";
+                unit = "%";
+                max = max.max(100.0);
+            }
             _ => unimplemented!(),
         };
 
@@ -97,7 +120,7 @@ fn main() {
 
         chart
             .configure_mesh()
-            .y_label_formatter(&|y| format!("{}%", y))
+            .y_label_formatter(&|y| format!("{}{}", y, unit))
             .draw()
             .unwrap();
 
@@ -113,10 +136,11 @@ fn main() {
                 ))
                 .unwrap()
                 .label(format!(
-                    "{}({}) / AVG({:.2}%)",
+                    "{}({}) / AVG({:.2}{})",
                     &process.name,
                     process.process.pid(),
-                    process.avg_percent(idx_c)
+                    process.avg_percent(idx_c),
+                    unit
                 ))
                 .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
         }
@@ -158,6 +182,11 @@ impl ProcessInfo {
         .get::<ratio::percent>();
 
         cpu_percent
+    }
+
+    async fn poll_mem_usage(&self) -> f32 {
+        let m = self.process.memory().await.unwrap().rss();
+        (m.value as f64 / 1_000_000.0) as _
     }
 
     fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> f32 {
