@@ -3,7 +3,6 @@ use heim::process::{CpuUsage, Pid, Process};
 use heim::units::ratio;
 use plotters::prelude::*;
 use std::io::BufReader;
-#[cfg(target_os = "windows")]
 use std::io::{BufRead, Write};
 use std::process;
 use std::time::Duration;
@@ -13,6 +12,13 @@ fn main() {
 
     if opts.process.is_empty() {
         return;
+    }
+
+    let mut powershell = None;
+
+    #[cfg(target_os = "windows")]
+    if opts.category.contains(&"gpu".to_owned()) {
+        powershell = Some(Powershell::new());
     }
 
     let processes = futures::executor::block_on(async {
@@ -37,7 +43,7 @@ fn main() {
                             message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
                         }
                         "gpu" => {
-                            let gpu_percent = process.poll_gpu_percent();
+                            let gpu_percent = process.poll_gpu_percent(powershell.as_mut());
 
                             process.value_percents[idx].push(gpu_percent);
 
@@ -129,8 +135,6 @@ struct ProcessInfo {
     name: String,
     value_percents: Vec<Vec<f32>>,
     prev_cpu_usage: CpuUsage,
-    #[allow(dead_code)]
-    helper_process: Option<HelperProcess>,
 }
 
 impl ProcessInfo {
@@ -139,30 +143,11 @@ impl ProcessInfo {
         let name = process.name().await.unwrap();
         let prev_cpu_usage = process.cpu_usage().await.unwrap();
 
-        #[allow(unused_mut)]
-        let mut helper_process = None;
-
-        #[cfg(target_os = "windows")]
-        if categories.contains(&"gpu".to_owned()) {
-            let mut h = process::Command::new("powershell")
-                .args(&["-Command", "-"])
-                .stdin(process::Stdio::piped())
-                .stdout(process::Stdio::piped())
-                .spawn()
-                .unwrap();
-            let o = BufReader::new(h.stdout.take().unwrap());
-            helper_process = Some(HelperProcess {
-                process: h,
-                stdout: o,
-            });
-        }
-
         Self {
             process,
             name,
             value_percents: vec![vec![]; categories.len()],
             prev_cpu_usage,
-            helper_process,
         }
     }
 
@@ -175,37 +160,10 @@ impl ProcessInfo {
         cpu_percent
     }
 
-    fn poll_gpu_percent(&mut self) -> f32 {
-        #[allow(unused_mut)]
-        let mut gpu_percent= 0.0;
-
-        #[cfg(target_os = "windows")]
-        {
-            let helper_process = self.helper_process.as_mut().unwrap();
-            let stdin = helper_process.process.stdin.as_mut().unwrap();
-            let stdout = &mut helper_process.stdout;
-            let mut r = String::new();
-
-            stdin.write_all(format!(
-                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
-                self.process.pid()
-            ).as_bytes()).unwrap();
-            stdout.read_line(&mut r).unwrap();
-
-            gpu_percent += r.trim().parse::<f32>().unwrap();
-
-            r.clear();
-
-            stdin.write_all(format!(
-                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
-                self.process.pid()
-            ).as_bytes()).unwrap();
-            stdout.read_line(&mut r).unwrap();
-
-            gpu_percent += r.trim().parse::<f32>().unwrap();
-        }
-
-        gpu_percent
+    fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> f32 {
+        powershell
+            .map(|ps| ps.poll_gpu_percent(self.process.pid()))
+            .unwrap_or(0.0)
     }
 
     fn avg_percent(&self, idx: usize) -> f32 {
@@ -217,10 +175,54 @@ impl ProcessInfo {
     }
 }
 
-#[allow(dead_code)]
-struct HelperProcess {
+struct Powershell {
     process: process::Child,
     stdout: BufReader<process::ChildStdout>,
+}
+
+impl Powershell {
+    #[cfg(target_os = "windows")]
+    fn new() -> Self {
+        let mut p = process::Command::new("powershell")
+            .args(&["-Command", "-"])
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let o = BufReader::new(p.stdout.take().unwrap());
+        Self {
+            process: p,
+            stdout: o,
+        }
+    }
+
+    fn poll_gpu_percent(&mut self, pid: Pid) -> f32 {
+        let mut gpu_percent = 0.0;
+        let mut r = String::new();
+
+        let stdin = self.process.stdin.as_mut().unwrap();
+        let stdout = &mut self.stdout;
+
+        stdin.write_all(format!(
+            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
+            pid
+        ).as_bytes()).unwrap();
+        stdout.read_line(&mut r).unwrap();
+
+        gpu_percent += r.trim().parse::<f32>().unwrap();
+
+        r.clear();
+
+        stdin.write_all(format!(
+            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
+            pid
+        ).as_bytes()).unwrap();
+        stdout.read_line(&mut r).unwrap();
+
+        gpu_percent += r.trim().parse::<f32>().unwrap();
+
+        gpu_percent
+    }
 }
 
 #[derive(Clap, Debug, Clone)]
