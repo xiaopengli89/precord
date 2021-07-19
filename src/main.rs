@@ -74,7 +74,7 @@ fn main() {
             }
             println!("================");
 
-            processes.drain_filter(|p| p.valid);
+            processes.drain_filter(|p| !p.valid);
         }
 
         processes
