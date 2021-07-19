@@ -258,7 +258,7 @@ impl Powershell {
 
         stdin.write_all(format!(
             "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\
-            | % {{if ($_ -eq $null) {{\"null\"}} else {{$_}}}}\r\n",
+            | % {{if ($_ -eq $null) {{\"0\"}} else {{$_}}}}\r\n",
             pid
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
@@ -269,7 +269,7 @@ impl Powershell {
 
         stdin.write_all(format!(
             "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\
-            | % {{if ($_ -eq $null) {{\"null\"}} else {{$_}}}}\r\n",
+            | % {{if ($_ -eq $null) {{\"0\"}} else {{$_}}}}\r\n",
             pid
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
