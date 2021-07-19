@@ -1,5 +1,6 @@
 use clap::{AppSettings, Clap};
-use heim::process::{CpuUsage, Pid, Process};
+use futures::stream::StreamExt;
+use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
 use std::io::BufReader;
@@ -10,21 +11,18 @@ use std::time::Duration;
 fn main() {
     let opts: Opts = Opts::parse();
 
-    if opts.process.is_empty() {
-        return;
-    }
-
-    let mut powershell = None;
-
-    #[cfg(target_os = "windows")]
-    if opts.category.contains(&"gpu".to_owned()) {
-        powershell = Some(Powershell::new());
-    }
-
     let processes = futures::executor::block_on(async {
-        let mut processes: Vec<ProcessInfo> = vec![];
-        for &pid in opts.process.iter() {
-            processes.push(ProcessInfo::new(pid, &opts.category).await);
+        let mut processes = opts.find_processes().await;
+
+        if processes.is_empty() {
+            return vec![];
+        }
+
+        let mut powershell = None;
+
+        #[cfg(target_os = "windows")]
+        if opts.category.contains(&"gpu".to_owned()) {
+            powershell = Some(Powershell::new());
         }
 
         for _ in 0..opts.times {
@@ -67,6 +65,10 @@ fn main() {
 
         processes
     });
+
+    if processes.is_empty() {
+        return;
+    }
 
     let output = if let Some(output) = opts.output {
         output
@@ -162,9 +164,7 @@ struct ProcessInfo {
 }
 
 impl ProcessInfo {
-    async fn new(pid: Pid, categories: &[String]) -> Self {
-        let process = heim::process::get(pid).await.unwrap();
-        let name = process.name().await.unwrap();
+    async fn new(process: Process, name: String, categories: &[String]) -> Self {
         let prev_cpu_usage = process.cpu_usage().await.unwrap();
 
         Self {
@@ -260,6 +260,8 @@ impl Powershell {
 struct Opts {
     #[clap(short, long)]
     process: Vec<Pid>,
+    #[clap(long)]
+    name: Vec<String>,
     #[clap(short, long)]
     output: Option<String>,
     #[clap(short, long, default_value = "1")]
@@ -268,4 +270,33 @@ struct Opts {
     times: usize,
     #[clap(short, long, default_value = "cpu")]
     category: Vec<String>,
+}
+
+impl Opts {
+    async fn find_processes(&self) -> Vec<ProcessInfo> {
+        let mut processes = vec![];
+        let mut all = Box::pin(heim::process::processes().await.unwrap());
+
+        while let Some(Ok(p)) = all.next().await {
+            match p.status().await.unwrap() {
+                Status::Zombie => continue,
+                _ => {}
+            }
+
+            let name = p.name().await.unwrap();
+
+            if self.process.contains(&p.pid()) {
+                processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+            } else {
+                for n in self.name.iter() {
+                    if name.contains(n) {
+                        processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                        break;
+                    }
+                }
+            }
+        }
+
+        processes
+    }
 }
