@@ -91,7 +91,7 @@ checksum = "a8f38756dd9ac84671c428afbf7c9f7495feff9ec5b0710f17100098e5b354ac"
 dependencies = [
  "async-io",
  "blocking",
- "cfg-if",
+ "cfg-if 1.0.0",
  "event-listener",
  "futures-lite",
  "libc",
@@ -189,6 +189,12 @@ name = "cc"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e70cc2f62c6ce1868963827bd677764c62d07c3d9a3e1fb1177ee1a9ab199eb2"
+
+[[package]]
+name = "cfg-if"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "cfg-if"
@@ -324,7 +330,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
 ]
 
 [[package]]
@@ -363,7 +369,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "dirs-sys-next",
 ]
 
@@ -603,7 +609,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "libc",
  "wasi",
 ]
@@ -654,14 +660,14 @@ name = "heim-common"
 version = "0.1.0-rc.1"
 source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "core-foundation",
  "futures-core",
  "futures-util",
  "lazy_static",
  "libc",
  "mach",
- "nix",
+ "nix 0.20.0",
  "pin-utils",
  "uom",
  "winapi",
@@ -672,7 +678,7 @@ name = "heim-cpu"
 version = "0.1.0-rc.1"
 source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "futures",
  "glob",
  "heim-common",
@@ -690,7 +696,7 @@ name = "heim-host"
 version = "0.1.0-rc.1"
 source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
  "lazy_static",
@@ -708,12 +714,12 @@ version = "0.1.0-rc.1"
 source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "bitflags",
- "cfg-if",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
  "libc",
  "macaddr",
- "nix",
+ "nix 0.20.0",
  "widestring",
  "winapi",
 ]
@@ -724,7 +730,7 @@ version = "0.1.1-rc.1"
 source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
 dependencies = [
  "async-trait",
- "cfg-if",
+ "cfg-if 1.0.0",
  "darwin-libproc",
  "futures",
  "heim-common",
@@ -794,7 +800,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bee0328b1209d157ef001c94dd85b4f8f64139adb0eac2659f4b08382b2f474d"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
 ]
 
 [[package]]
@@ -830,7 +836,7 @@ version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
 ]
 
 [[package]]
@@ -865,13 +871,26 @@ dependencies = [
 
 [[package]]
 name = "nix"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 0.1.10",
+ "libc",
+ "void",
+]
+
+[[package]]
+name = "nix"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa9b4819da1bc61c0ea48b63b7bc8604064dd43013e7cc325df098d49cd7c18a"
 dependencies = [
  "bitflags",
  "cc",
- "cfg-if",
+ "cfg-if 1.0.0",
  "libc",
 ]
 
@@ -1068,7 +1087,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92341d779fa34ea8437ef4d82d440d5e1ce3f3ff7f824aa64424cd481f9a1f25"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "libc",
  "log",
  "wepoll-ffi",
@@ -1084,6 +1103,7 @@ dependencies = [
  "futures-timer",
  "heim",
  "plotters",
+ "timeout-readwrite",
 ]
 
 [[package]]
@@ -1316,6 +1336,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "timeout-readwrite"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15f9e83663e1c312cbc7980611fa82ed60d622a947de3546350b549e5d69f9bc"
+dependencies = [
+ "nix 0.17.0",
+]
+
+[[package]]
 name = "ttf-parser"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1375,6 +1404,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
+name = "void"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
 name = "waker-fn"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1403,7 +1438,7 @@ version = "0.2.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d54ee1d4ed486f78874278e63e4069fc1ab9f6a18ca492076ffb90c5eb2997fd"
 dependencies = [
- "cfg-if",
+ "cfg-if 1.0.0",
  "wasm-bindgen-macro",
 ]
 

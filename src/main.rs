@@ -9,6 +9,9 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
 use std::time::Duration;
+#[cfg(target_os = "windows")]
+use timeout_readwrite::TimeoutReadExt;
+use timeout_readwrite::TimeoutReader;
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -30,7 +33,7 @@ fn main() {
         for _ in 0..opts.times {
             futures_timer::Delay::new(Duration::from_secs(opts.interval)).await;
 
-            for process in processes.iter_mut() {
+            'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
 
                 for (idx, c) in opts.category.iter().enumerate() {
@@ -40,6 +43,8 @@ fn main() {
                                 process.value_percents[idx].push(cpu_percent);
 
                                 message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
+                            } else {
+                                continue 'p;
                             }
                         }
                         "mem" => {
@@ -47,14 +52,19 @@ fn main() {
                                 process.value_percents[idx].push(mem_usage);
 
                                 message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                            } else {
+                                continue 'p;
                             }
                         }
                         "gpu" => {
-                            let gpu_percent = process.poll_gpu_percent(powershell.as_mut());
+                            if let Some(gpu_percent) = process.poll_gpu_percent(powershell.as_mut())
+                            {
+                                process.value_percents[idx].push(gpu_percent);
 
-                            process.value_percents[idx].push(gpu_percent);
-
-                            message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
+                                message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
+                            } else {
+                                continue 'p;
+                            }
                         }
                         _ => unimplemented!(),
                     }
@@ -203,10 +213,13 @@ impl ProcessInfo {
         }
     }
 
-    fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> f32 {
-        powershell
-            .map(|ps| ps.poll_gpu_percent(self.process.pid()))
-            .unwrap_or(0.0)
+    fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> Option<f32> {
+        let powershell = powershell?;
+        let r = powershell.poll_gpu_percent(self.process.pid());
+        if r.is_none() {
+            self.valid = false;
+        }
+        r
     }
 
     fn avg_percent(&self, idx: usize) -> f32 {
@@ -220,7 +233,7 @@ impl ProcessInfo {
 
 struct Powershell {
     process: process::Child,
-    stdout: BufReader<process::ChildStdout>,
+    stdout: BufReader<TimeoutReader<process::ChildStdout>>,
 }
 
 impl Powershell {
@@ -232,14 +245,19 @@ impl Powershell {
             .stdout(process::Stdio::piped())
             .spawn()
             .unwrap();
-        let o = BufReader::new(p.stdout.take().unwrap());
+        let o = BufReader::new(
+            p.stdout
+                .take()
+                .unwrap()
+                .with_timeout(Duration::from_secs(1)),
+        );
         Self {
             process: p,
             stdout: o,
         }
     }
 
-    fn poll_gpu_percent(&mut self, pid: Pid) -> f32 {
+    fn poll_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
         let mut gpu_percent = 0.0;
         let mut r = String::new();
 
@@ -250,7 +268,7 @@ impl Powershell {
             "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
             pid
         ).as_bytes()).unwrap();
-        stdout.read_line(&mut r).unwrap();
+        stdout.read_line(&mut r).ok()?;
 
         gpu_percent += r.trim().parse::<f32>().unwrap();
 
@@ -260,11 +278,11 @@ impl Powershell {
             "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
             pid
         ).as_bytes()).unwrap();
-        stdout.read_line(&mut r).unwrap();
+        stdout.read_line(&mut r).ok()?;
 
         gpu_percent += r.trim().parse::<f32>().unwrap();
 
-        gpu_percent
+        Some(gpu_percent)
     }
 }
 
