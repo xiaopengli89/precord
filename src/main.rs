@@ -1,3 +1,5 @@
+#![feature(drain_filter)]
+
 use clap::{AppSettings, Clap};
 use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
@@ -34,18 +36,18 @@ fn main() {
                 for (idx, c) in opts.category.iter().enumerate() {
                     match c.as_str() {
                         "cpu" => {
-                            let cpu_percent = process.poll_cpu_percent().await;
+                            if let Some(cpu_percent) = process.poll_cpu_percent().await {
+                                process.value_percents[idx].push(cpu_percent);
 
-                            process.value_percents[idx].push(cpu_percent);
-
-                            message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
+                                message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
+                            }
                         }
                         "mem" => {
-                            let mem_usage = process.poll_mem_usage().await;
+                            if let Some(mem_usage) = process.poll_mem_usage().await {
+                                process.value_percents[idx].push(mem_usage);
 
-                            process.value_percents[idx].push(mem_usage);
-
-                            message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                                message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                            }
                         }
                         "gpu" => {
                             let gpu_percent = process.poll_gpu_percent(powershell.as_mut());
@@ -61,6 +63,8 @@ fn main() {
                 println!("{}", message);
             }
             println!("================");
+
+            processes.drain_filter(|p| p.valid);
         }
 
         processes
@@ -161,6 +165,7 @@ struct ProcessInfo {
     name: String,
     value_percents: Vec<Vec<f32>>,
     prev_cpu_usage: CpuUsage,
+    valid: bool,
 }
 
 impl ProcessInfo {
@@ -172,21 +177,30 @@ impl ProcessInfo {
             name,
             value_percents: vec![vec![]; categories.len()],
             prev_cpu_usage,
+            valid: true,
         }
     }
 
-    async fn poll_cpu_percent(&mut self) -> f32 {
-        let cpu_usage = self.process.cpu_usage().await.unwrap();
-        let cpu_percent = (cpu_usage.clone()
-            - std::mem::replace(&mut self.prev_cpu_usage, cpu_usage))
-        .get::<ratio::percent>();
+    async fn poll_cpu_percent(&mut self) -> Option<f32> {
+        if let Ok(cpu_usage) = self.process.cpu_usage().await {
+            let cpu_percent = (cpu_usage.clone()
+                - std::mem::replace(&mut self.prev_cpu_usage, cpu_usage))
+            .get::<ratio::percent>();
 
-        cpu_percent
+            Some(cpu_percent)
+        } else {
+            self.valid = false;
+            None
+        }
     }
 
-    async fn poll_mem_usage(&self) -> f32 {
-        let m = self.process.memory().await.unwrap().rss();
-        (m.value as f64 / 1_000_000.0) as _
+    async fn poll_mem_usage(&mut self) -> Option<f32> {
+        if let Ok(m) = self.process.memory().await {
+            Some((m.rss().value as f64 / 1_000_000.0) as _)
+        } else {
+            self.valid = false;
+            None
+        }
     }
 
     fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> f32 {
@@ -277,7 +291,12 @@ impl Opts {
         let mut processes = vec![];
         let mut all = Box::pin(heim::process::processes().await.unwrap());
 
-        while let Some(Ok(p)) = all.next().await {
+        while let Some(p) = all.next().await {
+            let p = match p {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+
             match p.status().await.unwrap() {
                 Status::Zombie => continue,
                 _ => {}
