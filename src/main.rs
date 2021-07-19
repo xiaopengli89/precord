@@ -294,7 +294,7 @@ struct Opts {
     interval: u64,
     #[clap(short, long, default_value = "30")]
     times: usize,
-    #[clap(short, long, default_value = "cpu")]
+    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu"])]
     category: Vec<String>,
 }
 
