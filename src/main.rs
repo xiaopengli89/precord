@@ -263,7 +263,7 @@ impl Powershell {
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
 
-        gpu_percent += r.trim().parse::<f32>()?;
+        gpu_percent += r.trim().parse::<f32>().ok()?;
 
         r.clear();
 
@@ -274,7 +274,7 @@ impl Powershell {
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
 
-        gpu_percent += r.trim().parse::<f32>()?;
+        gpu_percent += r.trim().parse::<f32>().ok()?;
 
         Some(gpu_percent)
     }
