@@ -9,9 +9,6 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
 use std::time::Duration;
-#[cfg(target_os = "windows")]
-use timeout_readwrite::TimeoutReadExt;
-use timeout_readwrite::TimeoutReader;
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -233,7 +230,7 @@ impl ProcessInfo {
 
 struct Powershell {
     process: process::Child,
-    stdout: BufReader<TimeoutReader<process::ChildStdout>>,
+    stdout: BufReader<process::ChildStdout>,
 }
 
 impl Powershell {
@@ -245,12 +242,7 @@ impl Powershell {
             .stdout(process::Stdio::piped())
             .spawn()
             .unwrap();
-        let o = BufReader::new(
-            p.stdout
-                .take()
-                .unwrap()
-                .with_timeout(Duration::from_secs(1)),
-        );
+        let o = BufReader::new(p.stdout.take().unwrap());
         Self {
             process: p,
             stdout: o,
@@ -265,22 +257,24 @@ impl Powershell {
         let stdout = &mut self.stdout;
 
         stdin.write_all(format!(
-            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
+            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\
+            | % {{if ($_ -eq $null) {{\"null\"}} else {{$_}}}}\r\n",
             pid
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
 
-        gpu_percent += r.trim().parse::<f32>().unwrap();
+        gpu_percent += r.trim().parse::<f32>()?;
 
         r.clear();
 
         stdin.write_all(format!(
-            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\r\n",
+            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\
+            | % {{if ($_ -eq $null) {{\"null\"}} else {{$_}}}}\r\n",
             pid
         ).as_bytes()).unwrap();
         stdout.read_line(&mut r).ok()?;
 
-        gpu_percent += r.trim().parse::<f32>().unwrap();
+        gpu_percent += r.trim().parse::<f32>()?;
 
         Some(gpu_percent)
     }
