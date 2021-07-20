@@ -306,7 +306,7 @@ impl Powershell {
 }
 
 #[derive(Clap, Debug, Clone)]
-#[clap(version = "0.1.3", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.1.4", author = "Xiaopeng Li <x.friday@outlook.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(short, long)]
