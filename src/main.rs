@@ -94,11 +94,21 @@ fn main() {
     let areas = root.split_evenly((opts.category.len(), 1));
 
     for (idx_c, area) in areas.into_iter().enumerate() {
-        let mut max = 0.0f32;
+        let mut total = vec![];
+
         for process in processes.iter() {
-            for p in &process.value_percents[idx_c] {
-                max = max.max(*p);
+            if total.len() < process.value_percents[idx_c].len() {
+                total.extend_from_slice(
+                    vec![0.0; process.value_percents[idx_c].len() - total.len()].as_slice(),
+                );
             }
+            for (a, b) in total.iter_mut().zip(process.value_percents[idx_c].iter()) {
+                *a += *b;
+            }
+        }
+        let mut max = 0.0f32;
+        for &t in total.iter() {
+            max = max.max(t);
         }
 
         let caption;
@@ -137,18 +147,7 @@ fn main() {
             .draw()
             .unwrap();
 
-        let mut total = vec![];
-
         for (idx, process) in processes.iter().enumerate() {
-            if total.len() < process.value_percents[idx_c].len() {
-                total.extend_from_slice(
-                    vec![0.0; process.value_percents[idx_c].len() - total.len()].as_slice(),
-                );
-            }
-            for (a, b) in total.iter_mut().zip(process.value_percents[idx_c].iter()) {
-                *a += *b;
-            }
-
             let color = Palette99::pick(idx).stroke_width(2).filled();
             chart
                 .draw_series(LineSeries::new(
@@ -228,7 +227,7 @@ impl ProcessInfo {
 
     async fn poll_mem_usage(&mut self) -> Option<f32> {
         if let Ok(m) = self.process.memory().await {
-            Some((m.rss().value as f64 / 1_000_000.0) as _)
+            Some((m.rss().value as f64 / (1024.0 * 1024.0)) as _)
         } else {
             self.valid = false;
             None
