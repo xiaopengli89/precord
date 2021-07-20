@@ -137,8 +137,19 @@ fn main() {
             .draw()
             .unwrap();
 
+        let mut total = vec![];
+
         for (idx, process) in processes.iter().enumerate() {
-            let color = Palette99::pick(idx).filled();
+            if total.len() < process.value_percents[idx_c].len() {
+                total.extend_from_slice(
+                    vec![0.0; process.value_percents[idx_c].len() - total.len()].as_slice(),
+                );
+            }
+            for (a, b) in total.iter_mut().zip(process.value_percents[idx_c].iter()) {
+                *a += *b;
+            }
+
+            let color = Palette99::pick(idx).stroke_width(2).filled();
             chart
                 .draw_series(LineSeries::new(
                     process.value_percents[idx_c]
@@ -155,6 +166,20 @@ fn main() {
                     process.avg_percent(idx_c),
                     unit
                 ))
+                .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
+        }
+
+        if processes.len() > 1 {
+            // Total
+            let avg: f32 = total.iter().map(|a| *a).sum::<f32>() / total.len() as f32;
+            let color = Palette99::pick(processes.len()).stroke_width(2).filled();
+            chart
+                .draw_series(LineSeries::new(
+                    total.into_iter().enumerate(),
+                    color.clone(),
+                ))
+                .unwrap()
+                .label(format!("Total / AVG({:.2}{})", avg, unit))
                 .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
         }
 
