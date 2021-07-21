@@ -280,25 +280,19 @@ impl Powershell {
         let stdin = self.process.stdin.as_mut().unwrap();
         let stdout = &mut self.stdout;
 
-        stdin.write_all(format!(
-            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_3D)\\Utilization Percentage\").CounterSamples.CookedValue\
+        for engine in ["3D", "VideoEncode", "VideoProcessing"] {
+            r.clear();
+
+            stdin.write_all(format!(
+                "(Get-Counter \"\\GPU Engine(pid_{}*engtype_{})\\Utilization Percentage\").CounterSamples.CookedValue\
             | % {{if ($_ -eq $null) {{\"0\"}} else {{$_}}}}\r\n",
-            pid
-        ).as_bytes()).unwrap();
-        stdout.read_line(&mut r).ok()?;
+                pid,
+                engine
+            ).as_bytes()).unwrap();
+            stdout.read_line(&mut r).ok()?;
 
-        gpu_percent += r.trim().parse::<f32>().ok()?;
-
-        r.clear();
-
-        stdin.write_all(format!(
-            "(Get-Counter \"\\GPU Engine(pid_{}*engtype_VideoEncode)\\Utilization Percentage\").CounterSamples.CookedValue\
-            | % {{if ($_ -eq $null) {{\"0\"}} else {{$_}}}}\r\n",
-            pid
-        ).as_bytes()).unwrap();
-        stdout.read_line(&mut r).ok()?;
-
-        gpu_percent += r.trim().parse::<f32>().ok()?;
+            gpu_percent += r.trim().parse::<f32>().ok()?;
+        }
 
         Some(gpu_percent)
     }
