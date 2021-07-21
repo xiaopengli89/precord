@@ -281,16 +281,17 @@ impl Powershell {
         let stdout = &mut self.stdout;
 
         for engine in ["3D", "VideoEncode", "VideoProcessing"] {
-            r.clear();
-
             stdin
                 .write_all(format!(include_str!("../asset/powershell.txt"), pid, engine).as_bytes())
                 .unwrap();
-            stdout.read_line(&mut r).ok()?;
 
             loop {
-                if r.trim() == "EOF" {
-                    break;
+                r.clear();
+                stdout.read_line(&mut r).ok()?;
+                match r.trim() {
+                    "" => continue,
+                    "EOF" => break,
+                    _ => {}
                 }
                 gpu_percent += r.trim().parse::<f32>().ok()?;
             }
