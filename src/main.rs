@@ -280,7 +280,7 @@ impl Powershell {
         let stdin = self.process.stdin.as_mut().unwrap();
         let stdout = &mut self.stdout;
 
-        for engine in ["3D", "VideoEncode", "VideoProcessing"] {
+        for engine in ["3D", "VideoEncode", "VideoDecode", "VideoProcessing"] {
             stdin
                 .write_all(format!(include_str!("../asset/powershell.txt"), pid, engine).as_bytes())
                 .unwrap();
