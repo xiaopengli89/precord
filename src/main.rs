@@ -27,7 +27,7 @@ fn main() {
             powershell = Some(Powershell::new());
         }
 
-        for _ in 0..opts.times {
+        for i in 0..opts.times {
             futures_timer::Delay::new(Duration::from_secs(opts.interval)).await;
 
             'p: for process in processes.iter_mut() {
@@ -69,7 +69,7 @@ fn main() {
 
                 println!("{}", message);
             }
-            println!("================");
+            println!("================ {}/{}", i, opts.times);
 
             processes.drain_filter(|p| !p.valid);
         }
@@ -322,6 +322,16 @@ struct Opts {
 impl Opts {
     async fn find_processes(&self) -> Vec<ProcessInfo> {
         let mut processes = vec![];
+
+        if self.name.is_empty() {
+            for &pid in self.process.iter() {
+                let p = heim::process::get(pid).await.unwrap();
+                let name = p.name().await.unwrap();
+                processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+            }
+            return processes;
+        }
+
         let mut all = Box::pin(heim::process::processes().await.unwrap());
 
         while let Some(p) = all.next().await {
