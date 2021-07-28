@@ -8,7 +8,7 @@ use plotters::prelude::*;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -27,8 +27,18 @@ fn main() {
             powershell = Some(Powershell::new());
         }
 
+        let mut last_record_time = Instant::now();
+
         for i in 0..opts.times {
-            futures_timer::Delay::new(Duration::from_secs(opts.interval)).await;
+            let now = Instant::now();
+            let since = now.saturating_duration_since(last_record_time);
+            let delay = Duration::from_secs(opts.interval).saturating_sub(since);
+            if !delay.is_zero() {
+                futures_timer::Delay::new(delay).await;
+                last_record_time = Instant::now();
+            } else {
+                last_record_time = now;
+            }
 
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
