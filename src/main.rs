@@ -5,10 +5,13 @@ use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
+use power_metrics::{PowerMetrics, PowerMetricsResult};
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
 use std::time::{Duration, Instant};
+
+mod power_metrics;
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -21,6 +24,7 @@ fn main() {
         }
 
         let mut powershell = None;
+        let power_metrics = PowerMetrics::new();
 
         #[cfg(target_os = "windows")]
         if opts.category.contains(&"gpu".to_owned()) {
@@ -39,6 +43,8 @@ fn main() {
             } else {
                 last_record_time = now;
             }
+
+            let power_metrics_result = power_metrics.poll();
 
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
@@ -64,7 +70,8 @@ fn main() {
                             }
                         }
                         "gpu" => {
-                            if let Some(gpu_percent) = process.poll_gpu_percent(powershell.as_mut())
+                            if let Some(gpu_percent) =
+                                process.poll_gpu_percent(powershell.as_mut(), &power_metrics_result)
                             {
                                 process.value_percents[idx].push(gpu_percent);
 
@@ -244,13 +251,30 @@ impl ProcessInfo {
         }
     }
 
-    fn poll_gpu_percent(&mut self, powershell: Option<&mut Powershell>) -> Option<f32> {
-        let powershell = powershell?;
-        let r = powershell.poll_gpu_percent(self.process.pid());
-        if r.is_none() {
-            self.valid = false;
+    #[allow(unused_variables)]
+    fn poll_gpu_percent(
+        &mut self,
+        powershell: Option<&mut Powershell>,
+        power_metrics_result: &PowerMetricsResult,
+    ) -> Option<f32> {
+        #[cfg(target_os = "windows")]
+        {
+            let powershell = powershell?;
+            let r = powershell.poll_gpu_percent(self.process.pid());
+            if r.is_none() {
+                self.valid = false;
+            }
+            r
         }
-        r
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let r = power_metrics_result.gpu_percent(self.process.pid());
+            if r.is_none() {
+                self.valid = false;
+            }
+            r
+        }
     }
 
     fn avg_percent(&self, idx: usize) -> f32 {
@@ -283,6 +307,7 @@ impl Powershell {
         }
     }
 
+    #[allow(dead_code)]
     fn poll_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
         let mut gpu_percent = 0.0;
         let mut r = String::new();
