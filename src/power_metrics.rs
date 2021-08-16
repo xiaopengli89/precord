@@ -2,18 +2,9 @@ use heim::process::Pid;
 use serde::Deserialize;
 use std::process::Command;
 
-#[derive(Debug, Deserialize)]
-pub struct PowerMetricsResult {
+#[derive(Debug, Default, Deserialize)]
+struct PowerMetricsResult {
     tasks: Vec<Task>,
-}
-
-impl PowerMetricsResult {
-    pub fn gpu_percent(&self, pid: Pid) -> Option<f32> {
-        self.tasks
-            .iter()
-            .find(|task| task.pid == pid)
-            .map(|task| task.gputime_ms_per_s / 10.0)
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,14 +14,18 @@ pub struct Task {
     gputime_ms_per_s: f32,
 }
 
-pub struct PowerMetrics {}
+pub struct PowerMetrics {
+    last_result: PowerMetricsResult,
+}
 
 impl PowerMetrics {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            last_result: Default::default(),
+        }
     }
 
-    pub fn poll(&self) -> PowerMetricsResult {
+    pub fn poll(&mut self) {
         let o = Command::new("powermetrics")
             .args([
                 "--samplers",
@@ -46,7 +41,14 @@ impl PowerMetrics {
 
         assert_eq!(o.status.code(), Some(0));
 
-        let r: PowerMetricsResult = plist::from_bytes(o.stdout.as_slice()).unwrap();
-        r
+        self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
+    }
+
+    pub fn gpu_percent(&self, pid: Pid) -> Option<f32> {
+        self.last_result
+            .tasks
+            .iter()
+            .find(|task| task.pid == pid)
+            .map(|task| task.gputime_ms_per_s / 10.0)
     }
 }

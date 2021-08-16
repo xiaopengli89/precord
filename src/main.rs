@@ -5,7 +5,7 @@ use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
-use power_metrics::{PowerMetrics, PowerMetricsResult};
+use power_metrics::PowerMetrics;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
@@ -24,7 +24,7 @@ fn main() {
         }
 
         let mut powershell = None;
-        let power_metrics = PowerMetrics::new();
+        let mut power_metrics = PowerMetrics::new();
 
         #[cfg(target_os = "windows")]
         if opts.category.contains(&"gpu".to_owned()) {
@@ -44,7 +44,9 @@ fn main() {
                 last_record_time = now;
             }
 
-            let power_metrics_result = power_metrics.poll();
+            if opts.category.contains(&"gpu".to_owned()) {
+                power_metrics.poll();
+            }
 
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
@@ -71,7 +73,7 @@ fn main() {
                         }
                         "gpu" => {
                             if let Some(gpu_percent) =
-                                process.poll_gpu_percent(powershell.as_mut(), &power_metrics_result)
+                                process.poll_gpu_percent(powershell.as_mut(), &power_metrics)
                             {
                                 process.value_percents[idx].push(gpu_percent);
 
@@ -255,7 +257,7 @@ impl ProcessInfo {
     fn poll_gpu_percent(
         &mut self,
         powershell: Option<&mut Powershell>,
-        power_metrics_result: &PowerMetricsResult,
+        power_metrics_result: &PowerMetrics,
     ) -> Option<f32> {
         #[cfg(target_os = "windows")]
         {
@@ -337,7 +339,7 @@ impl Powershell {
 }
 
 #[derive(Clap, Debug, Clone)]
-#[clap(version = "0.1.8", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.1.9", author = "Xiaopeng Li <x.friday@outlook.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(short, long)]
