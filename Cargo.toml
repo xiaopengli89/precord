@@ -25,5 +25,5 @@ features = ["serde_derive"]
 
 [patch.crates-io.heim]
 version = "0.1.0-rc.1"
-git = "https://github.com/heim-rs/heim"
-rev = "b292f15"
+git = "https://github.com/xiaopengli89/heim"
+rev = "3848144"

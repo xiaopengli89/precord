@@ -648,7 +648,7 @@ dependencies = [
 [[package]]
 name = "heim"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "heim-common",
  "heim-process",
@@ -658,7 +658,7 @@ dependencies = [
 [[package]]
 name = "heim-common"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "cfg-if",
  "core-foundation",
@@ -676,7 +676,7 @@ dependencies = [
 [[package]]
 name = "heim-cpu"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "cfg-if",
  "futures",
@@ -694,7 +694,7 @@ dependencies = [
 [[package]]
 name = "heim-host"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "cfg-if",
  "heim-common",
@@ -711,7 +711,7 @@ dependencies = [
 [[package]]
 name = "heim-net"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -727,7 +727,7 @@ dependencies = [
 [[package]]
 name = "heim-process"
 version = "0.1.1-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -751,7 +751,7 @@ dependencies = [
 [[package]]
 name = "heim-runtime"
 version = "0.1.0-rc.1"
-source = "git+https://github.com/heim-rs/heim?rev=b292f15#b292f1535bb27c03800cdb7509fa81a40859fbbb"
+source = "git+https://github.com/xiaopengli89/heim?rev=3848144#3848144bb25b1f13c5b6bb694f628325a05726e5"
 dependencies = [
  "futures",
  "futures-timer",
@@ -826,9 +826,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.98"
+version = "0.2.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
+checksum = "dd8f7255a17a627354f321ef0055d63b898c6fb27eff628af4d1b66b7331edf6"
 
 [[package]]
 name = "line-wrap"
