@@ -67,7 +67,7 @@ fn main() {
                             }
                         }
                         "gpu" => {
-                            if let Some(gpu_percent) = process.poll_gpu_percent(&system) {
+                            if let Some(gpu_percent) = process.poll_gpu_percent(&mut system) {
                                 process.value_percents[idx].push(gpu_percent);
 
                                 message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
@@ -246,7 +246,7 @@ impl ProcessInfo {
         }
     }
 
-    fn poll_gpu_percent(&mut self, system: &System) -> Option<f32> {
+    fn poll_gpu_percent(&mut self, system: &mut System) -> Option<f32> {
         let r = system.process_gpu_percent(self.process.pid());
 
         if r.is_none() {
