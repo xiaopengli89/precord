@@ -5,13 +5,11 @@ use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
-use power_metrics::PowerMetrics;
-use std::io::BufReader;
-use std::io::{BufRead, Write};
-use std::process;
 use std::time::{Duration, Instant};
+use system::{Features, System};
 
-mod power_metrics;
+mod platform;
+mod system;
 
 fn main() {
     let opts: Opts = Opts::parse();
@@ -23,13 +21,12 @@ fn main() {
             return vec![];
         }
 
-        let mut powershell = None;
-        let mut power_metrics = PowerMetrics::new();
-
-        #[cfg(target_os = "windows")]
+        let mut features = Features::empty();
         if opts.category.contains(&"gpu".to_owned()) {
-            powershell = Some(Powershell::new());
+            features.insert(Features::GPU);
         }
+
+        let mut system = System::new(features);
 
         let mut last_record_time = Instant::now();
 
@@ -44,9 +41,7 @@ fn main() {
                 last_record_time = now;
             }
 
-            if opts.category.contains(&"gpu".to_owned()) {
-                power_metrics.poll();
-            }
+            system.update();
 
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
@@ -72,9 +67,7 @@ fn main() {
                             }
                         }
                         "gpu" => {
-                            if let Some(gpu_percent) =
-                                process.poll_gpu_percent(powershell.as_mut(), &power_metrics)
-                            {
+                            if let Some(gpu_percent) = process.poll_gpu_percent(&system) {
                                 process.value_percents[idx].push(gpu_percent);
 
                                 message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
@@ -253,30 +246,14 @@ impl ProcessInfo {
         }
     }
 
-    #[allow(unused_variables)]
-    fn poll_gpu_percent(
-        &mut self,
-        powershell: Option<&mut Powershell>,
-        power_metrics_result: &PowerMetrics,
-    ) -> Option<f32> {
-        #[cfg(target_os = "windows")]
-        {
-            let powershell = powershell?;
-            let r = powershell.poll_gpu_percent(self.process.pid());
-            if r.is_none() {
-                self.valid = false;
-            }
-            r
+    fn poll_gpu_percent(&mut self, system: &System) -> Option<f32> {
+        let r = system.process_gpu_percent(self.process.pid());
+
+        if r.is_none() {
+            self.valid = false;
         }
 
-        #[cfg(not(target_os = "windows"))]
-        {
-            let r = power_metrics_result.gpu_percent(self.process.pid());
-            if r.is_none() {
-                self.valid = false;
-            }
-            r
-        }
+        r
     }
 
     fn avg_percent(&self, idx: usize) -> f32 {
@@ -285,56 +262,6 @@ impl ProcessInfo {
         } else {
             self.value_percents[idx].iter().sum::<f32>() / (self.value_percents[idx].len() as f32)
         }
-    }
-}
-
-struct Powershell {
-    process: process::Child,
-    stdout: BufReader<process::ChildStdout>,
-}
-
-impl Powershell {
-    #[cfg(target_os = "windows")]
-    fn new() -> Self {
-        let mut p = process::Command::new("powershell")
-            .args(&["-Command", "-"])
-            .stdin(process::Stdio::piped())
-            .stdout(process::Stdio::piped())
-            .spawn()
-            .unwrap();
-        let o = BufReader::new(p.stdout.take().unwrap());
-        Self {
-            process: p,
-            stdout: o,
-        }
-    }
-
-    #[allow(dead_code)]
-    fn poll_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
-        let mut gpu_percent = 0.0;
-        let mut r = String::new();
-
-        let stdin = self.process.stdin.as_mut().unwrap();
-        let stdout = &mut self.stdout;
-
-        for engine in ["3D", "VideoEncode", "VideoDecode", "VideoProcessing"] {
-            stdin
-                .write_all(format!(include_str!("../asset/powershell.txt"), pid, engine).as_bytes())
-                .unwrap();
-
-            loop {
-                r.clear();
-                stdout.read_line(&mut r).ok()?;
-                match r.trim() {
-                    "" => continue,
-                    "EOF" => break,
-                    _ => {}
-                }
-                gpu_percent += r.trim().parse::<f32>().ok()?;
-            }
-        }
-
-        Some(gpu_percent)
     }
 }
 
