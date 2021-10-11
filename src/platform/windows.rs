@@ -32,7 +32,7 @@ impl Powershell {
 
         for engine in ["3D", "VideoEncode", "VideoDecode", "VideoProcessing"] {
             stdin
-                .write_all(format!(include_str!("../asset/powershell.txt"), pid, engine).as_bytes())
+                .write_all(format!(include_str!("../../asset/powershell.txt"), pid, engine).as_bytes())
                 .unwrap();
 
             loop {
