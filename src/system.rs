@@ -32,6 +32,13 @@ impl System {
             }
         }
 
+        if features.contains(Features::CPU_FREQUENCY) {
+            #[cfg(target_os = "macos")]
+            if system.power_metrics.is_none() {
+                system.power_metrics = Some(PowerMetrics::new());
+            }
+        }
+
         system
     }
 
@@ -43,7 +50,10 @@ impl System {
     }
 
     pub fn cpu_frequency(&self) -> Vec<f32> {
-        todo!()
+        #[cfg(target_os = "macos")]
+        {
+            self.power_metrics.as_ref().unwrap().cpu_frequency()
+        }
     }
 
     pub fn process_gpu_percent(&mut self, pid: Pid) -> Option<f32> {

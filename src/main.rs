@@ -12,21 +12,27 @@ mod platform;
 mod system;
 
 fn main() {
-    let opts: Opts = Opts::parse();
+    let mut opts: Opts = Opts::parse();
+    let sys_category: Vec<String> = opts
+        .category
+        .drain_filter(|c| c.starts_with("sys_"))
+        .collect();
 
-    let processes = futures::executor::block_on(async {
-        let mut processes = opts.find_processes().await;
-
-        if processes.is_empty() {
-            return vec![];
-        }
-
+    let (processes, cpu_info, cpu_frequency_max) = futures::executor::block_on(async {
         let mut features = Features::empty();
+
         if opts.category.contains(&"gpu".to_owned()) {
             features.insert(Features::GPU);
         }
+        if sys_category.contains(&"sys_cpu_freq".to_string()) {
+            features.insert(Features::CPU_FREQUENCY);
+        }
 
         let mut system = System::new(features);
+
+        let mut processes = opts.find_processes().await;
+        let mut cpu_info: Vec<CpuInfo> = vec![];
+        let mut cpu_frequency_max: f32 = 1000.0;
 
         let mut last_record_time = Instant::now();
 
@@ -43,6 +49,7 @@ fn main() {
 
             system.update();
 
+            // Process
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.process.pid(),);
 
@@ -81,17 +88,48 @@ fn main() {
 
                 println!("{}", message);
             }
+
+            // System
+            for c in sys_category.iter() {
+                match c.as_str() {
+                    "sys_cpu_freq" => {
+                        let cpu_frequency = system.cpu_frequency();
+
+                        println!(
+                            "CPU Frequency: [{}]",
+                            cpu_frequency
+                                .iter()
+                                .map(|f| format!("{}MHz", f))
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        );
+
+                        if cpu_info.is_empty() {
+                            cpu_info = cpu_frequency
+                                .into_iter()
+                                .map(|f| {
+                                    cpu_frequency_max = cpu_frequency_max.max(f);
+                                    CpuInfo { freq: vec![f] }
+                                })
+                                .collect();
+                        } else {
+                            for (sum, f) in cpu_info.iter_mut().zip(cpu_frequency.into_iter()) {
+                                cpu_frequency_max = cpu_frequency_max.max(f);
+                                sum.freq.push(f);
+                            }
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
             println!("================ {}/{}", i, opts.times);
 
             processes.drain_filter(|p| !p.valid);
         }
 
-        processes
+        (processes, cpu_info, cpu_frequency_max)
     });
-
-    if processes.is_empty() {
-        return;
-    }
 
     let output = if let Some(output) = opts.output {
         output
@@ -99,13 +137,21 @@ fn main() {
         return;
     };
 
-    let root = SVGBackend::new(output.as_str(), (1280, 720 * opts.category.len() as u32))
-        .into_drawing_area();
+    let root = SVGBackend::new(
+        output.as_str(),
+        (
+            1280,
+            720 * opts.category.len() as u32 + sys_category.len() as u32,
+        ),
+    )
+    .into_drawing_area();
     root.fill(&WHITE).unwrap();
 
-    let areas = root.split_evenly((opts.category.len(), 1));
+    let areas = root.split_evenly((opts.category.len() + sys_category.len(), 1));
 
-    for (idx_c, area) in areas.into_iter().enumerate() {
+    // Draw process
+    for idx_c in 0..opts.category.len() {
+        let area = &areas[idx_c];
         let mut total = vec![];
 
         for process in processes.iter() {
@@ -201,6 +247,56 @@ fn main() {
             .draw()
             .unwrap();
     }
+
+    // Draw system
+    let mut area_i = opts.category.len();
+
+    for c in sys_category {
+        let area = &areas[area_i];
+        let mut chart;
+
+        match c.as_str() {
+            "sys_cpu_freq" => {
+                chart = ChartBuilder::on(&area)
+                    .caption("CPU Frequency", ("sans-serif", 30).into_font())
+                    .margin(10)
+                    .x_label_area_size(40)
+                    .y_label_area_size(50)
+                    .build_cartesian_2d(0..(opts.times - 1), 0f32..cpu_frequency_max)
+                    .unwrap();
+
+                chart
+                    .configure_mesh()
+                    .y_label_formatter(&|y| format!("{}MHz", y))
+                    .draw()
+                    .unwrap();
+
+                for (idx, info) in cpu_info.iter().enumerate() {
+                    let color = Palette99::pick(idx).stroke_width(2).filled();
+                    chart
+                        .draw_series(LineSeries::new(
+                            info.freq.clone().into_iter().enumerate(),
+                            color.clone(),
+                        ))
+                        .unwrap()
+                        .label(format!("CPU{} / AVG({:.2}MHz)", idx, info.avg(),))
+                        .legend(move |(x, y)| {
+                            PathElement::new(vec![(x, y), (x + 20, y)], color.clone())
+                        });
+                }
+            }
+            _ => unreachable!(),
+        }
+
+        chart
+            .configure_series_labels()
+            .background_style(&WHITE.mix(0.8))
+            .border_style(&BLACK)
+            .draw()
+            .unwrap();
+
+        area_i += 1;
+    }
 }
 
 struct ProcessInfo {
@@ -265,6 +361,20 @@ impl ProcessInfo {
     }
 }
 
+struct CpuInfo {
+    freq: Vec<f32>,
+}
+
+impl CpuInfo {
+    fn avg(&self) -> f32 {
+        if self.freq.is_empty() {
+            0.0
+        } else {
+            self.freq.iter().sum::<f32>() / (self.freq.len() as f32)
+        }
+    }
+}
+
 #[derive(Clap, Debug, Clone)]
 #[clap(version = "0.1.10", author = "Xiaopeng Li <x.friday@outlook.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
@@ -279,7 +389,7 @@ struct Opts {
     interval: u64,
     #[clap(short, long, default_value = "30")]
     times: usize,
-    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu"])]
+    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "sys_cpu_freq"])]
     category: Vec<String>,
 }
 
