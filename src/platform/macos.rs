@@ -40,7 +40,12 @@ impl PowerMetrics {
             .output()
             .unwrap();
 
-        assert_eq!(o.status.code(), Some(0));
+        match o.status.code() {
+            Some(0) => {}
+            _ => {
+                panic!("Error: {}", String::from_utf8_lossy(&o.stderr));
+            }
+        }
 
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
