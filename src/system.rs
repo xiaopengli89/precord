@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
-use crate::platform::windows::Powershell;
+use crate::platform::windows::{Powershell, ProcessorInfo};
 use bitflags::bitflags;
 use heim::process::Pid;
 
@@ -10,6 +10,8 @@ pub struct System {
     power_metrics: Option<PowerMetrics>,
     #[cfg(target_os = "windows")]
     power_shell: Option<Powershell>,
+    #[cfg(target_os = "windows")]
+    wmi_con: Option<wmi::WMIConnection>,
 }
 
 impl System {
@@ -19,6 +21,8 @@ impl System {
             power_metrics: None,
             #[cfg(target_os = "windows")]
             power_shell: None,
+            #[cfg(target_os = "windows")]
+            wmi_con: None,
         };
 
         if features.contains(Features::GPU) {
@@ -37,6 +41,11 @@ impl System {
             if system.power_metrics.is_none() {
                 system.power_metrics = Some(PowerMetrics::new());
             }
+            #[cfg(target_os = "windows")]
+            {
+                system.wmi_con =
+                    Some(wmi::WMIConnection::new(wmi::COMLibrary::new().unwrap().into()).unwrap());
+            }
         }
 
         system
@@ -53,6 +62,15 @@ impl System {
         #[cfg(target_os = "macos")]
         {
             self.power_metrics.as_ref().unwrap().cpu_frequency()
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let processor_info: Vec<ProcessorInfo> = self.wmi_con.as_ref().unwrap().raw_query("SELECT Name, PercentProcessorPerformance, ProcessorFrequency FROM Win32_PerfFormattedData_Counters_ProcessorInformation WHERE NOT Name LIKE '%_Total\'
+").unwrap();
+            processor_info
+                .into_iter()
+                .map(|p| p.processor_frequency * p.percent_processor_performance / 100.0)
+                .collect()
         }
     }
 

@@ -141,7 +141,7 @@ fn main() {
         output.as_str(),
         (
             1280,
-            720 * opts.category.len() as u32 + sys_category.len() as u32,
+            720 * (opts.category.len() + sys_category.len()) as u32,
         ),
     )
     .into_drawing_area();

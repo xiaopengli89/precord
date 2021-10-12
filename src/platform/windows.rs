@@ -1,4 +1,5 @@
 use heim::process::Pid;
+use serde::Deserialize;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::process;
@@ -51,4 +52,11 @@ impl Powershell {
 
         Some(gpu_percent)
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ProcessorInfo {
+    pub percent_processor_performance: f32,
+    pub processor_frequency: f32,
 }
