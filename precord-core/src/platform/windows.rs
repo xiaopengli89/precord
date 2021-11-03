@@ -1,4 +1,4 @@
-use heim::process::Pid;
+use crate::Pid;
 use serde::Deserialize;
 use std::io::BufReader;
 use std::io::{BufRead, Write};

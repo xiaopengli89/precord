@@ -3,7 +3,7 @@ use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{Powershell, ProcessorInfo};
 use bitflags::bitflags;
-use heim::process::Pid;
+use crate::Pid;
 
 pub struct System {
     #[cfg(target_os = "macos")]

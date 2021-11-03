@@ -6,10 +6,7 @@ use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
 use std::time::{Duration, Instant};
-use system::{Features, System};
-
-mod platform;
-mod system;
+use precord_core::{Features, System};
 
 fn main() {
     let mut opts: Opts = Opts::parse();

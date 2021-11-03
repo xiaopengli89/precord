@@ -1,4 +1,4 @@
-use heim::process::Pid;
+use crate::Pid;
 use serde::Deserialize;
 use std::process::Command;
 
