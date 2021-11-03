@@ -24,7 +24,12 @@ impl Powershell {
         }
     }
 
-    pub fn poll_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
+    pub fn poll_gpu_percent(&mut self, pid: Option<Pid>) -> Option<f32> {
+        let pid = if let Some(pid) = pid {
+            format!("pid_{}", pid)
+        } else {
+            "".to_string()
+        };
         let mut gpu_percent = 0.0;
         let mut r = String::new();
 

@@ -50,7 +50,12 @@ impl PowerMetrics {
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
-    pub fn gpu_percent(&self, pid: Pid) -> Option<f32> {
+    pub fn gpu_percent(&self, pid: Option<Pid>) -> Option<f32> {
+        let pid = if let Some(pid) = pid {
+            pid
+        } else {
+            unimplemented!()
+        };
         self.last_result
             .tasks
             .iter()

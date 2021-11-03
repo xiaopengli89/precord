@@ -77,12 +77,24 @@ impl System {
     pub fn process_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref().unwrap().gpu_percent(pid)
+            self.power_metrics.as_ref().unwrap().gpu_percent(Some(pid))
         }
 
         #[cfg(target_os = "windows")]
         {
-            self.power_shell.as_mut().unwrap().poll_gpu_percent(pid)
+            self.power_shell.as_mut().unwrap().poll_gpu_percent(Some(pid))
+        }
+    }
+
+    pub fn system_gpu_percent(&mut self) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            self.power_metrics.as_ref().unwrap().gpu_percent(None)
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            self.power_shell.as_mut().unwrap().poll_gpu_percent(None)
         }
     }
 }
