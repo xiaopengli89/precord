@@ -1107,7 +1107,7 @@ dependencies = [
 
 [[package]]
 name = "precord"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bitflags",
  "clap",
