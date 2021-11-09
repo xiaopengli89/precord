@@ -2,7 +2,7 @@
 name = "precord"
 version = "0.2.2"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
-edition = "2021"
+edition = "2018"
 repository = "https://github.com/xiaopengli89/precord"
 license = "Apache-2.0 OR MIT"
 
