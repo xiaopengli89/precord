@@ -5,8 +5,8 @@ use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use plotters::prelude::*;
-use std::time::{Duration, Instant};
 use precord_core::{Features, System};
+use std::time::{Duration, Instant};
 
 fn main() {
     let mut opts: Opts = Opts::parse();
@@ -388,48 +388,126 @@ struct Opts {
     times: usize,
     #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "sys_cpu_freq"])]
     category: Vec<String>,
+    #[clap(short, long)]
+    recurse_children: bool,
 }
 
 impl Opts {
     async fn find_processes(&self) -> Vec<ProcessInfo> {
-        let mut processes = vec![];
+        let mut processes: Vec<ProcessInfo> = vec![];
 
         if self.name.is_empty() {
             for &pid in self.process.iter() {
+                if processes
+                    .iter()
+                    .position(|p| p.process.pid() == pid)
+                    .is_some()
+                {
+                    continue;
+                }
+
                 let p = heim::process::get(pid).await.unwrap();
                 let name = p.name().await.unwrap();
                 processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
             }
-            return processes;
-        }
+        } else {
+            let mut all = Box::pin(heim::process::processes().await.unwrap());
 
-        let mut all = Box::pin(heim::process::processes().await.unwrap());
+            while let Some(p) = all.next().await {
+                let p = match p {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
 
-        while let Some(p) = all.next().await {
-            let p = match p {
-                Ok(p) => p,
-                Err(_) => continue,
-            };
+                match p.status().await.unwrap() {
+                    Status::Zombie => continue,
+                    _ => {}
+                }
 
-            match p.status().await.unwrap() {
-                Status::Zombie => continue,
-                _ => {}
-            }
+                let name = p.name().await.unwrap();
 
-            let name = p.name().await.unwrap();
-
-            if self.process.contains(&p.pid()) {
-                processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
-            } else {
-                for n in self.name.iter() {
-                    if name.contains(n) {
-                        processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
-                        break;
+                if self.process.contains(&p.pid()) {
+                    processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                } else {
+                    for n in self.name.iter() {
+                        if name.contains(n) {
+                            processes
+                                .push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                            break;
+                        }
                     }
                 }
             }
         }
 
+        if self.recurse_children {
+            processes.extend(self.recurse_children(processes.as_slice()).await);
+        }
+
         processes
+    }
+
+    async fn recurse_children(&self, processes: &[ProcessInfo]) -> Vec<ProcessInfo> {
+        let mut all = Box::pin(heim::process::processes().await.unwrap());
+
+        let recurse_parent = |mut parent: heim::process::Process| async move {
+            if processes
+                .iter()
+                .position(|p| p.process.pid() == parent.pid())
+                .is_some()
+            {
+                return true;
+            }
+
+            if parent.pid() == 0 {
+                return false;
+            }
+
+            while let Ok(parent2) = parent.parent().await {
+                if processes
+                    .iter()
+                    .position(|p| p.process.pid() == parent2.pid())
+                    .is_some()
+                {
+                    return true;
+                }
+                parent = parent2;
+
+                if parent.pid() == 0 {
+                    return false;
+                }
+            }
+            false
+        };
+
+        let mut children = vec![];
+
+        while let Some(child) = all.next().await {
+            let child = match child {
+                Ok(child) => child,
+                Err(_) => continue,
+            };
+
+            if child.pid() == 0 {
+                continue;
+            }
+
+            if processes
+                .iter()
+                .position(|p| p.process.pid() == child.pid())
+                .is_some()
+            {
+                continue;
+            }
+
+            if let Ok(parent) = child.parent().await {
+                if recurse_parent(parent).await {
+                    let name = child.name().await.unwrap();
+                    children.push(ProcessInfo::new(child, name, self.category.as_slice()).await);
+                }
+            }
+        }
+
+        children
     }
 }
