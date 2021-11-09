@@ -25,6 +25,30 @@ impl Powershell {
     }
 
     pub fn poll_gpu_percent(&mut self, pid: Option<Pid>) -> Option<f32> {
+        for _ in 0..2 {
+            let usage = self.poll_gpu_percent_inner(pid);
+            if usage.is_some() {
+                return usage;
+            } else {
+                // Kill previous powershell
+                let _ = self.process.kill();
+
+                // Rebuild powershell
+                let mut p = process::Command::new("powershell")
+                    .args(&["-Command", "-"])
+                    .stdin(process::Stdio::piped())
+                    .stdout(process::Stdio::piped())
+                    .spawn()
+                    .unwrap();
+                let o = BufReader::new(p.stdout.take().unwrap());
+                self.process = p;
+                self.stdout = o;
+            }
+        }
+        None
+    }
+
+    fn poll_gpu_percent_inner(&mut self, pid: Option<Pid>) -> Option<f32> {
         let pid = if let Some(pid) = pid {
             format!("pid_{}", pid)
         } else {
