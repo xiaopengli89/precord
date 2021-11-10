@@ -1,26 +1,27 @@
 #[cfg(target_os = "macos")]
 use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
-use crate::platform::windows::{Powershell, ProcessorInfo};
-use bitflags::bitflags;
+use crate::platform::windows::{Pdh, ProcessorInfo};
 use crate::Pid;
+use bitflags::bitflags;
 
 pub struct System {
     #[cfg(target_os = "macos")]
     power_metrics: Option<PowerMetrics>,
     #[cfg(target_os = "windows")]
-    power_shell: Option<Powershell>,
+    pdh: Option<Pdh>,
     #[cfg(target_os = "windows")]
     wmi_con: Option<wmi::WMIConnection>,
 }
 
 impl System {
-    pub fn new(features: Features) -> Self {
+    #[allow(unused_variables)]
+    pub fn new<T: IntoIterator<Item = Pid>>(features: Features, pids: T) -> Self {
         let mut system = System {
             #[cfg(target_os = "macos")]
             power_metrics: None,
             #[cfg(target_os = "windows")]
-            power_shell: None,
+            pdh: None,
             #[cfg(target_os = "windows")]
             wmi_con: None,
         };
@@ -32,7 +33,7 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.power_shell = Some(Powershell::new());
+                system.pdh = Some(Pdh::new(pids));
             }
         }
 
@@ -82,7 +83,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.power_shell.as_mut().unwrap().poll_gpu_percent(Some(pid))
+            self.pdh.as_mut().unwrap().poll_gpu_percent(Some(pid))
         }
     }
 
@@ -94,7 +95,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.power_shell.as_mut().unwrap().poll_gpu_percent(None)
+            self.pdh.as_mut().unwrap().poll_gpu_percent(None)
         }
     }
 }

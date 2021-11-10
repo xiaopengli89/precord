@@ -1,4 +1,5 @@
 /target
+/.cargo
 /.idea
 /precord.iml
 .DS_Store

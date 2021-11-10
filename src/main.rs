@@ -25,9 +25,8 @@ fn main() {
             features.insert(Features::CPU_FREQUENCY);
         }
 
-        let mut system = System::new(features);
-
         let mut processes = opts.find_processes().await;
+        let mut system = System::new(features, processes.iter().map(|p| p.process.pid()));
         let mut cpu_info: Vec<CpuInfo> = vec![];
         let mut cpu_frequency_max: f32 = 1000.0;
 

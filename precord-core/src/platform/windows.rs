@@ -2,7 +2,15 @@ use crate::Pid;
 use serde::Deserialize;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
-use std::process;
+use std::mem::MaybeUninit;
+use std::ptr;
+use std::{mem, process};
+use winapi::shared::winerror::ERROR_SUCCESS;
+use winapi::um::pdh::*;
+
+// https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
+// 0x800007D2 (PDH_MORE_DATA)
+const PDH_MORE_DATA: PDH_STATUS = 0x800007D2;
 
 pub struct Powershell {
     process: process::Child,
@@ -88,4 +96,123 @@ impl Powershell {
 pub struct ProcessorInfo {
     pub percent_processor_performance: f32,
     pub processor_frequency: f32,
+}
+
+struct ProcessCounter {
+    pid: Pid,
+    counter: PDH_HCOUNTER,
+}
+
+pub struct Pdh {
+    query: PDH_HQUERY,
+    process_gpu_counters: Vec<ProcessCounter>,
+    total_gpu_counter: PDH_HCOUNTER,
+}
+
+impl Pdh {
+    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
+        unsafe {
+            let mut query = MaybeUninit::uninit().assume_init();
+            let mut r = PdhOpenQueryW(ptr::null(), 0, &mut query);
+            assert_eq!(r, ERROR_SUCCESS as _);
+
+            let process_gpu_counters = pids
+                .into_iter()
+                .map(|pid| {
+                    let mut process_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
+                    r = PdhAddCounterW(
+                        query,
+                        widestring::U16CString::from_str(format!(
+                            "\\GPU Engine(pid_{}*)\\Utilization Percentage",
+                            pid
+                        ))
+                        .unwrap()
+                        .as_ptr(),
+                        0,
+                        &mut process_gpu_counter,
+                    );
+                    assert_eq!(r, ERROR_SUCCESS as _);
+
+                    ProcessCounter {
+                        pid,
+                        counter: process_gpu_counter,
+                    }
+                })
+                .collect();
+
+            let mut total_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
+            r = PdhAddCounterW(
+                query,
+                widestring::U16CString::from_str("\\GPU Engine(*)\\Utilization Percentage")
+                    .unwrap()
+                    .as_ptr(),
+                0,
+                &mut total_gpu_counter,
+            );
+            assert_eq!(r, ERROR_SUCCESS as _);
+
+            r = PdhCollectQueryData(query);
+            assert_eq!(r, ERROR_SUCCESS as _);
+
+            Self {
+                query,
+                process_gpu_counters,
+                total_gpu_counter,
+            }
+        }
+    }
+
+    pub fn update(&mut self) {
+        unsafe {
+            let r = PdhCollectQueryData(self.query);
+            assert_eq!(r, ERROR_SUCCESS as _);
+        }
+    }
+
+    pub fn poll_gpu_percent(&mut self, pid: Option<Pid>) -> Option<f32> {
+        let counter = if let Some(pid) = pid {
+            if let Some(counter) = self.process_gpu_counters.iter().find(|p| p.pid == pid) {
+                counter.counter
+            } else {
+                return None;
+            }
+        } else {
+            self.total_gpu_counter
+        };
+
+        let mut buffer_size = 0;
+        let mut item_count = 0;
+        let mut sum = 0.0;
+
+        unsafe {
+            let mut r = PdhGetFormattedCounterArrayW(
+                counter,
+                PDH_FMT_DOUBLE,
+                &mut buffer_size,
+                &mut item_count,
+                ptr::null_mut(),
+            );
+            assert_eq!(r, PDH_MORE_DATA);
+
+            let mut buffer: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
+                buffer_size as usize / mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>() + 1,
+            );
+            buffer.set_len(item_count as _);
+
+            r = PdhGetFormattedCounterArrayW(
+                counter,
+                PDH_FMT_DOUBLE,
+                &mut buffer_size,
+                &mut item_count,
+                buffer.as_mut_ptr(),
+            );
+            assert_eq!(r, ERROR_SUCCESS as _);
+
+            for i in 0..item_count {
+                sum += *buffer[i as usize].FmtValue.u.doubleValue();
+            }
+        }
+
+        Some(sum as _)
+    }
 }
