@@ -5,12 +5,13 @@ use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::{mem, process};
+use winapi::shared::minwindef::DWORD;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::pdh::*;
 
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
 // 0x800007D2 (PDH_MORE_DATA)
-const PDH_MORE_DATA: PDH_STATUS = 0x800007D2;
+const PDH_MORE_DATA: DWORD = 0x800007D2;
 
 pub struct Powershell {
     process: process::Child,
@@ -192,7 +193,7 @@ impl Pdh {
                 &mut item_count,
                 ptr::null_mut(),
             );
-            assert_eq!(r, PDH_MORE_DATA);
+            assert_eq!(r as DWORD, PDH_MORE_DATA);
 
             let mut buffer: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
                 buffer_size as usize / mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>() + 1,
