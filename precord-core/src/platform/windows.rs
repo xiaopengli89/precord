@@ -12,6 +12,8 @@ use winapi::um::pdh::*;
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
 // 0x800007D2 (PDH_MORE_DATA)
 const PDH_MORE_DATA: DWORD = 0x800007D2;
+// 0x800007D5 (PDH_NO_DATA)
+const PDH_NO_DATA: DWORD = 0x800007D5;
 
 #[allow(dead_code)]
 pub struct Powershell {
@@ -195,6 +197,11 @@ impl Pdh {
                 &mut item_count,
                 ptr::null_mut(),
             );
+
+            if r as DWORD == PDH_NO_DATA {
+                return None;
+            }
+
             assert_eq!(r as DWORD, PDH_MORE_DATA);
 
             let mut buffer: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
@@ -209,6 +216,11 @@ impl Pdh {
                 &mut item_count,
                 buffer.as_mut_ptr(),
             );
+
+            if r as DWORD == PDH_NO_DATA {
+                return None;
+            }
+
             assert_eq!(r, ERROR_SUCCESS as _);
 
             for i in 0..item_count {
@@ -217,5 +229,14 @@ impl Pdh {
         }
 
         Some(sum as _)
+    }
+}
+
+impl Drop for Pdh {
+    fn drop(&mut self) {
+        unsafe {
+            let r = PdhCloseQuery(self.query);
+            assert_eq!(r, ERROR_SUCCESS as _);
+        }
     }
 }
