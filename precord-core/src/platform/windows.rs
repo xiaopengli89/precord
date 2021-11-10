@@ -13,11 +13,13 @@ use winapi::um::pdh::*;
 // 0x800007D2 (PDH_MORE_DATA)
 const PDH_MORE_DATA: DWORD = 0x800007D2;
 
+#[allow(dead_code)]
 pub struct Powershell {
     process: process::Child,
     stdout: BufReader<process::ChildStdout>,
 }
 
+#[allow(dead_code)]
 impl Powershell {
     pub fn new() -> Self {
         let mut p = process::Command::new("powershell")
