@@ -57,6 +57,11 @@ impl System {
         if let Some(power_metrics) = &mut self.power_metrics {
             power_metrics.poll();
         }
+
+        #[cfg(target_os = "windows")]
+        if let Some(pdh) = &mut self.pdh {
+            pdh.update();
+        }
     }
 
     pub fn cpu_frequency(&self) -> Vec<f32> {
