@@ -199,7 +199,7 @@ impl Pdh {
             );
 
             if r as DWORD == PDH_NO_DATA {
-                return None;
+                return Some(0.0);
             }
 
             assert_eq!(r as DWORD, PDH_MORE_DATA);
@@ -218,7 +218,7 @@ impl Pdh {
             );
 
             if r as DWORD == PDH_NO_DATA {
-                return None;
+                return Some(0.0);
             }
 
             assert_eq!(r, ERROR_SUCCESS as _);
