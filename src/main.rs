@@ -8,12 +8,16 @@ use plotters::prelude::*;
 use precord_core::{Features, System};
 use std::time::{Duration, Instant};
 
+mod consumer_csv;
+
 fn main() {
     let mut opts: Opts = Opts::parse();
     let sys_category: Vec<String> = opts
         .category
         .drain_filter(|c| c.starts_with("sys_"))
         .collect();
+
+    let mut timestamps = vec![];
 
     let (processes, cpu_info, cpu_frequency_max) = futures::executor::block_on(async {
         let mut features = Features::empty();
@@ -122,6 +126,8 @@ fn main() {
             println!("================ {}/{}", i, opts.times);
 
             processes.drain_filter(|p| !p.valid);
+
+            timestamps.push(chrono::Local::now());
         }
 
         (processes, cpu_info, cpu_frequency_max)
@@ -132,6 +138,11 @@ fn main() {
     } else {
         return;
     };
+
+    if output.ends_with(".csv") {
+        consumer_csv::consume(&output, &opts.category, &sys_category, &timestamps, &processes, &cpu_info);
+        return;
+    }
 
     let root = SVGBackend::new(
         output.as_str(),
@@ -295,7 +306,7 @@ fn main() {
     }
 }
 
-struct ProcessInfo {
+pub struct ProcessInfo {
     process: Process,
     name: String,
     value_percents: Vec<Vec<f32>>,
@@ -357,7 +368,7 @@ impl ProcessInfo {
     }
 }
 
-struct CpuInfo {
+pub struct CpuInfo {
     freq: Vec<f32>,
 }
 
@@ -488,6 +499,15 @@ impl Opts {
             };
 
             if child.pid() == 0 {
+                continue;
+            }
+
+            if let Ok(status) = child.status().await {
+                match status {
+                    Status::Zombie => continue,
+                    _ => {}
+                }
+            } else {
                 continue;
             }
 
