@@ -1,6 +1,6 @@
 [package]
 name = "precord"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/xiaopengli89/precord"
