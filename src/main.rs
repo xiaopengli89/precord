@@ -1,5 +1,6 @@
 #![feature(drain_filter)]
 
+use crate::types::GpuInfo;
 use clap::{AppSettings, Clap};
 use futures::stream::StreamExt;
 use heim::process::{CpuUsage, Pid, Process, Status};
@@ -9,6 +10,7 @@ use precord_core::{Features, System};
 use std::time::{Duration, Instant};
 
 mod consumer_csv;
+mod types;
 
 fn main() {
     let mut opts: Opts = Opts::parse();
@@ -19,10 +21,12 @@ fn main() {
 
     let mut timestamps = vec![];
 
-    let (processes, cpu_info, cpu_frequency_max) = futures::executor::block_on(async {
+    let (processes, cpu_info, cpu_frequency_max, gpu_info) = futures::executor::block_on(async {
         let mut features = Features::empty();
 
-        if opts.category.contains(&"gpu".to_owned()) {
+        if opts.category.contains(&"gpu".to_owned())
+            || sys_category.contains(&"sys_gpu".to_string())
+        {
             features.insert(Features::GPU);
         }
         if sys_category.contains(&"sys_cpu_freq".to_string()) {
@@ -33,6 +37,7 @@ fn main() {
         let mut system = System::new(features, processes.iter().map(|p| p.process.pid()));
         let mut cpu_info: Vec<CpuInfo> = vec![];
         let mut cpu_frequency_max: f32 = 1000.0;
+        let mut gpu_info: Vec<GpuInfo> = vec![];
 
         let mut last_record_time = Instant::now();
 
@@ -119,6 +124,19 @@ fn main() {
                             }
                         }
                     }
+                    "sys_gpu" => {
+                        let sys_gpu_utilization = system.system_gpu_percent().unwrap();
+
+                        println!("System GPU Utilization: {}", sys_gpu_utilization);
+
+                        if gpu_info.is_empty() {
+                            gpu_info.push(GpuInfo {
+                                utilization: vec![sys_gpu_utilization],
+                            });
+                        } else {
+                            gpu_info[0].utilization.push(sys_gpu_utilization);
+                        }
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -130,7 +148,7 @@ fn main() {
             timestamps.push(chrono::Local::now());
         }
 
-        (processes, cpu_info, cpu_frequency_max)
+        (processes, cpu_info, cpu_frequency_max, gpu_info)
     });
 
     let output = if let Some(output) = opts.output {
@@ -140,7 +158,15 @@ fn main() {
     };
 
     if output.ends_with(".csv") {
-        consumer_csv::consume(&output, &opts.category, &sys_category, &timestamps, &processes, &cpu_info);
+        consumer_csv::consume(
+            &output,
+            &opts.category,
+            &sys_category,
+            &timestamps,
+            &processes,
+            &cpu_info,
+            &gpu_info,
+        );
         return;
     }
 
@@ -292,6 +318,35 @@ fn main() {
                         });
                 }
             }
+            "sys_gpu" => {
+                chart = ChartBuilder::on(&area)
+                    .caption("System GPU Utilization", ("sans-serif", 30).into_font())
+                    .margin(10)
+                    .x_label_area_size(40)
+                    .y_label_area_size(50)
+                    .build_cartesian_2d(0..(opts.times - 1), 0.0f32..100.0f32)
+                    .unwrap();
+
+                chart
+                    .configure_mesh()
+                    .y_label_formatter(&|y| format!("{}%", y))
+                    .draw()
+                    .unwrap();
+
+                for (idx, info) in gpu_info.iter().enumerate() {
+                    let color = Palette99::pick(idx).stroke_width(2).filled();
+                    chart
+                        .draw_series(LineSeries::new(
+                            info.utilization.clone().into_iter().enumerate(),
+                            color.clone(),
+                        ))
+                        .unwrap()
+                        .label(format!("GPU / AVG({:.2}%)", info.utilization_avg()))
+                        .legend(move |(x, y)| {
+                            PathElement::new(vec![(x, y), (x + 20, y)], color.clone())
+                        });
+                }
+            }
             _ => unreachable!(),
         }
 
@@ -396,7 +451,7 @@ struct Opts {
     interval: u64,
     #[clap(short, long, default_value = "30")]
     times: usize,
-    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "sys_cpu_freq"])]
+    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "sys_cpu_freq", "sys_gpu"])]
     category: Vec<String>,
     #[clap(short, long)]
     recurse_children: bool,

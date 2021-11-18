@@ -1,4 +1,4 @@
-use crate::{CpuInfo, ProcessInfo};
+use crate::{CpuInfo, GpuInfo, ProcessInfo};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
@@ -8,6 +8,7 @@ pub fn consume<P: AsRef<Path>>(
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
+    gpu_info: &[GpuInfo],
 ) {
     let mut wtr = csv::WriterBuilder::new()
         .flexible(true)
@@ -63,6 +64,25 @@ pub fn consume<P: AsRef<Path>>(
                     // Process data
                     for c in cpu_info {
                         wtr.write_field(format!("{:.2}", c.freq[i])).unwrap();
+                    }
+                    wtr.write_record(None::<&[u8]>).unwrap();
+                }
+            }
+            "sys_gpu" => {
+                // Title
+                wtr.write_field("System GPU Utilization").unwrap();
+                for _ in 0..gpu_info.len() {
+                    wtr.write_field(format!("GPU")).unwrap();
+                }
+                wtr.write_record(None::<&[u8]>).unwrap();
+
+                // Data
+                for (i, t) in timestamps.into_iter().enumerate() {
+                    // Timestamp
+                    wtr.write_field(t.to_string()).unwrap();
+                    // Process data
+                    for c in gpu_info {
+                        wtr.write_field(format!("{:.2}", c.utilization[i])).unwrap();
                     }
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }
