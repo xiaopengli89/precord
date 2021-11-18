@@ -119,3 +119,53 @@ struct Package {
 struct Core {
     cpus: Vec<Cpu>,
 }
+
+pub struct IOKitRegistry {
+    last_result: Vec<IOKitResult>,
+}
+
+impl IOKitRegistry {
+    pub fn new() -> Self {
+        Self {
+            last_result: vec![],
+        }
+    }
+
+    pub fn poll(&mut self) {
+        let o = Command::new("ioreg")
+            .args(["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator", "-a"])
+            .output()
+            .unwrap();
+
+        match o.status.code() {
+            Some(0) => {}
+            _ => {
+                panic!("Error: {}", String::from_utf8_lossy(&o.stderr));
+            }
+        }
+
+        self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
+    }
+
+    pub fn sys_gpu_utilization(&self) -> f32 {
+        let mut max: f32 = 0.0;
+        for r in &self.last_result {
+            max = max.max(r.performance_statistics.device_utilization);
+        }
+        max
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct IOKitResult {
+    #[serde(rename = "IOClass")]
+    io_class: String,
+    #[serde(rename = "PerformanceStatistics")]
+    performance_statistics: PerformanceStatistics,
+}
+
+#[derive(Debug, Deserialize)]
+struct PerformanceStatistics {
+    #[serde(rename = "Device Utilization %")]
+    device_utilization: f32,
+}

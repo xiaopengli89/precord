@@ -1,4 +1,6 @@
 #[cfg(target_os = "macos")]
+use crate::platform::macos::IOKitRegistry;
+#[cfg(target_os = "macos")]
 use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{Pdh, ProcessorInfo};
@@ -8,6 +10,8 @@ use bitflags::bitflags;
 pub struct System {
     #[cfg(target_os = "macos")]
     power_metrics: Option<PowerMetrics>,
+    #[cfg(target_os = "macos")]
+    ioreg: Option<IOKitRegistry>,
     #[cfg(target_os = "windows")]
     pdh: Option<Pdh>,
     #[cfg(target_os = "windows")]
@@ -20,6 +24,8 @@ impl System {
         let mut system = System {
             #[cfg(target_os = "macos")]
             power_metrics: None,
+            #[cfg(target_os = "macos")]
+            ioreg: None,
             #[cfg(target_os = "windows")]
             pdh: None,
             #[cfg(target_os = "windows")]
@@ -29,7 +35,7 @@ impl System {
         if features.contains(Features::GPU) {
             #[cfg(target_os = "macos")]
             {
-                system.power_metrics = Some(PowerMetrics::new());
+                system.ioreg = Some(IOKitRegistry::new());
             }
             #[cfg(target_os = "windows")]
             {
@@ -39,7 +45,7 @@ impl System {
 
         if features.contains(Features::CPU_FREQUENCY) {
             #[cfg(target_os = "macos")]
-            if system.power_metrics.is_none() {
+            {
                 system.power_metrics = Some(PowerMetrics::new());
             }
             #[cfg(target_os = "windows")]
@@ -56,6 +62,11 @@ impl System {
         #[cfg(target_os = "macos")]
         if let Some(power_metrics) = &mut self.power_metrics {
             power_metrics.poll();
+        }
+
+        #[cfg(target_os = "macos")]
+        if let Some(ioreg) = &mut self.ioreg {
+            ioreg.poll();
         }
 
         #[cfg(target_os = "windows")]
@@ -80,10 +91,11 @@ impl System {
         }
     }
 
+    #[allow(unused_variables)]
     pub fn process_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref().unwrap().gpu_percent(Some(pid))
+            Some(0.0)
         }
 
         #[cfg(target_os = "windows")]
@@ -95,7 +107,7 @@ impl System {
     pub fn system_gpu_percent(&mut self) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref().unwrap().gpu_percent(None)
+            Some(self.ioreg.as_ref().unwrap().sys_gpu_utilization())
         }
 
         #[cfg(target_os = "windows")]

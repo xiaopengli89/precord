@@ -224,7 +224,7 @@ impl Pdh {
             assert_eq!(r, ERROR_SUCCESS as _);
 
             for i in 0..item_count {
-                sum += *buffer[i as usize].FmtValue.u.doubleValue();
+                sum = sum.max(*buffer[i as usize].FmtValue.u.doubleValue());
             }
         }
 
