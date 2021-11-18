@@ -187,7 +187,7 @@ impl Pdh {
 
         let mut buffer_size = 0;
         let mut item_count = 0;
-        let mut sum = 0.0;
+        let mut sum: f32 = 0.0;
 
         unsafe {
             let mut r = PdhGetFormattedCounterArrayW(
@@ -224,11 +224,11 @@ impl Pdh {
             assert_eq!(r, ERROR_SUCCESS as _);
 
             for i in 0..item_count {
-                sum = sum.max(*buffer[i as usize].FmtValue.u.doubleValue());
+                sum = sum.max((*buffer[i as usize].FmtValue.u.doubleValue()) as f32);
             }
         }
 
-        Some(sum as _)
+        Some(sum)
     }
 }
 
