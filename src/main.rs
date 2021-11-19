@@ -127,7 +127,7 @@ fn main() {
                     "sys_gpu" => {
                         let sys_gpu_utilization = system.system_gpu_percent().unwrap();
 
-                        println!("System GPU Utilization: {}", sys_gpu_utilization);
+                        println!("System GPU Utilization: {}%", sys_gpu_utilization);
 
                         if gpu_info.is_empty() {
                             gpu_info.push(GpuInfo {

@@ -166,6 +166,6 @@ struct IOKitResult {
 
 #[derive(Debug, Deserialize)]
 struct PerformanceStatistics {
-    #[serde(rename = "Device Utilization %")]
+    #[serde(rename = "Device Utilization %", default)]
     device_utilization: f32,
 }
