@@ -17,6 +17,8 @@ libc = "0.2.106"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1.2.1"
+core-foundation = "=0.9.1"
+IOKit-sys = "0.1.5"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wmi = "0.9.1"

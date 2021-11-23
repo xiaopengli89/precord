@@ -1,6 +1,11 @@
 use crate::Pid;
 use serde::Deserialize;
 use std::process::Command;
+use core_foundation::base::{CFRelease, kCFAllocatorDefault, ToVoid};
+use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictionaryRef};
+use core_foundation::number::{CFNumberGetValue, CFNumberRef, kCFNumberCharType};
+use core_foundation::string::CFString;
+use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
 struct PowerMetricsResult {
@@ -132,6 +137,51 @@ impl IOKitRegistry {
     }
 
     pub fn poll(&mut self) {
+        self.last_result.clear();
+
+        unsafe {
+            let io_acc = IOServiceMatching("IOAccelerator\0".as_ptr() as _);
+            let mut it: io_iterator_t = 0;
+            if IOServiceGetMatchingServices(kIOMasterPortDefault, io_acc, &mut it) == kIOReturnSuccess {
+                #[allow(unused_assignments)]
+                let mut entry: io_registry_entry_t = 0;
+                loop {
+                    entry = IOIteratorNext(it);
+                    if entry == 0 {
+                        break;
+                    }
+
+                    let mut props: CFMutableDictionaryRef = std::ptr::null_mut();
+                    if IORegistryEntryCreateCFProperties(entry, std::mem::transmute(&mut props), std::mem::transmute(kCFAllocatorDefault), 0) == kIOReturnSuccess {
+                        let mut perf_props: CFMutableDictionaryRef = std::ptr::null_mut();
+                        if CFDictionaryGetValueIfPresent(props, CFString::new("PerformanceStatistics").to_void(), std::mem::transmute(&mut perf_props)) != 0 {
+                            let mut device_utilization_ref: CFNumberRef = std::ptr::null_mut();
+                            if CFDictionaryGetValueIfPresent(perf_props, CFString::new("Device Utilization %").to_void(), std::mem::transmute(&mut device_utilization_ref)) != 0 {
+                                let mut device_utilization: u8 = 0;
+                                if CFNumberGetValue(device_utilization_ref, kCFNumberCharType, std::mem::transmute(&mut device_utilization)) {
+                                    self.last_result.push(IOKitResult {
+                                        // TODO: Get accelerator name
+                                        io_class: "".to_string(),
+                                        performance_statistics: PerformanceStatistics {
+                                            device_utilization: device_utilization as _,
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        CFRelease(props.to_void());
+                    }
+
+                    IOObjectRelease(entry);
+                }
+                IOObjectRelease(it);
+            } else {
+                CFRelease(io_acc as _);
+            }
+        }
+    }
+
+    pub fn poll_from_command(&mut self) {
         let o = Command::new("ioreg")
             .args(["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator", "-a"])
             .output()

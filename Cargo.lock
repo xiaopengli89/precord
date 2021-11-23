@@ -3,6 +3,27 @@
 version = 3
 
 [[package]]
+name = "CoreFoundation-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0e9889e6db118d49d88d84728d0e964d973a5680befb5f85f55141beea5c20b"
+dependencies = [
+ "libc",
+ "mach 0.1.2",
+]
+
+[[package]]
+name = "IOKit-sys"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99696c398cbaf669d2368076bdb3d627fb0ce51a26899d7c61228c5c0af3bf4a"
+dependencies = [
+ "CoreFoundation-sys",
+ "libc",
+ "mach 0.1.2",
+]
+
+[[package]]
 name = "adler32"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -701,7 +722,7 @@ dependencies = [
  "futures-util",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "nix",
  "pin-utils",
  "uom",
@@ -720,7 +741,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "ntapi",
  "smol",
  "winapi",
@@ -737,7 +758,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
- "mach",
+ "mach 0.3.2",
  "ntapi",
  "platforms",
  "winapi",
@@ -775,7 +796,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "memchr",
  "ntapi",
  "ordered-float",
@@ -894,6 +915,15 @@ name = "macaddr"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
+
+[[package]]
+name = "mach"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fd13ee2dd61cc82833ba05ade5a30bb3d63f7ced605ef827063c63078302de9"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "mach"
@@ -1164,7 +1194,9 @@ dependencies = [
 name = "precord-core"
 version = "0.2.7"
 dependencies = [
+ "IOKit-sys",
  "bitflags",
+ "core-foundation",
  "libc",
  "plist",
  "serde",
