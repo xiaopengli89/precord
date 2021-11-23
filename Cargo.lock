@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "precord"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "bitflags",
  "chrono",
@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "precord-core"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "IOKit-sys",
  "bitflags",
