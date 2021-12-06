@@ -22,6 +22,7 @@ pub fn consume<P: AsRef<Path>>(
             "cpu" => "Process CPU Usage",
             "mem" => "Process MEM Usage",
             "gpu" => "Process GPU Usage",
+            "fps" => "Process FPS",
             _ => unimplemented!(),
         })
         .unwrap();

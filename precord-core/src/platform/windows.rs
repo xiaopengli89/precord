@@ -1,9 +1,15 @@
 use crate::Pid;
+use ferrisetw::native::etw_types::EventRecord;
+use ferrisetw::provider::Provider;
+use ferrisetw::trace::{TraceBaseTrait, UserTrace};
 use serde::Deserialize;
+use std::collections::{HashMap, VecDeque};
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant};
 use std::{mem, process};
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::winerror::ERROR_SUCCESS;
@@ -237,6 +243,95 @@ impl Drop for Pdh {
         unsafe {
             let r = PdhCloseQuery(self.query);
             assert_eq!(r, ERROR_SUCCESS as _);
+        }
+    }
+}
+
+const DXGI_PROVIDER_GUID: &'static str = "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9";
+const D3D9_PROVIDER_GUID: &'static str = "783ACA0A-790E-4d7f-8451-AA850511C6B9";
+
+const DXGI_PRESENT_EVENT: u16 = 42;
+const D3D9_PRESENT_EVENT: u16 = 1;
+
+pub struct EtwTrace {
+    user_trace: UserTrace,
+    handler: Arc<RwLock<EtwTraceHandler>>,
+}
+
+impl Drop for EtwTrace {
+    fn drop(&mut self) {
+        self.user_trace.stop();
+    }
+}
+
+impl EtwTrace {
+    pub fn new() -> Self {
+        let mut trace = UserTrace::new();
+        let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
+
+        for provider_guid in [DXGI_PROVIDER_GUID] {
+            let handler = handler.clone();
+            let provider = Provider::new()
+                .by_guid(provider_guid)
+                .add_callback(move |record: EventRecord, schema_locator| {
+                    match schema_locator.event_schema(record) {
+                        Ok(schema) => {
+                            if schema.event_id() == DXGI_PRESENT_EVENT {
+                                handler
+                                    .write()
+                                    .unwrap()
+                                    .add_present(schema.process_id(), Instant::now());
+                            }
+                        }
+                        Err(_) => {}
+                    };
+                })
+                .build()
+                .unwrap();
+            trace.enable(provider)
+        }
+
+        Self {
+            user_trace: trace.start().unwrap(),
+            handler,
+        }
+    }
+
+    pub fn fps(&self, pid: Pid) -> usize {
+        self.handler.write().unwrap().fps(pid)
+    }
+}
+
+#[derive(Default)]
+struct EtwTraceHandler {
+    present_event_timestamps: HashMap<u32, VecDeque<Instant>>,
+}
+
+impl EtwTraceHandler {
+    fn add_present(&mut self, pid: u32, now: Instant) {
+        let timestamps = self.present_event_timestamps.entry(pid).or_default();
+        timestamps.push_back(now);
+
+        while let Some(time) = timestamps.pop_front() {
+            if now - time <= Duration::from_secs(1) {
+                timestamps.push_front(time);
+                break;
+            }
+        }
+    }
+
+    fn fps(&mut self, pid: u32) -> usize {
+        if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
+            while let Some(time) = timestamps.pop_front() {
+                if now - time <= Duration::from_secs(1) {
+                    timestamps.push_front(time);
+                    break;
+                }
+            }
+
+            timestamps.len()
+        } else {
+            0
         }
     }
 }

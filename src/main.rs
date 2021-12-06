@@ -87,6 +87,12 @@ fn main() {
                                 continue 'p;
                             }
                         }
+                        "fps" => {
+                            let fps = system.process_fps(process.process.pid());
+                            process.value_percents[idx].push(fps);
+
+                            message.push_str(&format!(" / FPS {}", fps));
+                        }
                         _ => unimplemented!(),
                     }
                 }
@@ -220,6 +226,11 @@ fn main() {
                 caption = "Process GPU Usage";
                 unit = "%";
                 max = max.max(100.0);
+            }
+            "fps" => {
+                caption = "Process FPS";
+                unit = "";
+                max = max.max(60.0);
             }
             _ => unimplemented!(),
         };
@@ -451,7 +462,7 @@ struct Opts {
     interval: u64,
     #[clap(short, long, default_value = "30")]
     times: usize,
-    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "sys_cpu_freq", "sys_gpu"])]
+    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
     category: Vec<String>,
     #[clap(short, long)]
     recurse_children: bool,

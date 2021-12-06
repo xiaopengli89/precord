@@ -3,10 +3,13 @@ use crate::platform::macos::IOKitRegistry;
 #[cfg(target_os = "macos")]
 use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
+use crate::platform::windows::EtwTrace;
+#[cfg(target_os = "windows")]
 use crate::platform::windows::{Pdh, ProcessorInfo};
 use crate::Pid;
 use bitflags::bitflags;
 
+#[derive(Default)]
 pub struct System {
     #[cfg(target_os = "macos")]
     power_metrics: Option<PowerMetrics>,
@@ -16,21 +19,14 @@ pub struct System {
     pdh: Option<Pdh>,
     #[cfg(target_os = "windows")]
     wmi_con: Option<wmi::WMIConnection>,
+    #[cfg(target_os = "windows")]
+    etw_trace: Option<EtwTrace>,
 }
 
 impl System {
     #[allow(unused_variables)]
     pub fn new<T: IntoIterator<Item = Pid>>(features: Features, pids: T) -> Self {
-        let mut system = System {
-            #[cfg(target_os = "macos")]
-            power_metrics: None,
-            #[cfg(target_os = "macos")]
-            ioreg: None,
-            #[cfg(target_os = "windows")]
-            pdh: None,
-            #[cfg(target_os = "windows")]
-            wmi_con: None,
-        };
+        let mut system = System::default();
 
         if features.contains(Features::GPU) {
             #[cfg(target_os = "macos")]
@@ -52,6 +48,13 @@ impl System {
             {
                 system.wmi_con =
                     Some(wmi::WMIConnection::new(wmi::COMLibrary::new().unwrap().into()).unwrap());
+            }
+        }
+
+        if features.contains(Features::FPS) {
+            #[cfg(target_os = "windows")]
+            {
+                system.etw_trace = Some(EtwTrace::new());
             }
         }
 
@@ -104,6 +107,19 @@ impl System {
         }
     }
 
+    #[allow(unused_variables)]
+    pub fn process_fps(&mut self, pid: Pid) -> f32 {
+        #[cfg(target_os = "macos")]
+        {
+            0.0
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            self.etw_trace.as_mut().unwrap().fps(pid) as _
+        }
+    }
+
     pub fn system_gpu_percent(&mut self) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
@@ -119,7 +135,8 @@ impl System {
 
 bitflags! {
     pub struct Features: u32 {
-        const GPU = 1 << 0;
-        const CPU_FREQUENCY = 1 << 1;
+        const GPU =             1 << 0;
+        const CPU_FREQUENCY =   1 << 1;
+        const FPS =             1 << 2;
     }
 }
