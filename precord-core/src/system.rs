@@ -54,7 +54,7 @@ impl System {
         if features.contains(Features::FPS) {
             #[cfg(target_os = "windows")]
             {
-                system.etw_trace = Some(EtwTrace::new());
+                // system.etw_trace = Some(EtwTrace::new());
             }
         }
 
@@ -116,7 +116,8 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.etw_trace.as_mut().unwrap().fps(pid) as _
+            // self.etw_trace.as_mut().unwrap().fps(pid) as _
+            0.0
         }
     }
 
