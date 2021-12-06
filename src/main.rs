@@ -29,6 +29,9 @@ fn main() {
         {
             features.insert(Features::GPU);
         }
+        if opts.category.contains(&"fps".to_string()) {
+            features.insert(Features::FPS);
+        }
         if sys_category.contains(&"sys_cpu_freq".to_string()) {
             features.insert(Features::CPU_FREQUENCY);
         }
