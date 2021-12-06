@@ -288,7 +288,7 @@ impl EtwTrace {
                 })
                 .build()
                 .unwrap();
-            trace.enable(provider)
+            trace = trace.enable(provider);
         }
 
         Self {
@@ -298,7 +298,7 @@ impl EtwTrace {
     }
 
     pub fn fps(&self, pid: Pid) -> usize {
-        self.handler.write().unwrap().fps(pid)
+        self.handler.write().unwrap().fps(pid, Instant::now())
     }
 }
 
@@ -320,7 +320,7 @@ impl EtwTraceHandler {
         }
     }
 
-    fn fps(&mut self, pid: u32) -> usize {
+    fn fps(&mut self, pid: u32, now: Instant) -> usize {
         if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
             while let Some(time) = timestamps.pop_front() {
                 if now - time <= Duration::from_secs(1) {
