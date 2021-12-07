@@ -249,11 +249,11 @@ impl Drop for Pdh {
     }
 }
 
-const DXGI_PROVIDER_GUID: &'static str = "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9";
-const D3D9_PROVIDER_GUID: &'static str = "783ACA0A-790E-4d7f-8451-AA850511C6B9";
-
-const DXGI_PRESENT_EVENT: u16 = 42;
-const D3D9_PRESENT_EVENT: u16 = 1;
+struct EtwProvider {
+    guid: &'static str,
+    name: &'static str,
+    present_event_id: u16,
+}
 
 pub struct EtwTrace {
     user_trace: UserTrace,
@@ -272,14 +272,35 @@ impl EtwTrace {
         let mut trace = UserTrace::new().named("precord".to_string());
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
-        for provider_guid in [DXGI_PROVIDER_GUID] {
+        for provider_guid in [
+            // Microsoft-Windows-DXGI
+            EtwProvider {
+                guid: "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9",
+                name: "Microsoft-Windows-DXGI",
+                present_event_id: 0x002a,
+            },
+            // Microsoft-Windows-D3D9
+            EtwProvider {
+                guid: "783ACA0A-790E-4d7f-8451-AA850511C6B9",
+                name: "Microsoft-Windows-D3D9",
+                present_event_id: 0x0001,
+            },
+            // Microsoft-Windows-Dwm-Core
+            EtwProvider {
+                guid: "9E9BBA3C-2E38-40CB-99F4-9E8281425164",
+                name: "Microsoft-Windows-Dwm-Core",
+                present_event_id: 0x000f,
+            },
+        ] {
             let handler = handler.clone();
             let provider = Provider::new()
-                .by_guid(provider_guid)
+                .by_guid(provider_guid.guid)
                 .add_callback(move |record: EventRecord, schema_locator| {
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
-                            if schema.event_id() == DXGI_PRESENT_EVENT {
+                            if schema.provider_name() == provider_guid.name
+                                && schema.event_id() == provider_guid.present_event_id
+                            {
                                 handler
                                     .write()
                                     .unwrap()
@@ -333,10 +354,10 @@ impl EtwTraceHandler {
     fn fps(&mut self, pid: u32, now: Instant) -> f32 {
         if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
             let duration = now - timestamps.last_time;
-            let fps = if duration.is_zero() {
-               0.0
+            let fps = if duration < Duration::from_millis(1) {
+                0.0
             } else {
-                (timestamps.count as f32) / (duration.as_secs() as f32)
+                (timestamps.count as f32) / (duration.as_millis() as f32) * 1000.0
             };
 
             timestamps.count = 0;
