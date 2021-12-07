@@ -3,7 +3,7 @@ use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use serde::Deserialize;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
