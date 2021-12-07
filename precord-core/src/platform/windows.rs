@@ -8,7 +8,9 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time::{Duration, Instant};
 use std::{mem, process};
 use winapi::shared::minwindef::DWORD;
@@ -256,6 +258,7 @@ const D3D9_PRESENT_EVENT: u16 = 1;
 pub struct EtwTrace {
     user_trace: UserTrace,
     handler: Arc<RwLock<EtwTraceHandler>>,
+    _trace_guard: Receiver<Option<UserTrace>>,
 }
 
 impl Drop for EtwTrace {
@@ -291,9 +294,17 @@ impl EtwTrace {
             trace = trace.enable(provider);
         }
 
+        let (tx, rx) = mpsc::sync_channel(0);
+        thread::spawn(move || {
+            tx.send(Some(trace.start().unwrap())).unwrap();
+            // Block here
+            let _ = tx.send(None);
+        });
+
         Self {
-            user_trace: trace.start().unwrap(),
+            user_trace: rx.recv().unwrap().unwrap(),
             handler,
+            _trace_guard: rx,
         }
     }
 
@@ -309,23 +320,31 @@ struct EtwTraceHandler {
 
 impl EtwTraceHandler {
     fn add_present(&mut self, pid: u32, now: Instant) {
-        let timestamps = self.present_event_timestamps.entry(pid).or_insert(PresentInfo {
-            last_time: now,
-            count: 0,
-        });
+        let timestamps = self
+            .present_event_timestamps
+            .entry(pid)
+            .or_insert(PresentInfo {
+                last_time: now,
+                count: 0,
+            });
         timestamps.count = timestamps.count.saturating_add(1);
     }
 
     fn fps(&mut self, pid: u32, now: Instant) -> f32 {
         if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
-            let fps = (timestamps.count as f32) / ((now - timestamps.last_time).as_secs() as f32);
+            let duration = now - timestamps.last_time;
+            let fps = if duration.is_zero() {
+               0.0
+            } else {
+                (timestamps.count as f32) / (duration.as_secs() as f32)
+            };
 
             timestamps.count = 0;
             timestamps.last_time = now;
 
             fps
         } else {
-            0
+            0.0
         }
     }
 }
