@@ -1,7 +1,7 @@
 use crate::Pid;
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::provider::Provider;
-use ferrisetw::trace::{TraceBaseTrait, UserTrace};
+use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::io::BufReader;
@@ -266,7 +266,7 @@ impl Drop for EtwTrace {
 
 impl EtwTrace {
     pub fn new() -> Self {
-        let mut trace = UserTrace::new();
+        let mut trace = UserTrace::new().named("precord".to_string());
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
         for provider_guid in [DXGI_PROVIDER_GUID] {
@@ -297,41 +297,40 @@ impl EtwTrace {
         }
     }
 
-    pub fn fps(&self, pid: Pid) -> usize {
+    pub fn fps(&self, pid: Pid) -> f32 {
         self.handler.write().unwrap().fps(pid, Instant::now())
     }
 }
 
 #[derive(Default)]
 struct EtwTraceHandler {
-    present_event_timestamps: HashMap<u32, VecDeque<Instant>>,
+    present_event_timestamps: HashMap<u32, PresentInfo>,
 }
 
 impl EtwTraceHandler {
     fn add_present(&mut self, pid: u32, now: Instant) {
-        let timestamps = self.present_event_timestamps.entry(pid).or_default();
-        timestamps.push_back(now);
-
-        while let Some(time) = timestamps.pop_front() {
-            if now - time <= Duration::from_secs(1) {
-                timestamps.push_front(time);
-                break;
-            }
-        }
+        let timestamps = self.present_event_timestamps.entry(pid).or_insert(PresentInfo {
+            last_time: now,
+            count: 0,
+        });
+        timestamps.count = timestamps.count.saturating_add(1);
     }
 
-    fn fps(&mut self, pid: u32, now: Instant) -> usize {
+    fn fps(&mut self, pid: u32, now: Instant) -> f32 {
         if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
-            while let Some(time) = timestamps.pop_front() {
-                if now - time <= Duration::from_secs(1) {
-                    timestamps.push_front(time);
-                    break;
-                }
-            }
+            let fps = (timestamps.count as f32) / ((now - timestamps.last_time).as_secs() as f32);
 
-            timestamps.len()
+            timestamps.count = 0;
+            timestamps.last_time = now;
+
+            fps
         } else {
             0
         }
     }
+}
+
+struct PresentInfo {
+    last_time: Instant,
+    count: u32,
 }
