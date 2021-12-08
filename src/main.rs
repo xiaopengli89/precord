@@ -3,12 +3,13 @@
 use crate::types::GpuInfo;
 use clap::{AppSettings, Clap};
 use futures::stream::StreamExt;
-use heim::process::{CpuUsage, Pid, Process, Status};
+use heim::process::{Command, CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use precord_core::{Features, System};
 use std::time::{Duration, Instant};
 
 mod consumer_csv;
+mod consumer_json;
 mod consumer_svg;
 mod types;
 
@@ -181,6 +182,16 @@ fn main() {
                 cpu_frequency_max,
                 &gpu_info,
             );
+        } else if output.ends_with(".json") {
+            consumer_json::consume(
+                output,
+                &opts.category,
+                &sys_category,
+                &timestamps,
+                &processes,
+                &cpu_info,
+                &gpu_info,
+            );
         }
     }
 }
@@ -188,6 +199,7 @@ fn main() {
 pub struct ProcessInfo {
     process: Process,
     name: String,
+    command: Command,
     value_percents: Vec<Vec<f32>>,
     prev_cpu_usage: CpuUsage,
     valid: bool,
@@ -196,10 +208,12 @@ pub struct ProcessInfo {
 impl ProcessInfo {
     async fn new(process: Process, name: String, categories: &[String]) -> Self {
         let prev_cpu_usage = process.cpu_usage().await.unwrap();
+        let command = process.command().await.unwrap();
 
         Self {
             process,
             name,
+            command,
             value_percents: vec![vec![]; categories.len()],
             prev_cpu_usage,
             valid: true,
