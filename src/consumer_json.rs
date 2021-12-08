@@ -29,7 +29,7 @@ pub fn consume<P: AsRef<Path>>(
             target.push(ProcessRecord {
                 pid: p.process.pid(),
                 name: p.name.clone(),
-                command: p.command.to_os_string().to_string_lossy().to_string(),
+                command: p.command.clone(),
                 records: timestamps
                     .iter()
                     .enumerate()

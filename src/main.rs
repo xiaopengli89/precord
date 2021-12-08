@@ -3,10 +3,11 @@
 use crate::types::GpuInfo;
 use clap::{AppSettings, Clap};
 use futures::stream::StreamExt;
-use heim::process::{Command, CpuUsage, Pid, Process, Status};
+use heim::process::{CpuUsage, Pid, Process, Status};
 use heim::units::ratio;
 use precord_core::{Features, System};
 use std::time::{Duration, Instant};
+use sysinfo::{ProcessExt, RefreshKind, SystemExt};
 
 mod consumer_csv;
 mod consumer_json;
@@ -37,7 +38,11 @@ fn main() {
             features.insert(Features::CPU_FREQUENCY);
         }
 
-        let mut processes = opts.find_processes().await;
+        let mut sysinfo_system =
+            sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
+        sysinfo_system.refresh_processes();
+
+        let mut processes = opts.find_processes(&sysinfo_system).await;
         let mut system = System::new(features, processes.iter().map(|p| p.process.pid()));
         let mut cpu_info: Vec<CpuInfo> = vec![];
         let mut cpu_frequency_max: f32 = 1000.0;
@@ -199,16 +204,25 @@ fn main() {
 pub struct ProcessInfo {
     process: Process,
     name: String,
-    command: Command,
+    command: String,
     value_percents: Vec<Vec<f32>>,
     prev_cpu_usage: CpuUsage,
     valid: bool,
 }
 
 impl ProcessInfo {
-    async fn new(process: Process, name: String, categories: &[String]) -> Self {
+    async fn new(
+        sysinfo_system: &sysinfo::System,
+        process: Process,
+        name: String,
+        categories: &[String],
+    ) -> Self {
         let prev_cpu_usage = process.cpu_usage().await.unwrap();
-        let command = process.command().await.unwrap();
+        let command = sysinfo_system
+            .process(process.pid())
+            .unwrap()
+            .cmd()
+            .join(" ");
 
         Self {
             process,
@@ -296,7 +310,7 @@ pub struct Opts {
 }
 
 impl Opts {
-    async fn find_processes(&self) -> Vec<ProcessInfo> {
+    async fn find_processes(&self, sysinfo_system: &sysinfo::System) -> Vec<ProcessInfo> {
         let mut processes: Vec<ProcessInfo> = vec![];
 
         if self.name.is_empty() {
@@ -311,7 +325,9 @@ impl Opts {
 
                 let p = heim::process::get(pid).await.unwrap();
                 let name = p.name().await.unwrap();
-                processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                processes.push(
+                    ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice()).await,
+                );
             }
         } else {
             let mut all = Box::pin(heim::process::processes().await.unwrap());
@@ -330,12 +346,16 @@ impl Opts {
                 let name = p.name().await.unwrap();
 
                 if self.process.contains(&p.pid()) {
-                    processes.push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                    processes.push(
+                        ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice()).await,
+                    );
                 } else {
                     for n in self.name.iter() {
                         if name.contains(n) {
-                            processes
-                                .push(ProcessInfo::new(p, name, self.category.as_slice()).await);
+                            processes.push(
+                                ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice())
+                                    .await,
+                            );
                             break;
                         }
                     }
@@ -344,13 +364,20 @@ impl Opts {
         }
 
         if self.recurse_children {
-            processes.extend(self.recurse_children(processes.as_slice()).await);
+            processes.extend(
+                self.recurse_children(sysinfo_system, processes.as_slice())
+                    .await,
+            );
         }
 
         processes
     }
 
-    async fn recurse_children(&self, processes: &[ProcessInfo]) -> Vec<ProcessInfo> {
+    async fn recurse_children(
+        &self,
+        sysinfo_system: &sysinfo::System,
+        processes: &[ProcessInfo],
+    ) -> Vec<ProcessInfo> {
         let mut all = Box::pin(heim::process::processes().await.unwrap());
 
         let recurse_parent = |mut parent: heim::process::Process| async move {
@@ -415,7 +442,10 @@ impl Opts {
             if let Ok(parent) = child.parent().await {
                 if recurse_parent(parent).await {
                     let name = child.name().await.unwrap();
-                    children.push(ProcessInfo::new(child, name, self.category.as_slice()).await);
+                    children.push(
+                        ProcessInfo::new(sysinfo_system, child, name, self.category.as_slice())
+                            .await,
+                    );
                 }
             }
         }
