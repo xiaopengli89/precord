@@ -276,7 +276,7 @@ impl CpuInfo {
 }
 
 #[derive(Clap, Debug, Clone)]
-#[clap(version = "0.3.0", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.3.1", author = "Xiaopeng Li <x.friday@outlook.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 pub struct Opts {
     #[clap(short, long)]
