@@ -219,7 +219,7 @@ impl ProcessInfo {
     ) -> Self {
         let prev_cpu_usage = process.cpu_usage().await.unwrap();
         let command = sysinfo_system
-            .process(process.pid())
+            .process(process.pid() as _)
             .unwrap()
             .cmd()
             .join(" ");
