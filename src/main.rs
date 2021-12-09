@@ -1,5 +1,3 @@
-#![feature(drain_filter)]
-
 use crate::types::GpuInfo;
 use clap::{AppSettings, Clap};
 use futures::stream::StreamExt;
@@ -13,13 +11,11 @@ mod consumer_csv;
 mod consumer_json;
 mod consumer_svg;
 mod types;
+mod utils;
 
 fn main() {
     let mut opts: Opts = Opts::parse();
-    let sys_category: Vec<String> = opts
-        .category
-        .drain_filter(|c| c.starts_with("sys_"))
-        .collect();
+    let sys_category = utils::drain_filter_vec(&mut opts.category, |c| c.starts_with("sys_"));
 
     let mut timestamps = vec![];
 
@@ -158,7 +154,7 @@ fn main() {
 
             println!("================ {}/{}", i, opts.times);
 
-            processes.drain_filter(|p| !p.valid);
+            let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
             timestamps.push(chrono::Local::now());
         }
