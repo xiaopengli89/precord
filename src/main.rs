@@ -1,11 +1,9 @@
 use crate::types::GpuInfo;
-use clap::{AppSettings, Clap};
-use futures::stream::StreamExt;
-use heim::process::{CpuUsage, Pid, Process, Status};
-use heim::units::ratio;
-use precord_core::{Features, System};
+use clap::Parser;
+use precord_core::{Features, Pid, System};
+use std::thread;
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessExt, RefreshKind, SystemExt};
+use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
 mod consumer_csv;
 mod consumer_json;
@@ -19,8 +17,8 @@ fn main() {
 
     let mut timestamps = vec![];
 
-    let (processes, cpu_info, cpu_frequency_max, gpu_info) = futures::executor::block_on(async {
-        let mut features = Features::empty();
+    let (processes, cpu_info, cpu_frequency_max, gpu_info) = {
+        let mut features = Features::PROCESS;
 
         if opts.category.contains(&"gpu".to_owned())
             || sys_category.contains(&"sys_gpu".to_string())
@@ -34,12 +32,14 @@ fn main() {
             features.insert(Features::CPU_FREQUENCY);
         }
 
-        let mut sysinfo_system =
-            sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
-        sysinfo_system.refresh_processes();
+        let mut system = System::new(features, []);
+        system.update();
 
-        let mut processes = opts.find_processes(&sysinfo_system).await;
-        let mut system = System::new(features, processes.iter().map(|p| p.process.pid()));
+        let mut processes = opts.find_processes(&system);
+
+        let mut system = System::new(features, processes.iter().map(|p| p.pid));
+        system.update();
+
         let mut cpu_info: Vec<CpuInfo> = vec![];
         let mut cpu_frequency_max: f32 = 1000.0;
         let mut gpu_info: Vec<GpuInfo> = vec![];
@@ -51,7 +51,7 @@ fn main() {
             let since = now.saturating_duration_since(last_record_time);
             let delay = Duration::from_secs(opts.interval).saturating_sub(since);
             if !delay.is_zero() {
-                futures_timer::Delay::new(delay).await;
+                thread::sleep(delay);
                 last_record_time = Instant::now();
             } else {
                 last_record_time = now;
@@ -61,39 +61,43 @@ fn main() {
 
             // Process
             'p: for process in processes.iter_mut() {
-                let mut message = format!("{}({})", &process.name, process.process.pid(),);
+                let mut message = format!("{}({})", &process.name, process.pid);
 
                 for (idx, c) in opts.category.iter().enumerate() {
                     match c.as_str() {
                         "cpu" => {
-                            if let Some(cpu_percent) = process.poll_cpu_percent().await {
+                            if let Some(cpu_percent) = system.process_cpu_utilization(process.pid) {
                                 process.value_percents[idx].push(cpu_percent);
 
                                 message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
                             } else {
+                                process.valid = false;
                                 continue 'p;
                             }
                         }
                         "mem" => {
-                            if let Some(mem_usage) = process.poll_mem_usage().await {
+                            if let Some(mem_usage) = system.process_mem(process.pid) {
+                                let mem_usage = mem_usage / 1024.0;
                                 process.value_percents[idx].push(mem_usage);
 
                                 message.push_str(&format!(" / MEM {:.2}M", mem_usage));
                             } else {
+                                process.valid = false;
                                 continue 'p;
                             }
                         }
                         "gpu" => {
-                            if let Some(gpu_percent) = process.poll_gpu_percent(&mut system) {
+                            if let Some(gpu_percent) = system.process_gpu_percent(process.pid) {
                                 process.value_percents[idx].push(gpu_percent);
 
                                 message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
                             } else {
+                                process.valid = false;
                                 continue 'p;
                             }
                         }
                         "fps" => {
-                            let fps = system.process_fps(process.process.pid());
+                            let fps = system.process_fps(process.pid);
                             process.value_percents[idx].push(fps);
 
                             message.push_str(&format!(" / FPS {}", fps));
@@ -160,7 +164,7 @@ fn main() {
         }
 
         (processes, cpu_info, cpu_frequency_max, gpu_info)
-    });
+    };
 
     for output in opts.output.iter() {
         if output.ends_with(".csv") {
@@ -198,68 +202,31 @@ fn main() {
 }
 
 pub struct ProcessInfo {
-    process: Process,
+    pid: Pid,
     name: String,
     command: String,
     value_percents: Vec<Vec<f32>>,
-    prev_cpu_usage: CpuUsage,
     valid: bool,
 }
 
 impl ProcessInfo {
-    async fn new(
-        sysinfo_system: &sysinfo::System,
-        process: Process,
-        name: String,
-        categories: &[String],
-    ) -> Self {
-        let prev_cpu_usage = process.cpu_usage().await.unwrap();
-        let command = sysinfo_system
-            .process(process.pid() as _)
-            .unwrap()
-            .cmd()
+    fn new(system: &System, categories: &[String], pid: Pid) -> Self {
+        let name = system
+            .process_name(pid)
+            .expect(&format!("No such process({})", pid))
+            .to_string();
+        let command = system
+            .process_command(pid)
+            .expect(&format!("No such process({})", pid))
             .join(" ");
 
         Self {
-            process,
+            pid,
             name,
             command,
             value_percents: vec![vec![]; categories.len()],
-            prev_cpu_usage,
             valid: true,
         }
-    }
-
-    async fn poll_cpu_percent(&mut self) -> Option<f32> {
-        if let Ok(cpu_usage) = self.process.cpu_usage().await {
-            let cpu_percent = (cpu_usage.clone()
-                - std::mem::replace(&mut self.prev_cpu_usage, cpu_usage))
-            .get::<ratio::percent>();
-
-            Some(cpu_percent)
-        } else {
-            self.valid = false;
-            None
-        }
-    }
-
-    async fn poll_mem_usage(&mut self) -> Option<f32> {
-        if let Ok(m) = self.process.memory().await {
-            Some((m.rss().value as f64 / (1024.0 * 1024.0)) as _)
-        } else {
-            self.valid = false;
-            None
-        }
-    }
-
-    fn poll_gpu_percent(&mut self, system: &mut System) -> Option<f32> {
-        let r = system.process_gpu_percent(self.process.pid());
-
-        if r.is_none() {
-            self.valid = false;
-        }
-
-        r
     }
 
     fn avg_percent(&self, idx: usize) -> f32 {
@@ -285,9 +252,8 @@ impl CpuInfo {
     }
 }
 
-#[derive(Clap, Debug, Clone)]
+#[derive(Parser, Debug, Clone)]
 #[clap(version = "0.3.2", author = "Xiaopeng Li <x.friday@outlook.com>")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct Opts {
     #[clap(short, long)]
     process: Vec<Pid>,
@@ -306,53 +272,35 @@ pub struct Opts {
 }
 
 impl Opts {
-    async fn find_processes(&self, sysinfo_system: &sysinfo::System) -> Vec<ProcessInfo> {
+    fn find_processes(&self, system: &System) -> Vec<ProcessInfo> {
         let mut processes: Vec<ProcessInfo> = vec![];
 
         if self.name.is_empty() {
             for &pid in self.process.iter() {
-                if processes
-                    .iter()
-                    .position(|p| p.process.pid() == pid)
-                    .is_some()
-                {
+                if processes.iter().position(|p| p.pid == pid).is_some() {
                     continue;
                 }
 
-                let p = heim::process::get(pid).await.unwrap();
-                let name = p.name().await.unwrap();
-                processes.push(
-                    ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice()).await,
-                );
+                processes.push(ProcessInfo::new(system, self.category.as_slice(), pid));
             }
         } else {
-            let mut all = Box::pin(heim::process::processes().await.unwrap());
+            if let Some(sysinfo_system) = system.sysinfo_system() {
+                for (&pid, p) in sysinfo_system.processes() {
+                    match p.status() {
+                        ProcessStatus::Zombie => continue,
+                        _ => {}
+                    }
 
-            while let Some(p) = all.next().await {
-                let p = match p {
-                    Ok(p) => p,
-                    Err(_) => continue,
-                };
+                    let process = ProcessInfo::new(system, self.category.as_slice(), pid);
 
-                match p.status().await.unwrap() {
-                    Status::Zombie => continue,
-                    _ => {}
-                }
-
-                let name = p.name().await.unwrap();
-
-                if self.process.contains(&p.pid()) {
-                    processes.push(
-                        ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice()).await,
-                    );
-                } else {
-                    for n in self.name.iter() {
-                        if name.contains(n) {
-                            processes.push(
-                                ProcessInfo::new(sysinfo_system, p, name, self.category.as_slice())
-                                    .await,
-                            );
-                            break;
+                    if self.process.contains(&pid) {
+                        processes.push(process);
+                    } else {
+                        for n in self.name.iter() {
+                            if process.name.contains(n) {
+                                processes.push(process);
+                                break;
+                            }
                         }
                     }
                 }
@@ -360,47 +308,28 @@ impl Opts {
         }
 
         if self.recurse_children {
-            processes.extend(
-                self.recurse_children(sysinfo_system, processes.as_slice())
-                    .await,
-            );
+            processes.extend(self.recurse_children(system, processes.as_slice()));
         }
 
         processes
     }
 
-    async fn recurse_children(
-        &self,
-        sysinfo_system: &sysinfo::System,
-        processes: &[ProcessInfo],
-    ) -> Vec<ProcessInfo> {
-        let mut all = Box::pin(heim::process::processes().await.unwrap());
-
-        let recurse_parent = |mut parent: heim::process::Process| async move {
-            if processes
-                .iter()
-                .position(|p| p.process.pid() == parent.pid())
-                .is_some()
-            {
+    fn recurse_children(&self, system: &System, processes: &[ProcessInfo]) -> Vec<ProcessInfo> {
+        let recurse_parent = |mut parent: Pid| {
+            if processes.iter().position(|p| p.pid == parent).is_some() {
                 return true;
             }
 
-            if parent.pid() == 0 {
-                return false;
-            }
-
-            while let Ok(parent2) = parent.parent().await {
-                if processes
-                    .iter()
-                    .position(|p| p.process.pid() == parent2.pid())
-                    .is_some()
-                {
-                    return true;
-                }
-                parent = parent2;
-
-                if parent.pid() == 0 {
-                    return false;
+            if let Some(sysinfo_system) = system.sysinfo_system() {
+                while let Some(parent_process) = sysinfo_system.process(parent) {
+                    if let Some(parent2) = parent_process.parent() {
+                        if processes.iter().position(|p| p.pid == parent2).is_some() {
+                            return true;
+                        }
+                        parent = parent2;
+                    } else {
+                        return false;
+                    }
                 }
             }
             false
@@ -408,40 +337,21 @@ impl Opts {
 
         let mut children = vec![];
 
-        while let Some(child) = all.next().await {
-            let child = match child {
-                Ok(child) => child,
-                Err(_) => continue,
-            };
-
-            if child.pid() == 0 {
-                continue;
-            }
-
-            if let Ok(status) = child.status().await {
-                match status {
-                    Status::Zombie => continue,
+        if let Some(sysinfo_system) = system.sysinfo_system() {
+            for (&pid, child) in sysinfo_system.processes() {
+                match child.status() {
+                    ProcessStatus::Zombie => continue,
                     _ => {}
                 }
-            } else {
-                continue;
-            }
 
-            if processes
-                .iter()
-                .position(|p| p.process.pid() == child.pid())
-                .is_some()
-            {
-                continue;
-            }
+                if processes.iter().position(|p| p.pid == pid).is_some() {
+                    continue;
+                }
 
-            if let Ok(parent) = child.parent().await {
-                if recurse_parent(parent).await {
-                    let name = child.name().await.unwrap();
-                    children.push(
-                        ProcessInfo::new(sysinfo_system, child, name, self.category.as_slice())
-                            .await,
-                    );
+                if let Some(parent) = child.parent() {
+                    if recurse_parent(parent) {
+                        children.push(ProcessInfo::new(system, self.category.as_slice(), pid));
+                    }
                 }
             }
         }

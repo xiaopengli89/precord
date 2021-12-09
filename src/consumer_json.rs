@@ -27,7 +27,7 @@ pub fn consume<P: AsRef<Path>>(
         };
         for p in processes {
             target.push(ProcessRecord {
-                pid: p.process.pid(),
+                pid: p.pid,
                 name: p.name.clone(),
                 command: p.command.clone(),
                 records: timestamps

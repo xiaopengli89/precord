@@ -1,10 +1,6 @@
-pub use system::{System, Features};
+pub use system::{Features, System};
 
 mod platform;
 mod system;
 
-#[cfg(unix)]
-pub type Pid = libc::pid_t;
-
-#[cfg(target_os = "windows")]
-pub type Pid = winapi::shared::minwindef::DWORD;
+pub type Pid = sysinfo::Pid;

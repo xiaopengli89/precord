@@ -98,7 +98,7 @@ pub fn consume<P: AsRef<Path>>(
                 .label(format!(
                     "{}({}) / AVG({:.2}{})",
                     &process.name,
-                    process.process.pid(),
+                    process.pid,
                     process.avg_percent(idx_c),
                     unit
                 ))

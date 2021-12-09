@@ -8,9 +8,11 @@ use crate::platform::windows::EtwTrace;
 use crate::platform::windows::{Pdh, ProcessorInfo};
 use crate::Pid;
 use bitflags::bitflags;
+use sysinfo::{ProcessExt, RefreshKind, SystemExt};
 
 #[derive(Default)]
 pub struct System {
+    sysinfo_system: Option<sysinfo::System>,
     #[cfg(target_os = "macos")]
     power_metrics: Option<PowerMetrics>,
     #[cfg(target_os = "macos")]
@@ -27,6 +29,12 @@ impl System {
     #[allow(unused_variables)]
     pub fn new<T: IntoIterator<Item = Pid>>(features: Features, pids: T) -> Self {
         let mut system = System::default();
+
+        if features.contains(Features::PROCESS) {
+            system.sysinfo_system = Some(sysinfo::System::new_with_specifics(
+                RefreshKind::new().with_processes(),
+            ));
+        }
 
         if features.contains(Features::GPU) {
             #[cfg(target_os = "macos")]
@@ -62,6 +70,10 @@ impl System {
     }
 
     pub fn update(&mut self) {
+        if let Some(sysinfo_system) = &mut self.sysinfo_system {
+            sysinfo_system.refresh_processes();
+        }
+
         #[cfg(target_os = "macos")]
         if let Some(power_metrics) = &mut self.power_metrics {
             power_metrics.poll();
@@ -76,6 +88,26 @@ impl System {
         if let Some(pdh) = &mut self.pdh {
             pdh.update();
         }
+    }
+
+    pub fn sysinfo_system(&self) -> Option<&sysinfo::System> {
+        self.sysinfo_system.as_ref()
+    }
+
+    pub fn process_cpu_utilization(&self, pid: Pid) -> Option<f32> {
+        Some(self.sysinfo_system.as_ref()?.process(pid)?.cpu_usage())
+    }
+
+    pub fn process_mem(&self, pid: Pid) -> Option<f32> {
+        Some(self.sysinfo_system.as_ref()?.process(pid)?.memory() as f32)
+    }
+
+    pub fn process_name(&self, pid: Pid) -> Option<&str> {
+        Some(self.sysinfo_system.as_ref()?.process(pid)?.name())
+    }
+
+    pub fn process_command(&self, pid: Pid) -> Option<&[String]> {
+        Some(self.sysinfo_system.as_ref()?.process(pid)?.cmd())
     }
 
     pub fn cpu_frequency(&self) -> Vec<f32> {
@@ -135,8 +167,9 @@ impl System {
 
 bitflags! {
     pub struct Features: u32 {
-        const GPU =             1 << 0;
-        const CPU_FREQUENCY =   1 << 1;
-        const FPS =             1 << 2;
+        const PROCESS =         1 << 0;
+        const GPU =             1 << 1;
+        const CPU_FREQUENCY =   1 << 2;
+        const FPS =             1 << 3;
     }
 }

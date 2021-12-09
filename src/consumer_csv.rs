@@ -27,8 +27,7 @@ pub fn consume<P: AsRef<Path>>(
         })
         .unwrap();
         for p in processes {
-            wtr.write_field(format!("{}({})", &p.name, p.process.pid()))
-                .unwrap();
+            wtr.write_field(format!("{}({})", &p.name, p.pid)).unwrap();
         }
         wtr.write_record(None::<&[u8]>).unwrap();
 
