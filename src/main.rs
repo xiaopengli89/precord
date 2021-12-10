@@ -1,6 +1,7 @@
 use crate::types::GpuInfo;
 use clap::Parser;
 use precord_core::{Features, Pid, System};
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
@@ -167,36 +168,38 @@ fn main() {
     };
 
     for output in opts.output.iter() {
-        if output.ends_with(".csv") {
-            consumer_csv::consume(
-                output,
-                &opts.category,
-                &sys_category,
-                &timestamps,
-                &processes,
-                &cpu_info,
-                &gpu_info,
-            );
-        } else if output.ends_with(".svg") {
-            consumer_svg::consume(
-                output,
-                &opts,
-                &sys_category,
-                &processes,
-                &cpu_info,
-                cpu_frequency_max,
-                &gpu_info,
-            );
-        } else if output.ends_with(".json") {
-            consumer_json::consume(
-                output,
-                &opts.category,
-                &sys_category,
-                &timestamps,
-                &processes,
-                &cpu_info,
-                &gpu_info,
-            );
+        if let Some(ext) = output.extension() {
+            if ext == "csv" {
+                consumer_csv::consume(
+                    output,
+                    &opts.category,
+                    &sys_category,
+                    &timestamps,
+                    &processes,
+                    &cpu_info,
+                    &gpu_info,
+                );
+            } else if ext == "svg" {
+                consumer_svg::consume(
+                    output,
+                    &opts,
+                    &sys_category,
+                    &processes,
+                    &cpu_info,
+                    cpu_frequency_max,
+                    &gpu_info,
+                );
+            } else if ext == "json" {
+                consumer_json::consume(
+                    output,
+                    &opts.category,
+                    &sys_category,
+                    &timestamps,
+                    &processes,
+                    &cpu_info,
+                    &gpu_info,
+                );
+            }
         }
     }
 }
@@ -255,17 +258,17 @@ impl CpuInfo {
 #[derive(Parser, Debug, Clone)]
 #[clap(version = "0.3.2", author = "Xiaopeng Li <x.friday@outlook.com>")]
 pub struct Opts {
-    #[clap(short, long)]
+    #[clap(short, long, multiple_values = true)]
     process: Vec<Pid>,
-    #[clap(long)]
+    #[clap(long, multiple_values = true)]
     name: Vec<String>,
-    #[clap(short, long)]
-    output: Vec<String>,
-    #[clap(short, long, default_value = "1")]
+    #[clap(short, long, multiple_values = true, parse(from_os_str))]
+    output: Vec<PathBuf>,
+    #[clap(short, long, default_value_t = 1)]
     interval: u64,
-    #[clap(short, long, default_value = "30")]
+    #[clap(short, long, default_value_t = 30)]
     times: usize,
-    #[clap(short, long, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
+    #[clap(short, long, multiple_values = true, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
     category: Vec<String>,
     #[clap(short, long)]
     recurse_children: bool,
