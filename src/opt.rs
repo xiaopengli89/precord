@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
 #[derive(Parser, Debug, Clone)]
-#[clap(version = "0.3.4", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.3.5")]
+#[clap(about = "A command line tool to record process and system performance data.")]
 pub struct Opts {
     #[clap(short, long, multiple_values = true)]
     process: Vec<Pid>,
@@ -16,8 +17,8 @@ pub struct Opts {
     pub output: Vec<PathBuf>,
     #[clap(short, long, default_value_t = 1)]
     pub interval: u64,
-    #[clap(short, long, default_value_t = 30)]
-    pub times: usize,
+    #[clap(short = 'n', default_value_t = 30)]
+    pub count: usize,
     #[clap(short, long, multiple_values = true, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
     pub category: Vec<String>,
     #[clap(short, long)]

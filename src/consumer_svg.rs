@@ -54,7 +54,7 @@ pub fn consume<P: AsRef<Path>>(
                 max = max.max(100.0);
             }
             "mem" => {
-                caption = "Process MEM Usage";
+                caption = "Process Memory Usage";
                 unit = "M";
                 max += 100.0;
             }
@@ -76,7 +76,7 @@ pub fn consume<P: AsRef<Path>>(
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(50)
-            .build_cartesian_2d(0..(opts.times - 1), 0f32..max)
+            .build_cartesian_2d(0..(opts.count - 1), 0f32..max)
             .unwrap();
 
         chart
@@ -139,7 +139,7 @@ pub fn consume<P: AsRef<Path>>(
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
-                    .build_cartesian_2d(0..(opts.times - 1), 0f32..cpu_frequency_max)
+                    .build_cartesian_2d(0..(opts.count - 1), 0f32..cpu_frequency_max)
                     .unwrap();
 
                 chart
@@ -168,7 +168,7 @@ pub fn consume<P: AsRef<Path>>(
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
-                    .build_cartesian_2d(0..(opts.times - 1), 0.0f32..100.0f32)
+                    .build_cartesian_2d(0..(opts.count - 1), 0.0f32..100.0f32)
                     .unwrap();
 
                 chart

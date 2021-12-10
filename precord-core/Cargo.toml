@@ -1,9 +1,9 @@
 [package]
 name = "precord-core"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
-description = "Library to get process or system performance data"
+description = "Library for retrieving process or system performance data"
 homepage = "https://github.com/xiaopengli89/precord"
 repository = "https://github.com/xiaopengli89/precord"
 keywords = ["performance"]

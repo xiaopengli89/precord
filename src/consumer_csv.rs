@@ -21,7 +21,7 @@ pub fn consume<P: AsRef<Path>>(
         // Title
         wtr.write_field(match c.as_str() {
             "cpu" => "Process CPU Usage",
-            "mem" => "Process MEM Usage",
+            "mem" => "Process Memory Usage",
             "gpu" => "Process GPU Usage",
             "fps" => "Process FPS",
             _ => unimplemented!(),

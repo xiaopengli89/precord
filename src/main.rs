@@ -47,7 +47,7 @@ fn main() {
 
         let mut last_record_time = Instant::now();
 
-        for i in 0..opts.times {
+        for i in 0..opts.count {
             let now = Instant::now();
             let since = now.saturating_duration_since(last_record_time);
             let delay = Duration::from_secs(opts.interval).saturating_sub(since);
@@ -157,7 +157,7 @@ fn main() {
                 }
             }
 
-            println!("================ {}/{}", i, opts.times);
+            println!("================ {}/{}", i, opts.count);
 
             let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
