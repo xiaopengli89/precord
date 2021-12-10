@@ -1,4 +1,5 @@
-use crate::{CpuInfo, GpuInfo, Pid, ProcessInfo};
+use crate::types::ProcessInfo;
+use crate::{CpuInfo, GpuInfo, Pid};
 use serde::Serialize;
 use std::fs::File;
 use std::path::Path;

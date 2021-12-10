@@ -1,4 +1,5 @@
-use crate::{CpuInfo, GpuInfo, Opts, ProcessInfo};
+use crate::types::ProcessInfo;
+use crate::{CpuInfo, GpuInfo, Opts};
 use plotters::prelude::*;
 use std::path::Path;
 

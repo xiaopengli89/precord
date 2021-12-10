@@ -1,4 +1,5 @@
-use crate::{CpuInfo, GpuInfo, ProcessInfo};
+use crate::types::ProcessInfo;
+use crate::{CpuInfo, GpuInfo};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(

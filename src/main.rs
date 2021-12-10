@@ -1,14 +1,14 @@
-use crate::types::GpuInfo;
+use crate::opt::Opts;
+use crate::types::{CpuInfo, GpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
-use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
 mod consumer_csv;
 mod consumer_json;
 mod consumer_svg;
+mod opt;
 mod types;
 mod utils;
 
@@ -201,164 +201,5 @@ fn main() {
                 );
             }
         }
-    }
-}
-
-pub struct ProcessInfo {
-    pid: Pid,
-    name: String,
-    command: String,
-    value_percents: Vec<Vec<f32>>,
-    valid: bool,
-}
-
-impl ProcessInfo {
-    fn new(system: &System, categories: &[String], pid: Pid) -> Self {
-        let name = system
-            .process_name(pid)
-            .expect(&format!("No such process({})", pid))
-            .to_string();
-        let command = system
-            .process_command(pid)
-            .expect(&format!("No such process({})", pid))
-            .join(" ");
-
-        Self {
-            pid,
-            name,
-            command,
-            value_percents: vec![vec![]; categories.len()],
-            valid: true,
-        }
-    }
-
-    fn avg_percent(&self, idx: usize) -> f32 {
-        if self.value_percents[idx].is_empty() {
-            0.0
-        } else {
-            self.value_percents[idx].iter().sum::<f32>() / (self.value_percents[idx].len() as f32)
-        }
-    }
-}
-
-pub struct CpuInfo {
-    freq: Vec<f32>,
-}
-
-impl CpuInfo {
-    fn avg(&self) -> f32 {
-        if self.freq.is_empty() {
-            0.0
-        } else {
-            self.freq.iter().sum::<f32>() / (self.freq.len() as f32)
-        }
-    }
-}
-
-#[derive(Parser, Debug, Clone)]
-#[clap(version = "0.3.3", author = "Xiaopeng Li <x.friday@outlook.com>")]
-pub struct Opts {
-    #[clap(short, long, multiple_values = true)]
-    process: Vec<Pid>,
-    #[clap(long, multiple_values = true)]
-    name: Vec<String>,
-    #[clap(short, long, multiple_values = true, parse(from_os_str))]
-    output: Vec<PathBuf>,
-    #[clap(short, long, default_value_t = 1)]
-    interval: u64,
-    #[clap(short, long, default_value_t = 30)]
-    times: usize,
-    #[clap(short, long, multiple_values = true, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
-    category: Vec<String>,
-    #[clap(short, long)]
-    recurse_children: bool,
-}
-
-impl Opts {
-    fn find_processes(&self, system: &System) -> Vec<ProcessInfo> {
-        let mut processes: Vec<ProcessInfo> = vec![];
-
-        if self.name.is_empty() {
-            for &pid in self.process.iter() {
-                if processes.iter().position(|p| p.pid == pid).is_some() {
-                    continue;
-                }
-
-                processes.push(ProcessInfo::new(system, self.category.as_slice(), pid));
-            }
-        } else {
-            if let Some(sysinfo_system) = system.sysinfo_system() {
-                for (&pid, p) in sysinfo_system.processes() {
-                    match p.status() {
-                        ProcessStatus::Zombie => continue,
-                        _ => {}
-                    }
-
-                    let process = ProcessInfo::new(system, self.category.as_slice(), pid);
-
-                    if self.process.contains(&pid) {
-                        processes.push(process);
-                    } else {
-                        for n in self.name.iter() {
-                            if process.name.contains(n) {
-                                processes.push(process);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if self.recurse_children {
-            processes.extend(self.recurse_children(system, processes.as_slice()));
-        }
-
-        processes
-    }
-
-    fn recurse_children(&self, system: &System, processes: &[ProcessInfo]) -> Vec<ProcessInfo> {
-        let recurse_parent = |mut parent: Pid| {
-            if processes.iter().position(|p| p.pid == parent).is_some() {
-                return true;
-            }
-
-            if let Some(sysinfo_system) = system.sysinfo_system() {
-                while let Some(parent_process) = sysinfo_system.process(parent) {
-                    if let Some(parent2) = parent_process.parent() {
-                        if processes.iter().position(|p| p.pid == parent2).is_some() {
-                            return true;
-                        }
-                        parent = parent2;
-                    } else {
-                        return false;
-                    }
-                }
-            }
-            false
-        };
-
-        let mut children = vec![];
-
-        if let Some(sysinfo_system) = system.sysinfo_system() {
-            for (&pid, child) in sysinfo_system.processes() {
-                match child.status() {
-                    ProcessStatus::Zombie => continue,
-                    _ => {}
-                }
-
-                if processes.iter().position(|p| p.pid == pid).is_some() {
-                    continue;
-                }
-
-                if let Some(parent) = child.parent() {
-                    if recurse_parent(parent) {
-                        children.push(ProcessInfo::new(system, self.category.as_slice(), pid));
-                    }
-                }
-            }
-        }
-
-        children
     }
 }
