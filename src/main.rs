@@ -256,7 +256,7 @@ impl CpuInfo {
 }
 
 #[derive(Parser, Debug, Clone)]
-#[clap(version = "0.3.2", author = "Xiaopeng Li <x.friday@outlook.com>")]
+#[clap(version = "0.3.3", author = "Xiaopeng Li <x.friday@outlook.com>")]
 pub struct Opts {
     #[clap(short, long, multiple_values = true)]
     process: Vec<Pid>,
