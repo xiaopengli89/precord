@@ -330,7 +330,7 @@ impl EtwTrace {
     }
 
     pub fn fps(&self, pid: Pid) -> f32 {
-        self.handler.write().unwrap().fps(pid, Instant::now())
+        self.handler.write().unwrap().fps(pid as _, Instant::now())
     }
 }
 
