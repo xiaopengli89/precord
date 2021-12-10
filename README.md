@@ -6,7 +6,7 @@
 
 A command line tool to record process and system performance data.
 
-<img src="asset/Chrome.svg" class="galleryItem" width=640px></img>
+<img src="asset/Chrome.svg" style="max-width: 640px;"></img>
 
 ## Installation
 
