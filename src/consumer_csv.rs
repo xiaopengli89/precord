@@ -38,8 +38,7 @@ pub fn consume<P: AsRef<Path>>(
             wtr.write_field(t.to_rfc3339()).unwrap();
             // Process data
             for p in processes {
-                wtr.write_field(format!("{:.2}", p.value_percents[ci][i]))
-                    .unwrap();
+                wtr.write_field(format!("{:.2}", p.values[ci][i])).unwrap();
             }
             wtr.write_record(None::<&[u8]>).unwrap();
         }
@@ -71,7 +70,7 @@ pub fn consume<P: AsRef<Path>>(
             }
             "sys_gpu" => {
                 // Title
-                wtr.write_field("System GPU Utilization").unwrap();
+                wtr.write_field("System GPU Usage").unwrap();
                 for _ in 0..gpu_info.len() {
                     wtr.write_field(format!("GPU")).unwrap();
                 }
@@ -83,7 +82,7 @@ pub fn consume<P: AsRef<Path>>(
                     wtr.write_field(t.to_string()).unwrap();
                     // Process data
                     for c in gpu_info {
-                        wtr.write_field(format!("{:.2}", c.utilization[i])).unwrap();
+                        wtr.write_field(format!("{:.2}", c.usage[i])).unwrap();
                     }
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }

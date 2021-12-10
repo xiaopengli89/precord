@@ -36,7 +36,7 @@ pub fn consume<P: AsRef<Path>>(
                     .enumerate()
                     .map(|(i, t)| Record {
                         timestamp: t.to_rfc3339(),
-                        value: p.value_percents[ci][i],
+                        value: p.values[ci][i],
                     })
                     .collect(),
             });
@@ -68,7 +68,7 @@ pub fn consume<P: AsRef<Path>>(
                             .enumerate()
                             .map(|(i, t)| Record {
                                 timestamp: t.to_rfc3339(),
-                                value: info.utilization[i],
+                                value: info.usage[i],
                             })
                             .collect(),
                     });

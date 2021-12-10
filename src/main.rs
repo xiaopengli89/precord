@@ -67,10 +67,10 @@ fn main() {
                 for (idx, c) in opts.category.iter().enumerate() {
                     match c.as_str() {
                         "cpu" => {
-                            if let Some(cpu_percent) = system.process_cpu_utilization(process.pid) {
-                                process.value_percents[idx].push(cpu_percent);
+                            if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
+                                process.values[idx].push(cpu_usage);
 
-                                message.push_str(&format!(" / CPU {:.2}%", cpu_percent));
+                                message.push_str(&format!(" / CPU {:.2}%", cpu_usage));
                             } else {
                                 process.valid = false;
                                 continue 'p;
@@ -79,7 +79,7 @@ fn main() {
                         "mem" => {
                             if let Some(mem_usage) = system.process_mem(process.pid) {
                                 let mem_usage = mem_usage / 1024.0;
-                                process.value_percents[idx].push(mem_usage);
+                                process.values[idx].push(mem_usage);
 
                                 message.push_str(&format!(" / MEM {:.2}M", mem_usage));
                             } else {
@@ -88,10 +88,10 @@ fn main() {
                             }
                         }
                         "gpu" => {
-                            if let Some(gpu_percent) = system.process_gpu_percent(process.pid) {
-                                process.value_percents[idx].push(gpu_percent);
+                            if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
+                                process.values[idx].push(gpu_usage);
 
-                                message.push_str(&format!(" / GPU {:.2}%", gpu_percent));
+                                message.push_str(&format!(" / GPU {:.2}%", gpu_usage));
                             } else {
                                 process.valid = false;
                                 continue 'p;
@@ -99,7 +99,7 @@ fn main() {
                         }
                         "fps" => {
                             let fps = system.process_fps(process.pid);
-                            process.value_percents[idx].push(fps);
+                            process.values[idx].push(fps);
 
                             message.push_str(&format!(" / FPS {}", fps));
                         }
@@ -141,16 +141,16 @@ fn main() {
                         }
                     }
                     "sys_gpu" => {
-                        let sys_gpu_utilization = system.system_gpu_percent().unwrap();
+                        let sys_gpu_usage = system.system_gpu_usage().unwrap();
 
-                        println!("System GPU Utilization: {}%", sys_gpu_utilization);
+                        println!("System GPU Usage: {}%", sys_gpu_usage);
 
                         if gpu_info.is_empty() {
                             gpu_info.push(GpuInfo {
-                                utilization: vec![sys_gpu_utilization],
+                                usage: vec![sys_gpu_usage],
                             });
                         } else {
-                            gpu_info[0].utilization.push(sys_gpu_utilization);
+                            gpu_info[0].usage.push(sys_gpu_usage);
                         }
                     }
                     _ => unreachable!(),

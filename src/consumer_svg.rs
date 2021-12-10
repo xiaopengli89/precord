@@ -30,12 +30,12 @@ pub fn consume<P: AsRef<Path>>(
         let mut total = vec![];
 
         for process in processes.iter() {
-            if total.len() < process.value_percents[idx_c].len() {
+            if total.len() < process.values[idx_c].len() {
                 total.extend_from_slice(
-                    vec![0.0; process.value_percents[idx_c].len() - total.len()].as_slice(),
+                    vec![0.0; process.values[idx_c].len() - total.len()].as_slice(),
                 );
             }
-            for (a, b) in total.iter_mut().zip(process.value_percents[idx_c].iter()) {
+            for (a, b) in total.iter_mut().zip(process.values[idx_c].iter()) {
                 *a += *b;
             }
         }
@@ -89,10 +89,7 @@ pub fn consume<P: AsRef<Path>>(
             let color = Palette99::pick(idx).stroke_width(2).filled();
             chart
                 .draw_series(LineSeries::new(
-                    process.value_percents[idx_c]
-                        .clone()
-                        .into_iter()
-                        .enumerate(),
+                    process.values[idx_c].clone().into_iter().enumerate(),
                     color.clone(),
                 ))
                 .unwrap()
@@ -100,7 +97,7 @@ pub fn consume<P: AsRef<Path>>(
                     "{}({}) / AVG({:.2}{})",
                     &process.name,
                     process.pid,
-                    process.avg_percent(idx_c),
+                    process.avg_value(idx_c),
                     unit
                 ))
                 .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
@@ -167,7 +164,7 @@ pub fn consume<P: AsRef<Path>>(
             }
             "sys_gpu" => {
                 chart = ChartBuilder::on(&area)
-                    .caption("System GPU Utilization", ("sans-serif", 30).into_font())
+                    .caption("System GPU Usage", ("sans-serif", 30).into_font())
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
@@ -184,11 +181,11 @@ pub fn consume<P: AsRef<Path>>(
                     let color = Palette99::pick(idx).stroke_width(2).filled();
                     chart
                         .draw_series(LineSeries::new(
-                            info.utilization.clone().into_iter().enumerate(),
+                            info.usage.clone().into_iter().enumerate(),
                             color.clone(),
                         ))
                         .unwrap()
-                        .label(format!("GPU / AVG({:.2}%)", info.utilization_avg()))
+                        .label(format!("GPU / AVG({:.2}%)", info.usage_avg()))
                         .legend(move |(x, y)| {
                             PathElement::new(vec![(x, y), (x + 20, y)], color.clone())
                         });

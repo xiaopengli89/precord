@@ -45,9 +45,9 @@ impl Powershell {
         }
     }
 
-    pub fn poll_gpu_percent(&mut self, pid: Option<Pid>) -> Option<f32> {
+    pub fn poll_gpu_usage(&mut self, pid: Option<Pid>) -> Option<f32> {
         for _ in 0..2 {
-            let usage = self.poll_gpu_percent_inner(pid);
+            let usage = self.poll_gpu_usage_inner(pid);
             if usage.is_some() {
                 return usage;
             } else {
@@ -69,13 +69,13 @@ impl Powershell {
         None
     }
 
-    fn poll_gpu_percent_inner(&mut self, pid: Option<Pid>) -> Option<f32> {
+    fn poll_gpu_usage_inner(&mut self, pid: Option<Pid>) -> Option<f32> {
         let pid = if let Some(pid) = pid {
             format!("pid_{}", pid)
         } else {
             "".to_string()
         };
-        let mut gpu_percent = 0.0;
+        let mut gpu_usage = 0.0;
         let mut r = String::new();
 
         let stdin = self.process.stdin.as_mut().unwrap();
@@ -96,11 +96,11 @@ impl Powershell {
                     "EOF" => break,
                     _ => {}
                 }
-                gpu_percent += r.trim().parse::<f32>().ok()?;
+                gpu_usage += r.trim().parse::<f32>().ok()?;
             }
         }
 
-        Some(gpu_percent)
+        Some(gpu_usage)
     }
 }
 
@@ -182,7 +182,7 @@ impl Pdh {
         }
     }
 
-    pub fn poll_gpu_percent(&mut self, pid: Option<Pid>) -> Option<f32> {
+    pub fn poll_gpu_usage(&mut self, pid: Option<Pid>) -> Option<f32> {
         let counter = if let Some(pid) = pid {
             if let Some(counter) = self.process_gpu_counters.iter().find(|p| p.pid == pid) {
                 counter.counter

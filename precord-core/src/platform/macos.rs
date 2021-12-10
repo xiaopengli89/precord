@@ -55,7 +55,7 @@ impl PowerMetrics {
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
-    pub fn gpu_percent(&self, pid: Option<Pid>) -> Option<f32> {
+    pub fn gpu_usage(&self, pid: Option<Pid>) -> Option<f32> {
         let pid = if let Some(pid) = pid {
             pid
         } else {
@@ -219,7 +219,7 @@ impl IOKitRegistry {
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
-    pub fn sys_gpu_utilization(&self) -> f32 {
+    pub fn sys_gpu_usage(&self) -> f32 {
         let mut max: f32 = 0.0;
         for r in &self.last_result {
             max = max.max(r.performance_statistics.device_utilization);

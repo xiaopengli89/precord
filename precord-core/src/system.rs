@@ -94,7 +94,7 @@ impl System {
         self.sysinfo_system.as_ref()
     }
 
-    pub fn process_cpu_utilization(&self, pid: Pid) -> Option<f32> {
+    pub fn process_cpu_usage(&self, pid: Pid) -> Option<f32> {
         Some(self.sysinfo_system.as_ref()?.process(pid)?.cpu_usage())
     }
 
@@ -127,7 +127,7 @@ impl System {
     }
 
     #[allow(unused_variables)]
-    pub fn process_gpu_percent(&mut self, pid: Pid) -> Option<f32> {
+    pub fn process_gpu_usage(&mut self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
             Some(0.0)
@@ -135,7 +135,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_percent(Some(pid))
+            self.pdh.as_mut().unwrap().poll_gpu_usage(Some(pid))
         }
     }
 
@@ -152,15 +152,15 @@ impl System {
         }
     }
 
-    pub fn system_gpu_percent(&mut self) -> Option<f32> {
+    pub fn system_gpu_usage(&mut self) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            Some(self.ioreg.as_ref().unwrap().sys_gpu_utilization())
+            Some(self.ioreg.as_ref().unwrap().sys_gpu_usage())
         }
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_percent(None)
+            self.pdh.as_mut().unwrap().poll_gpu_usage(None)
         }
     }
 }

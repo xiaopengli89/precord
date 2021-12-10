@@ -5,7 +5,7 @@ pub struct ProcessInfo {
     pub pid: Pid,
     pub name: String,
     pub command: String,
-    pub value_percents: Vec<Vec<f32>>,
+    pub values: Vec<Vec<f32>>,
     pub valid: bool,
 }
 
@@ -24,16 +24,16 @@ impl ProcessInfo {
             pid,
             name,
             command,
-            value_percents: vec![vec![]; categories.len()],
+            values: vec![vec![]; categories.len()],
             valid: true,
         }
     }
 
-    pub fn avg_percent(&self, idx: usize) -> f32 {
-        if self.value_percents[idx].is_empty() {
+    pub fn avg_value(&self, idx: usize) -> f32 {
+        if self.values[idx].is_empty() {
             0.0
         } else {
-            self.value_percents[idx].iter().sum::<f32>() / (self.value_percents[idx].len() as f32)
+            self.values[idx].iter().sum::<f32>() / (self.values[idx].len() as f32)
         }
     }
 }
@@ -53,15 +53,15 @@ impl CpuInfo {
 }
 
 pub struct GpuInfo {
-    pub utilization: Vec<f32>,
+    pub usage: Vec<f32>,
 }
 
 impl GpuInfo {
-    pub fn utilization_avg(&self) -> f32 {
-        if self.utilization.is_empty() {
+    pub fn usage_avg(&self) -> f32 {
+        if self.usage.is_empty() {
             0.0
         } else {
-            self.utilization.iter().sum::<f32>() / (self.utilization.len() as f32)
+            self.usage.iter().sum::<f32>() / (self.usage.len() as f32)
         }
     }
 }
