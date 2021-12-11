@@ -11,8 +11,12 @@ env:
 
 jobs:
   build:
-
-    runs-on: [macos-latest, windows-latest]
+    
+    name: Check ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v2
