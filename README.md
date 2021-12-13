@@ -29,8 +29,8 @@ precord -p 1203 -o result.svg
   - `mem`- Memory usage of process
   - `gpu`- GPU usage of process
   - `fps`- Frame rate of process
-  - `sys_cpu_freq`- CPU frequency of system
-  - `sys_gpu`- GPU usage of system
+  - `sys-cpu-freq`- CPU frequency of system
+  - `sys-gpu`- GPU usage of system
 - `-p / --process` - ID of processes
 - `--name` - Name of processes
 - `-o / --output` - Output of recording result, possible extensions:
@@ -80,8 +80,8 @@ fn main() {
 | mem          | :white_check_mark: | :white_check_mark: |
 | gpu          |                    | :white_check_mark: |
 | fps          |                    | :white_check_mark: |
-| sys_cpu_freq | :white_check_mark: | :white_check_mark: |
-| sys_gpu      | :white_check_mark: | :white_check_mark: |
+| sys-cpu-freq | :white_check_mark: | :white_check_mark: |
+| sys-gpu      | :white_check_mark: | :white_check_mark: |
 
 ## Privileges
 
@@ -91,8 +91,8 @@ fn main() {
 | mem                                                |               |               |
 | gpu                                                |               |               |
 | fps                                                |               | Administrator |
-| sys_cpu_freq                                       | Administrator |               |
-| sys_gpu                                            |               |               |
+| sys-cpu-freq                                       | Administrator |               |
+| sys-gpu                                            |               |               |
 | system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator | Administrator |
 
 
