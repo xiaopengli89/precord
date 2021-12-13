@@ -1,4 +1,4 @@
-use crate::opt::Category;
+use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
 use crate::{CpuInfo, GpuInfo, Opts};
 use plotters::prelude::*;
@@ -7,7 +7,8 @@ use std::path::Path;
 pub fn consume<P: AsRef<Path>>(
     output: &P,
     opts: &Opts,
-    sys_category: &[Category],
+    proc_category: &[ProcessCategory],
+    sys_category: &[SystemCategory],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
     cpu_frequency_max: f32,
@@ -17,16 +18,16 @@ pub fn consume<P: AsRef<Path>>(
         output,
         (
             1280,
-            720 * (opts.category.len() + sys_category.len()) as u32,
+            720 * (proc_category.len() + sys_category.len()) as u32,
         ),
     )
     .into_drawing_area();
     root.fill(&WHITE).unwrap();
 
-    let areas = root.split_evenly((opts.category.len() + sys_category.len(), 1));
+    let areas = root.split_evenly((proc_category.len() + sys_category.len(), 1));
 
     // Draw process
-    for idx_c in 0..opts.category.len() {
+    for idx_c in 0..proc_category.len() {
         let area = &areas[idx_c];
         let mut total = vec![];
 
@@ -48,28 +49,27 @@ pub fn consume<P: AsRef<Path>>(
         let caption;
         let unit;
 
-        match opts.category[idx_c] {
-            Category::CPU => {
+        match proc_category[idx_c] {
+            ProcessCategory::CPU => {
                 caption = "Process CPU Usage";
                 unit = "%";
                 max = max.max(100.0);
             }
-            Category::Mem => {
+            ProcessCategory::Mem => {
                 caption = "Process Memory Usage";
                 unit = "M";
                 max += 100.0;
             }
-            Category::GPU => {
+            ProcessCategory::GPU => {
                 caption = "Process GPU Usage";
                 unit = "%";
                 max = max.max(100.0);
             }
-            Category::FPS => {
+            ProcessCategory::FPS => {
                 caption = "Process FPS";
                 unit = "";
                 max = max.max(60.0);
             }
-            _ => unimplemented!(),
         };
 
         let mut chart = ChartBuilder::on(&area)
@@ -127,14 +127,14 @@ pub fn consume<P: AsRef<Path>>(
     }
 
     // Draw system
-    let mut area_i = opts.category.len();
+    let mut area_i = proc_category.len();
 
     for &c in sys_category {
         let area = &areas[area_i];
         let mut chart;
 
         match c {
-            Category::SysCPUFreq => {
+            SystemCategory::CPUFreq => {
                 chart = ChartBuilder::on(&area)
                     .caption("CPU Frequency", ("sans-serif", 30).into_font())
                     .margin(10)
@@ -163,7 +163,7 @@ pub fn consume<P: AsRef<Path>>(
                         });
                 }
             }
-            Category::SysGPU => {
+            SystemCategory::GPU => {
                 chart = ChartBuilder::on(&area)
                     .caption("System GPU Usage", ("sans-serif", 30).into_font())
                     .margin(10)
@@ -192,7 +192,6 @@ pub fn consume<P: AsRef<Path>>(
                         });
                 }
             }
-            _ => unreachable!(),
         }
 
         chart

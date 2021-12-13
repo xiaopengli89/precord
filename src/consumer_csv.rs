@@ -1,11 +1,12 @@
+use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{Category, CpuInfo, GpuInfo};
+use crate::{CpuInfo, GpuInfo};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
     path: P,
-    categories: &[Category],
-    sys_categories: &[Category],
+    proc_categories: &[ProcessCategory],
+    sys_categories: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
@@ -17,14 +18,13 @@ pub fn consume<P: AsRef<Path>>(
         .unwrap();
 
     // Process
-    for (ci, &c) in categories.into_iter().enumerate() {
+    for (ci, &c) in proc_categories.into_iter().enumerate() {
         // Title
         wtr.write_field(match c {
-            Category::CPU => "Process CPU Usage",
-            Category::Mem => "Process Memory Usage",
-            Category::GPU => "Process GPU Usage",
-            Category::FPS => "Process FPS",
-            _ => unimplemented!(),
+            ProcessCategory::CPU => "Process CPU Usage",
+            ProcessCategory::Mem => "Process Memory Usage",
+            ProcessCategory::GPU => "Process GPU Usage",
+            ProcessCategory::FPS => "Process FPS",
         })
         .unwrap();
         for p in processes {
@@ -49,7 +49,7 @@ pub fn consume<P: AsRef<Path>>(
     // System
     for &c in sys_categories {
         match c {
-            Category::SysCPUFreq => {
+            SystemCategory::CPUFreq => {
                 // Title
                 wtr.write_field("CPU Frequency").unwrap();
                 for i in 0..cpu_info.len() {
@@ -68,7 +68,7 @@ pub fn consume<P: AsRef<Path>>(
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }
             }
-            Category::SysGPU => {
+            SystemCategory::GPU => {
                 // Title
                 wtr.write_field("System GPU Usage").unwrap();
                 for _ in 0..gpu_info.len() {
@@ -87,7 +87,6 @@ pub fn consume<P: AsRef<Path>>(
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }
             }
-            _ => unimplemented!(),
         }
         wtr.write_record([" "]).unwrap();
     }

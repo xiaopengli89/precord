@@ -1,4 +1,4 @@
-use crate::opt::{Category, Opts};
+use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
@@ -13,28 +13,49 @@ mod types;
 mod utils;
 
 fn main() {
-    let mut opts: Opts = Opts::parse();
-    let sys_category = utils::drain_filter_vec(&mut opts.category, |c| c.is_sys());
+    let opts: Opts = Opts::parse();
+    let proc_category: Vec<_> = opts
+        .category
+        .iter()
+        .filter_map(|&c| match c {
+            Category::CPU => Some(ProcessCategory::CPU),
+            Category::Mem => Some(ProcessCategory::Mem),
+            Category::GPU => Some(ProcessCategory::GPU),
+            Category::FPS => Some(ProcessCategory::FPS),
+            _ => None,
+        })
+        .collect();
+    let sys_category: Vec<_> = opts
+        .category
+        .iter()
+        .flat_map(|&c| match c {
+            Category::SysCPUFreq => Some(SystemCategory::CPUFreq),
+            Category::SysGPU => Some(SystemCategory::GPU),
+            _ => None,
+        })
+        .collect();
 
     let mut timestamps = vec![];
 
     let (processes, cpu_info, cpu_frequency_max, gpu_info) = {
         let mut features = Features::PROCESS;
 
-        if opts.category.contains(&Category::GPU) || sys_category.contains(&Category::SysGPU) {
+        if proc_category.contains(&ProcessCategory::GPU)
+            || sys_category.contains(&SystemCategory::GPU)
+        {
             features.insert(Features::GPU);
         }
-        if opts.category.contains(&Category::FPS) {
+        if proc_category.contains(&ProcessCategory::FPS) {
             features.insert(Features::FPS);
         }
-        if sys_category.contains(&Category::SysCPUFreq) {
+        if sys_category.contains(&SystemCategory::CPUFreq) {
             features.insert(Features::CPU_FREQUENCY);
         }
 
         let mut system = System::new(features, []);
         system.update();
 
-        let mut processes = opts.find_processes(&system);
+        let mut processes = opts.find_processes(&system, proc_category.len());
 
         let mut system = System::new(features, processes.iter().map(|p| p.pid));
         system.update();
@@ -62,9 +83,9 @@ fn main() {
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.pid);
 
-                for (idx, &c) in opts.category.iter().enumerate() {
+                for (idx, &c) in proc_category.iter().enumerate() {
                     match c {
-                        Category::CPU => {
+                        ProcessCategory::CPU => {
                             if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
                                 process.values[idx].push(cpu_usage);
 
@@ -74,7 +95,7 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        Category::Mem => {
+                        ProcessCategory::Mem => {
                             if let Some(mem_usage) = system.process_mem(process.pid) {
                                 let mem_usage = mem_usage / 1024.0;
                                 process.values[idx].push(mem_usage);
@@ -85,7 +106,7 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        Category::GPU => {
+                        ProcessCategory::GPU => {
                             if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
                                 process.values[idx].push(gpu_usage);
 
@@ -95,13 +116,12 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        Category::FPS => {
+                        ProcessCategory::FPS => {
                             let fps = system.process_fps(process.pid);
                             process.values[idx].push(fps);
 
                             message.push_str(&format!(" / FPS {}", fps));
                         }
-                        _ => unimplemented!(),
                     }
                 }
 
@@ -111,7 +131,7 @@ fn main() {
             // System
             for &c in sys_category.iter() {
                 match c {
-                    Category::SysCPUFreq => {
+                    SystemCategory::CPUFreq => {
                         let cpu_frequency = system.cpu_frequency();
 
                         println!(
@@ -138,7 +158,7 @@ fn main() {
                             }
                         }
                     }
-                    Category::SysGPU => {
+                    SystemCategory::GPU => {
                         let sys_gpu_usage = system.system_gpu_usage().unwrap();
 
                         println!("System GPU Usage: {}%", sys_gpu_usage);
@@ -151,7 +171,6 @@ fn main() {
                             gpu_info[0].usage.push(sys_gpu_usage);
                         }
                     }
-                    _ => unreachable!(),
                 }
             }
 
@@ -170,7 +189,7 @@ fn main() {
             if ext == "csv" {
                 consumer_csv::consume(
                     output,
-                    &opts.category,
+                    &proc_category,
                     &sys_category,
                     &timestamps,
                     &processes,
@@ -181,6 +200,7 @@ fn main() {
                 consumer_svg::consume(
                     output,
                     &opts,
+                    &proc_category,
                     &sys_category,
                     &processes,
                     &cpu_info,
@@ -190,7 +210,7 @@ fn main() {
             } else if ext == "json" {
                 consumer_json::consume(
                     output,
-                    &opts.category,
+                    &proc_category,
                     &sys_category,
                     &timestamps,
                     &processes,

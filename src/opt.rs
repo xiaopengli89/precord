@@ -26,7 +26,7 @@ pub struct Opts {
 }
 
 impl Opts {
-    pub fn find_processes(&self, system: &System) -> Vec<ProcessInfo> {
+    pub fn find_processes(&self, system: &System, proc_category_len: usize) -> Vec<ProcessInfo> {
         let mut processes: Vec<ProcessInfo> = vec![];
 
         if self.name.is_empty() {
@@ -35,7 +35,7 @@ impl Opts {
                     continue;
                 }
 
-                processes.push(ProcessInfo::new(system, self.category.as_slice(), pid));
+                processes.push(ProcessInfo::new(system, proc_category_len, pid));
             }
         } else {
             if let Some(sysinfo_system) = system.sysinfo_system() {
@@ -45,7 +45,7 @@ impl Opts {
                         _ => {}
                     }
 
-                    let process = ProcessInfo::new(system, self.category.as_slice(), pid);
+                    let process = ProcessInfo::new(system, proc_category_len, pid);
 
                     if self.process.contains(&pid) {
                         processes.push(process);
@@ -62,13 +62,22 @@ impl Opts {
         }
 
         if self.recurse_children {
-            processes.extend(self.recurse_children(system, processes.as_slice()));
+            processes.extend(self.recurse_children(
+                system,
+                processes.as_slice(),
+                proc_category_len,
+            ));
         }
 
         processes
     }
 
-    fn recurse_children(&self, system: &System, processes: &[ProcessInfo]) -> Vec<ProcessInfo> {
+    fn recurse_children(
+        &self,
+        system: &System,
+        processes: &[ProcessInfo],
+        proc_category_len: usize,
+    ) -> Vec<ProcessInfo> {
         let recurse_parent = |mut parent: Pid| {
             if processes.iter().position(|p| p.pid == parent).is_some() {
                 return true;
@@ -104,7 +113,7 @@ impl Opts {
 
                 if let Some(parent) = child.parent() {
                     if recurse_parent(parent) {
-                        children.push(ProcessInfo::new(system, self.category.as_slice(), pid));
+                        children.push(ProcessInfo::new(system, proc_category_len, pid));
                     }
                 }
             }
@@ -114,7 +123,7 @@ impl Opts {
     }
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone, PartialEq)]
+#[derive(ArgEnum, Debug, Copy, Clone)]
 pub enum Category {
     CPU,
     Mem,
@@ -124,11 +133,16 @@ pub enum Category {
     SysGPU,
 }
 
-impl Category {
-    pub fn is_sys(&self) -> bool {
-        match self {
-            Self::SysCPUFreq | Self::SysGPU => true,
-            _ => false,
-        }
-    }
+#[derive(Copy, Clone, PartialEq)]
+pub enum ProcessCategory {
+    CPU,
+    Mem,
+    GPU,
+    FPS,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum SystemCategory {
+    CPUFreq,
+    GPU,
 }

@@ -1,13 +1,14 @@
+use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{Category, CpuInfo, GpuInfo, Pid};
+use crate::{CpuInfo, GpuInfo, Pid};
 use serde::Serialize;
 use std::fs::File;
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
     path: P,
-    categories: &[Category],
-    sys_categories: &[Category],
+    proc_categories: &[ProcessCategory],
+    sys_categories: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
@@ -18,13 +19,12 @@ pub fn consume<P: AsRef<Path>>(
     let mut json_output = JsonOutput::default();
 
     // Process
-    for (ci, &c) in categories.into_iter().enumerate() {
+    for (ci, &c) in proc_categories.into_iter().enumerate() {
         let target = match c {
-            Category::CPU => &mut json_output.cpu,
-            Category::Mem => &mut json_output.mem,
-            Category::GPU => &mut json_output.gpu,
-            Category::FPS => &mut json_output.fps,
-            _ => unimplemented!(),
+            ProcessCategory::CPU => &mut json_output.cpu,
+            ProcessCategory::Mem => &mut json_output.mem,
+            ProcessCategory::GPU => &mut json_output.gpu,
+            ProcessCategory::FPS => &mut json_output.fps,
         };
         for p in processes {
             target.push(ProcessRecord {
@@ -46,7 +46,7 @@ pub fn consume<P: AsRef<Path>>(
     // System
     for &c in sys_categories {
         match c {
-            Category::SysCPUFreq => {
+            SystemCategory::CPUFreq => {
                 for info in cpu_info {
                     json_output.sys_cpu_freq.push(SystemRecord {
                         records: timestamps
@@ -60,7 +60,7 @@ pub fn consume<P: AsRef<Path>>(
                     });
                 }
             }
-            Category::SysGPU => {
+            SystemCategory::GPU => {
                 for info in gpu_info {
                     json_output.sys_gpu.push(SystemRecord {
                         records: timestamps
@@ -74,7 +74,6 @@ pub fn consume<P: AsRef<Path>>(
                     });
                 }
             }
-            _ => unimplemented!(),
         }
     }
 
