@@ -1,11 +1,11 @@
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo};
+use crate::{Category, CpuInfo, GpuInfo};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
     path: P,
-    categories: &[String],
-    sys_categories: &[String],
+    categories: &[Category],
+    sys_categories: &[Category],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
@@ -17,13 +17,13 @@ pub fn consume<P: AsRef<Path>>(
         .unwrap();
 
     // Process
-    for (ci, c) in categories.into_iter().enumerate() {
+    for (ci, &c) in categories.into_iter().enumerate() {
         // Title
-        wtr.write_field(match c.as_str() {
-            "cpu" => "Process CPU Usage",
-            "mem" => "Process Memory Usage",
-            "gpu" => "Process GPU Usage",
-            "fps" => "Process FPS",
+        wtr.write_field(match c {
+            Category::CPU => "Process CPU Usage",
+            Category::Mem => "Process Memory Usage",
+            Category::GPU => "Process GPU Usage",
+            Category::FPS => "Process FPS",
             _ => unimplemented!(),
         })
         .unwrap();
@@ -47,9 +47,9 @@ pub fn consume<P: AsRef<Path>>(
     }
 
     // System
-    for c in sys_categories {
-        match c.as_str() {
-            "sys_cpu_freq" => {
+    for &c in sys_categories {
+        match c {
+            Category::SysCPUFreq => {
                 // Title
                 wtr.write_field("CPU Frequency").unwrap();
                 for i in 0..cpu_info.len() {
@@ -68,7 +68,7 @@ pub fn consume<P: AsRef<Path>>(
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }
             }
-            "sys_gpu" => {
+            Category::SysGPU => {
                 // Title
                 wtr.write_field("System GPU Usage").unwrap();
                 for _ in 0..gpu_info.len() {

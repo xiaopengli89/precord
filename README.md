@@ -6,7 +6,7 @@
 
 A command line tool to record process and system performance data.
 
-<img src="asset/Chrome.svg" style="max-width: 640px;"></img>
+<img src="asset/Chrome.svg" width="480"></img>
 
 ## Installation
 
@@ -106,10 +106,8 @@ fn main() {
   - [sysinfo]
   - [heim]
   - [rust-psutil]
-
 - Go
   - [gopsutil]
-
 - Python
   - [psutil]
 

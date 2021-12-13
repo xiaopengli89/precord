@@ -1,6 +1,6 @@
 use crate::types::ProcessInfo;
 use crate::Pid;
-use clap::Parser;
+use clap::{ArgEnum, Parser};
 use precord_core::System;
 use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
@@ -19,8 +19,8 @@ pub struct Opts {
     pub interval: u64,
     #[clap(short = 'n', default_value_t = 30)]
     pub count: usize,
-    #[clap(short, long, multiple_values = true, default_value = "cpu", possible_values = &["cpu", "mem", "gpu", "fps", "sys_cpu_freq", "sys_gpu"])]
-    pub category: Vec<String>,
+    #[clap(short, long, multiple_values = true, arg_enum, default_value = "cpu")]
+    pub category: Vec<Category>,
     #[clap(short, long)]
     recurse_children: bool,
 }
@@ -111,5 +111,24 @@ impl Opts {
         }
 
         children
+    }
+}
+
+#[derive(ArgEnum, Debug, Copy, Clone, PartialEq)]
+pub enum Category {
+    CPU,
+    Mem,
+    GPU,
+    FPS,
+    SysCPUFreq,
+    SysGPU,
+}
+
+impl Category {
+    pub fn is_sys(&self) -> bool {
+        match self {
+            Self::SysCPUFreq | Self::SysGPU => true,
+            _ => false,
+        }
     }
 }

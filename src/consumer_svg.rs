@@ -1,3 +1,4 @@
+use crate::opt::Category;
 use crate::types::ProcessInfo;
 use crate::{CpuInfo, GpuInfo, Opts};
 use plotters::prelude::*;
@@ -6,7 +7,7 @@ use std::path::Path;
 pub fn consume<P: AsRef<Path>>(
     output: &P,
     opts: &Opts,
-    sys_category: &[String],
+    sys_category: &[Category],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
     cpu_frequency_max: f32,
@@ -47,23 +48,23 @@ pub fn consume<P: AsRef<Path>>(
         let caption;
         let unit;
 
-        match opts.category[idx_c].as_str() {
-            "cpu" => {
+        match opts.category[idx_c] {
+            Category::CPU => {
                 caption = "Process CPU Usage";
                 unit = "%";
                 max = max.max(100.0);
             }
-            "mem" => {
+            Category::Mem => {
                 caption = "Process Memory Usage";
                 unit = "M";
                 max += 100.0;
             }
-            "gpu" => {
+            Category::GPU => {
                 caption = "Process GPU Usage";
                 unit = "%";
                 max = max.max(100.0);
             }
-            "fps" => {
+            Category::FPS => {
                 caption = "Process FPS";
                 unit = "";
                 max = max.max(60.0);
@@ -128,12 +129,12 @@ pub fn consume<P: AsRef<Path>>(
     // Draw system
     let mut area_i = opts.category.len();
 
-    for c in sys_category {
+    for &c in sys_category {
         let area = &areas[area_i];
         let mut chart;
 
-        match c.as_str() {
-            "sys_cpu_freq" => {
+        match c {
+            Category::SysCPUFreq => {
                 chart = ChartBuilder::on(&area)
                     .caption("CPU Frequency", ("sans-serif", 30).into_font())
                     .margin(10)
@@ -162,7 +163,7 @@ pub fn consume<P: AsRef<Path>>(
                         });
                 }
             }
-            "sys_gpu" => {
+            Category::SysGPU => {
                 chart = ChartBuilder::on(&area)
                     .caption("System GPU Usage", ("sans-serif", 30).into_font())
                     .margin(10)

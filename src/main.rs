@@ -1,4 +1,4 @@
-use crate::opt::Opts;
+use crate::opt::{Category, Opts};
 use crate::types::{CpuInfo, GpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
@@ -14,22 +14,20 @@ mod utils;
 
 fn main() {
     let mut opts: Opts = Opts::parse();
-    let sys_category = utils::drain_filter_vec(&mut opts.category, |c| c.starts_with("sys_"));
+    let sys_category = utils::drain_filter_vec(&mut opts.category, |c| c.is_sys());
 
     let mut timestamps = vec![];
 
     let (processes, cpu_info, cpu_frequency_max, gpu_info) = {
         let mut features = Features::PROCESS;
 
-        if opts.category.contains(&"gpu".to_owned())
-            || sys_category.contains(&"sys_gpu".to_string())
-        {
+        if opts.category.contains(&Category::GPU) || sys_category.contains(&Category::SysGPU) {
             features.insert(Features::GPU);
         }
-        if opts.category.contains(&"fps".to_string()) {
+        if opts.category.contains(&Category::FPS) {
             features.insert(Features::FPS);
         }
-        if sys_category.contains(&"sys_cpu_freq".to_string()) {
+        if sys_category.contains(&Category::SysCPUFreq) {
             features.insert(Features::CPU_FREQUENCY);
         }
 
@@ -64,9 +62,9 @@ fn main() {
             'p: for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.pid);
 
-                for (idx, c) in opts.category.iter().enumerate() {
-                    match c.as_str() {
-                        "cpu" => {
+                for (idx, &c) in opts.category.iter().enumerate() {
+                    match c {
+                        Category::CPU => {
                             if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
                                 process.values[idx].push(cpu_usage);
 
@@ -76,7 +74,7 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        "mem" => {
+                        Category::Mem => {
                             if let Some(mem_usage) = system.process_mem(process.pid) {
                                 let mem_usage = mem_usage / 1024.0;
                                 process.values[idx].push(mem_usage);
@@ -87,7 +85,7 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        "gpu" => {
+                        Category::GPU => {
                             if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
                                 process.values[idx].push(gpu_usage);
 
@@ -97,7 +95,7 @@ fn main() {
                                 continue 'p;
                             }
                         }
-                        "fps" => {
+                        Category::FPS => {
                             let fps = system.process_fps(process.pid);
                             process.values[idx].push(fps);
 
@@ -111,9 +109,9 @@ fn main() {
             }
 
             // System
-            for c in sys_category.iter() {
-                match c.as_str() {
-                    "sys_cpu_freq" => {
+            for &c in sys_category.iter() {
+                match c {
+                    Category::SysCPUFreq => {
                         let cpu_frequency = system.cpu_frequency();
 
                         println!(
@@ -140,7 +138,7 @@ fn main() {
                             }
                         }
                     }
-                    "sys_gpu" => {
+                    Category::SysGPU => {
                         let sys_gpu_usage = system.system_gpu_usage().unwrap();
 
                         println!("System GPU Usage: {}%", sys_gpu_usage);

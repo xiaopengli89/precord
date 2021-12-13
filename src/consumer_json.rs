@@ -1,13 +1,13 @@
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, Pid};
+use crate::{Category, CpuInfo, GpuInfo, Pid};
 use serde::Serialize;
 use std::fs::File;
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
     path: P,
-    categories: &[String],
-    sys_categories: &[String],
+    categories: &[Category],
+    sys_categories: &[Category],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
@@ -18,12 +18,12 @@ pub fn consume<P: AsRef<Path>>(
     let mut json_output = JsonOutput::default();
 
     // Process
-    for (ci, c) in categories.into_iter().enumerate() {
-        let target = match c.as_str() {
-            "cpu" => &mut json_output.cpu,
-            "mem" => &mut json_output.mem,
-            "gpu" => &mut json_output.gpu,
-            "fps" => &mut json_output.fps,
+    for (ci, &c) in categories.into_iter().enumerate() {
+        let target = match c {
+            Category::CPU => &mut json_output.cpu,
+            Category::Mem => &mut json_output.mem,
+            Category::GPU => &mut json_output.gpu,
+            Category::FPS => &mut json_output.fps,
             _ => unimplemented!(),
         };
         for p in processes {
@@ -44,9 +44,9 @@ pub fn consume<P: AsRef<Path>>(
     }
 
     // System
-    for c in sys_categories {
-        match c.as_str() {
-            "sys_cpu_freq" => {
+    for &c in sys_categories {
+        match c {
+            Category::SysCPUFreq => {
                 for info in cpu_info {
                     json_output.sys_cpu_freq.push(SystemRecord {
                         records: timestamps
@@ -60,7 +60,7 @@ pub fn consume<P: AsRef<Path>>(
                     });
                 }
             }
-            "sys_gpu" => {
+            Category::SysGPU => {
                 for info in gpu_info {
                     json_output.sys_gpu.push(SystemRecord {
                         records: timestamps

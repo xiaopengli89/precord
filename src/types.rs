@@ -1,3 +1,4 @@
+use crate::opt::Category;
 use crate::Pid;
 use precord_core::System;
 
@@ -10,7 +11,7 @@ pub struct ProcessInfo {
 }
 
 impl ProcessInfo {
-    pub fn new(system: &System, categories: &[String], pid: Pid) -> Self {
+    pub fn new(system: &System, categories: &[Category], pid: Pid) -> Self {
         let name = system
             .process_name(pid)
             .expect(&format!("No such process({})", pid))
