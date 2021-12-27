@@ -2,8 +2,8 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
-use std::thread;
 use std::time::{Duration, Instant};
+use std::{fs, thread};
 
 mod consumer_csv;
 mod consumer_json;
@@ -185,6 +185,12 @@ fn main() {
     };
 
     for output in opts.output.iter() {
+        if let Some(parent) = output.parent() {
+            if parent.components().count() > 0 && !parent.exists() {
+                fs::create_dir_all(parent).unwrap();
+            }
+        }
+
         if let Some(ext) = output.extension() {
             if ext == "csv" {
                 consumer_csv::consume(
