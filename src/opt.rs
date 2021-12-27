@@ -129,7 +129,9 @@ pub enum Category {
     Mem,
     GPU,
     FPS,
+    #[clap(name = "sys_cpu_freq")]
     SysCPUFreq,
+    #[clap(name = "sys_gpu")]
     SysGPU,
 }
 
