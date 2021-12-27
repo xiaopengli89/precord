@@ -52,7 +52,7 @@ fn main() {
             features.insert(Features::CPU_FREQUENCY);
         }
 
-        let mut system = System::new(features, []);
+        let mut system = System::new(Features::PROCESS, []);
         system.update();
 
         let mut processes = opts.find_processes(&system, proc_category.len());

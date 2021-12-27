@@ -8,7 +8,7 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, TrySendError};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -315,11 +315,16 @@ impl EtwTrace {
             trace = trace.enable(provider);
         }
 
-        let (tx, rx) = mpsc::sync_channel(0);
+        let (tx, rx) = mpsc::sync_channel(1);
         thread::spawn(move || {
-            tx.send(Some(trace.start().unwrap())).unwrap();
+            tx.try_send(Some(trace.start().unwrap())).unwrap();
             // Block here
-            let _ = tx.send(None);
+            loop {
+                match tx.try_send(None) {
+                    Err(TrySendError::Disconnected(_)) => break,
+                    _ => thread::sleep(Duration::from_secs(1)),
+                }
+            }
         });
 
         Self {
