@@ -291,6 +291,12 @@ impl EtwTrace {
                 name: "Microsoft-Windows-Dwm-Core",
                 present_event_id: 0x000f,
             },
+            // Microsoft-Windows-DxgKrnl
+            EtwProvider {
+                guid: "802EC45A-1E99-4B83-9920-87C98277BA9D",
+                name: "Microsoft-Windows-DxgKrnl",
+                present_event_id: 0x00aa, // RenderKm
+            },
         ] {
             let handler = handler.clone();
             let provider = Provider::new()
