@@ -24,13 +24,27 @@ pub fn consume<P: AsRef<Path>>(
         &output,
         (
             1280,
-            720 * (proc_category.len() + sys_category.len()) as u32,
+            (15 * processes.len() + 720 * (proc_category.len() + sys_category.len())) as u32,
         ),
     )
     .into_drawing_area();
     root.fill(&WHITE).unwrap();
 
-    let areas = root.split_evenly((proc_category.len() + sys_category.len(), 1));
+    let (top, bottom) = root.split_vertically(15 * processes.len() as u32);
+    let default_font = ("sans-serif", 12).into_font();
+    let default_style: TextStyle = default_font.into();
+
+    let top_areas = top.split_evenly((processes.len(), 1));
+    for (i, area) in top_areas.into_iter().enumerate() {
+        let color = Palette99::pick(i).stroke_width(2).filled();
+        let legend = PathElement::new(vec![(60, 8), (80, 8)], color);
+        area.draw(&legend).unwrap();
+        let p = &processes[i];
+        let label = format!("{}({}) - {}", p.name, p.pid, p.command);
+        area.draw_text(&label, &default_style, (90, 4)).unwrap();
+    }
+
+    let areas = bottom.split_evenly((proc_category.len() + sys_category.len(), 1));
 
     // Draw process
     for idx_c in 0..proc_category.len() {
