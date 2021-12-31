@@ -1,19 +1,25 @@
 use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, Opts};
+use crate::{CpuInfo, GpuInfo};
 use plotters::prelude::*;
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
     output: &P,
-    opts: &Opts,
     proc_category: &[ProcessCategory],
     sys_category: &[SystemCategory],
+    timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
     cpu_frequency_max: f32,
     gpu_info: &[GpuInfo],
 ) {
+    if timestamps.is_empty() {
+        return;
+    }
+
+    let timestamp_range = || timestamps[0].clone()..timestamps.last().cloned().unwrap();
+
     let root = SVGBackend::new(
         output,
         (
@@ -77,7 +83,7 @@ pub fn consume<P: AsRef<Path>>(
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(50)
-            .build_cartesian_2d(0..(opts.count - 1), 0f32..max)
+            .build_cartesian_2d(timestamp_range(), 0f32..max)
             .unwrap();
 
         chart
@@ -90,7 +96,10 @@ pub fn consume<P: AsRef<Path>>(
             let color = Palette99::pick(idx).stroke_width(2).filled();
             chart
                 .draw_series(LineSeries::new(
-                    process.values[idx_c].clone().into_iter().enumerate(),
+                    timestamps
+                        .into_iter()
+                        .cloned()
+                        .zip(process.values[idx_c].iter().cloned()),
                     color.clone(),
                 ))
                 .unwrap()
@@ -110,7 +119,7 @@ pub fn consume<P: AsRef<Path>>(
             let color = Palette99::pick(processes.len()).stroke_width(2).filled();
             chart
                 .draw_series(LineSeries::new(
-                    total.into_iter().enumerate(),
+                    timestamps.into_iter().cloned().zip(total.into_iter()),
                     color.clone(),
                 ))
                 .unwrap()
@@ -140,7 +149,7 @@ pub fn consume<P: AsRef<Path>>(
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
-                    .build_cartesian_2d(0..(opts.count - 1), 0f32..cpu_frequency_max)
+                    .build_cartesian_2d(timestamp_range(), 0f32..cpu_frequency_max)
                     .unwrap();
 
                 chart
@@ -153,7 +162,10 @@ pub fn consume<P: AsRef<Path>>(
                     let color = Palette99::pick(idx).stroke_width(2).filled();
                     chart
                         .draw_series(LineSeries::new(
-                            info.freq.clone().into_iter().enumerate(),
+                            timestamps
+                                .into_iter()
+                                .cloned()
+                                .zip(info.freq.iter().cloned()),
                             color.clone(),
                         ))
                         .unwrap()
@@ -169,7 +181,7 @@ pub fn consume<P: AsRef<Path>>(
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
-                    .build_cartesian_2d(0..(opts.count - 1), 0.0f32..100.0f32)
+                    .build_cartesian_2d(timestamp_range(), 0.0f32..100.0f32)
                     .unwrap();
 
                 chart
@@ -182,7 +194,10 @@ pub fn consume<P: AsRef<Path>>(
                     let color = Palette99::pick(idx).stroke_width(2).filled();
                     chart
                         .draw_series(LineSeries::new(
-                            info.usage.clone().into_iter().enumerate(),
+                            timestamps
+                                .into_iter()
+                                .cloned()
+                                .zip(info.usage.iter().cloned()),
                             color.clone(),
                         ))
                         .unwrap()

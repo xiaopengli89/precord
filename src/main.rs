@@ -205,9 +205,9 @@ fn main() {
             } else if ext == "svg" {
                 consumer_svg::consume(
                     output,
-                    &opts,
                     &proc_category,
                     &sys_category,
+                    &timestamps,
                     &processes,
                     &cpu_info,
                     cpu_frequency_max,

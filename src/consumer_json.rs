@@ -77,7 +77,8 @@ pub fn consume<P: AsRef<Path>>(
         }
     }
 
-    serde_json::to_writer(file, &json_output).unwrap();
+    serde_json::to_writer(&file, &json_output).unwrap();
+    file.sync_all().unwrap();
 }
 
 #[derive(Serialize)]
