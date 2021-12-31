@@ -5,7 +5,7 @@ use plotters::prelude::*;
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
-    output: &P,
+    output: P,
     proc_category: &[ProcessCategory],
     sys_category: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
@@ -21,7 +21,7 @@ pub fn consume<P: AsRef<Path>>(
     let timestamp_range = || timestamps[0].clone()..timestamps.last().cloned().unwrap();
 
     let root = SVGBackend::new(
-        output,
+        &output,
         (
             1280,
             720 * (proc_category.len() + sys_category.len()) as u32,

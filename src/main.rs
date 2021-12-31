@@ -2,6 +2,7 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
+use regex::Regex;
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 
@@ -13,6 +14,7 @@ mod types;
 mod utils;
 
 fn main() {
+    let path_re = Regex::new(r"^\{([\w,]+)}$").unwrap();
     let opts: Opts = Opts::parse();
     let proc_category: Vec<_> = opts
         .category
@@ -184,7 +186,34 @@ fn main() {
         (processes, cpu_info, cpu_frequency_max, gpu_info)
     };
 
-    for output in opts.output.iter() {
+    let outputs = opts
+        .output
+        .into_iter()
+        .filter_map(|path| {
+            let ext = path.extension()?;
+            let mut paths = vec![];
+
+            if let Some(ext) = ext.to_str() {
+                if path_re.is_match(ext) {
+                    for cap in path_re.captures_iter(ext) {
+                        for ext_str in cap[1].split(',') {
+                            let mut path_cloned = path.clone();
+                            path_cloned.set_extension(ext_str);
+                            paths.push(path_cloned);
+                        }
+                    }
+                } else {
+                    paths.push(path);
+                }
+            } else {
+                paths.push(path);
+            };
+
+            Some(paths)
+        })
+        .flatten();
+
+    for output in outputs {
         if let Some(parent) = output.parent() {
             if parent.components().count() > 0 && !parent.exists() {
                 fs::create_dir_all(parent).unwrap();
