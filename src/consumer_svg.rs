@@ -20,28 +20,34 @@ pub fn consume<P: AsRef<Path>>(
 
     let timestamp_range = || timestamps[0].clone()..timestamps.last().cloned().unwrap();
 
+    let top_height = if !processes.is_empty() {
+        (processes.len() + 2) * 15
+    } else {
+        0
+    };
+
     let root = SVGBackend::new(
         &output,
         (
             1280,
-            (15 * processes.len() + 720 * (proc_category.len() + sys_category.len())) as u32,
+            (top_height + 720 * (proc_category.len() + sys_category.len())) as u32,
         ),
     )
     .into_drawing_area();
     root.fill(&WHITE).unwrap();
 
-    let (top, bottom) = root.split_vertically(15 * processes.len() as u32);
+    let (top, bottom) = root.split_vertically(top_height as u32);
     let default_font = ("sans-serif", 12).into_font();
     let default_style: TextStyle = default_font.into();
 
-    let top_areas = top.split_evenly((processes.len(), 1));
-    for (i, area) in top_areas.into_iter().enumerate() {
+    for (i, p) in processes.into_iter().enumerate() {
         let color = Palette99::pick(i).stroke_width(2).filled();
-        let legend = PathElement::new(vec![(60, 8), (80, 8)], color);
-        area.draw(&legend).unwrap();
-        let p = &processes[i];
+        let i = i as i32;
+        let legend = PathElement::new(vec![(60, 23 + i * 15), (80, 23 + i * 15)], color);
+        top.draw(&legend).unwrap();
         let label = format!("{}({}) - {}", p.name, p.pid, p.command);
-        area.draw_text(&label, &default_style, (90, 4)).unwrap();
+        top.draw_text(&label, &default_style, (90, 19 + i * 15))
+            .unwrap();
     }
 
     let areas = bottom.split_evenly((proc_category.len() + sys_category.len(), 1));
