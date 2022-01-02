@@ -1,6 +1,6 @@
 use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo};
+use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
@@ -10,6 +10,7 @@ pub fn consume<P: AsRef<Path>>(
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
+    physical_cpu_info: &[PhysicalCpuInfo],
     gpu_info: &[GpuInfo],
 ) {
     let mut wtr = csv::WriterBuilder::new()
@@ -51,7 +52,7 @@ pub fn consume<P: AsRef<Path>>(
         match c {
             SystemCategory::CPUFreq => {
                 // Title
-                wtr.write_field("CPU Frequency").unwrap();
+                wtr.write_field("CPUs Frequency").unwrap();
                 for i in 0..cpu_info.len() {
                     wtr.write_field(format!("CPU{}", i)).unwrap();
                 }
@@ -64,6 +65,25 @@ pub fn consume<P: AsRef<Path>>(
                     // Process data
                     for c in cpu_info {
                         wtr.write_field(format!("{:.2}", c.freq[i])).unwrap();
+                    }
+                    wtr.write_record(None::<&[u8]>).unwrap();
+                }
+            }
+            SystemCategory::CPUTemp => {
+                // Title
+                wtr.write_field("CPUs Temperature").unwrap();
+                for i in 0..physical_cpu_info.len() {
+                    wtr.write_field(format!("CPU{}", i)).unwrap();
+                }
+                wtr.write_record(None::<&[u8]>).unwrap();
+
+                // Data
+                for (i, t) in timestamps.into_iter().enumerate() {
+                    // Timestamp
+                    wtr.write_field(t.to_string()).unwrap();
+                    // Process data
+                    for c in physical_cpu_info {
+                        wtr.write_field(format!("{:.2}", c.temp[i])).unwrap();
                     }
                     wtr.write_record(None::<&[u8]>).unwrap();
                 }

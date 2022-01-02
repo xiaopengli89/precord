@@ -1,5 +1,5 @@
 use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
-use crate::types::{CpuInfo, GpuInfo};
+use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo};
 use clap::Parser;
 use precord_core::{Features, Pid, System};
 use regex::Regex;
@@ -32,14 +32,18 @@ fn main() {
         .iter()
         .flat_map(|&c| match c {
             Category::SysCPUFreq => Some(SystemCategory::CPUFreq),
+            Category::SysCPUTemp => Some(SystemCategory::CPUTemp),
             Category::SysGPU => Some(SystemCategory::GPU),
             _ => None,
         })
         .collect();
 
     let mut timestamps = vec![];
+    let mut cpu_frequency_max: f32 = 1000.0;
+    let mut cpu_temperature_max: f32 = 100.0;
+    let mut physical_cpu_info: Vec<PhysicalCpuInfo> = vec![];
 
-    let (processes, cpu_info, cpu_frequency_max, gpu_info) = {
+    let (processes, cpu_info, gpu_info) = {
         let mut features = Features::PROCESS;
 
         if proc_category.contains(&ProcessCategory::GPU)
@@ -53,17 +57,19 @@ fn main() {
         if sys_category.contains(&SystemCategory::CPUFreq) {
             features.insert(Features::CPU_FREQUENCY);
         }
+        if sys_category.contains(&SystemCategory::CPUTemp) {
+            features.insert(Features::SMC);
+        }
 
-        let mut system = System::new(Features::PROCESS, []);
+        let mut system = System::new(Features::PROCESS, []).unwrap();
         system.update();
 
         let mut processes = opts.find_processes(&system, proc_category.len());
 
-        let mut system = System::new(features, processes.iter().map(|p| p.pid));
+        let mut system = System::new(features, processes.iter().map(|p| p.pid)).unwrap();
         system.update();
 
         let mut cpu_info: Vec<CpuInfo> = vec![];
-        let mut cpu_frequency_max: f32 = 1000.0;
         let mut gpu_info: Vec<GpuInfo> = vec![];
 
         let mut last_record_time = Instant::now();
@@ -134,11 +140,11 @@ fn main() {
             for &c in sys_category.iter() {
                 match c {
                     SystemCategory::CPUFreq => {
-                        let cpu_frequency = system.cpu_frequency();
+                        let cpus_frequency = system.cpus_frequency();
 
                         println!(
-                            "CPU Frequency: [{}]",
-                            cpu_frequency
+                            "CPUs Frequency: [{}]",
+                            cpus_frequency
                                 .iter()
                                 .map(|f| format!("{}MHz", f))
                                 .collect::<Vec<String>>()
@@ -146,7 +152,7 @@ fn main() {
                         );
 
                         if cpu_info.is_empty() {
-                            cpu_info = cpu_frequency
+                            cpu_info = cpus_frequency
                                 .into_iter()
                                 .map(|f| {
                                     cpu_frequency_max = cpu_frequency_max.max(f);
@@ -154,9 +160,39 @@ fn main() {
                                 })
                                 .collect();
                         } else {
-                            for (sum, f) in cpu_info.iter_mut().zip(cpu_frequency.into_iter()) {
+                            for (sum, f) in cpu_info.iter_mut().zip(cpus_frequency.into_iter()) {
                                 cpu_frequency_max = cpu_frequency_max.max(f);
                                 sum.freq.push(f);
+                            }
+                        }
+                    }
+                    SystemCategory::CPUTemp => {
+                        let cpus_temperature = system.cpus_temperature().unwrap();
+
+                        println!(
+                            "CPUs Temperature: [{}]",
+                            cpus_temperature
+                                .iter()
+                                .map(|f| format!("{}°C", f))
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        );
+
+                        if physical_cpu_info.is_empty() {
+                            physical_cpu_info = cpus_temperature
+                                .into_iter()
+                                .map(|f| {
+                                    cpu_temperature_max = cpu_temperature_max.max(f);
+                                    PhysicalCpuInfo { temp: vec![f] }
+                                })
+                                .collect();
+                        } else {
+                            for (sum, f) in physical_cpu_info
+                                .iter_mut()
+                                .zip(cpus_temperature.into_iter())
+                            {
+                                cpu_temperature_max = cpu_temperature_max.max(f);
+                                sum.temp.push(f);
                             }
                         }
                     }
@@ -183,7 +219,7 @@ fn main() {
             timestamps.push(chrono::Local::now());
         }
 
-        (processes, cpu_info, cpu_frequency_max, gpu_info)
+        (processes, cpu_info, gpu_info)
     };
 
     let outputs = opts
@@ -229,6 +265,7 @@ fn main() {
                     &timestamps,
                     &processes,
                     &cpu_info,
+                    &physical_cpu_info,
                     &gpu_info,
                 );
             } else if ext == "svg" {
@@ -240,6 +277,8 @@ fn main() {
                     &processes,
                     &cpu_info,
                     cpu_frequency_max,
+                    &physical_cpu_info,
+                    cpu_temperature_max,
                     &gpu_info,
                 );
             } else if ext == "json" {
@@ -250,6 +289,7 @@ fn main() {
                     &timestamps,
                     &processes,
                     &cpu_info,
+                    &physical_cpu_info,
                     &gpu_info,
                 );
             }

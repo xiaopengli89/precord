@@ -1,6 +1,6 @@
 use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo};
+use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo};
 use plotters::prelude::*;
 use std::path::Path;
 
@@ -12,6 +12,8 @@ pub fn consume<P: AsRef<Path>>(
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
     cpu_frequency_max: f32,
+    physical_cpu_info: &[PhysicalCpuInfo],
+    cpu_temperature_max: f32,
     gpu_info: &[GpuInfo],
 ) {
     if timestamps.is_empty() {
@@ -165,7 +167,7 @@ pub fn consume<P: AsRef<Path>>(
         match c {
             SystemCategory::CPUFreq => {
                 chart = ChartBuilder::on(&area)
-                    .caption("CPU Frequency", ("sans-serif", 30).into_font())
+                    .caption("CPUs Frequency", ("sans-serif", 30).into_font())
                     .margin(10)
                     .x_label_area_size(40)
                     .y_label_area_size(50)
@@ -189,7 +191,39 @@ pub fn consume<P: AsRef<Path>>(
                             color.clone(),
                         ))
                         .unwrap()
-                        .label(format!("CPU{} / AVG({:.2}MHz)", idx, info.avg(),))
+                        .label(format!("CPU{} / AVG({:.2}MHz)", idx, info.freq_avg(),))
+                        .legend(move |(x, y)| {
+                            PathElement::new(vec![(x, y), (x + 20, y)], color.clone())
+                        });
+                }
+            }
+            SystemCategory::CPUTemp => {
+                chart = ChartBuilder::on(&area)
+                    .caption("CPUs Temperature", ("sans-serif", 30).into_font())
+                    .margin(10)
+                    .x_label_area_size(40)
+                    .y_label_area_size(50)
+                    .build_cartesian_2d(timestamp_range(), 0f32..cpu_temperature_max)
+                    .unwrap();
+
+                chart
+                    .configure_mesh()
+                    .y_label_formatter(&|y| format!("{}°C", y))
+                    .draw()
+                    .unwrap();
+
+                for (idx, info) in physical_cpu_info.iter().enumerate() {
+                    let color = Palette99::pick(idx).stroke_width(2).filled();
+                    chart
+                        .draw_series(LineSeries::new(
+                            timestamps
+                                .into_iter()
+                                .cloned()
+                                .zip(info.temp.iter().cloned()),
+                            color.clone(),
+                        ))
+                        .unwrap()
+                        .label(format!("CPU{} / AVG({:.2}°C)", idx, info.temp_avg(),))
                         .legend(move |(x, y)| {
                             PathElement::new(vec![(x, y), (x + 20, y)], color.clone())
                         });

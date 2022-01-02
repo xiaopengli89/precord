@@ -43,11 +43,25 @@ pub struct CpuInfo {
 }
 
 impl CpuInfo {
-    pub fn avg(&self) -> f32 {
+    pub fn freq_avg(&self) -> f32 {
         if self.freq.is_empty() {
             0.0
         } else {
             self.freq.iter().sum::<f32>() / (self.freq.len() as f32)
+        }
+    }
+}
+
+pub struct PhysicalCpuInfo {
+    pub temp: Vec<f32>,
+}
+
+impl PhysicalCpuInfo {
+    pub fn temp_avg(&self) -> f32 {
+        if self.temp.is_empty() {
+            0.0
+        } else {
+            self.temp.iter().sum::<f32>() / (self.temp.len() as f32)
         }
     }
 }

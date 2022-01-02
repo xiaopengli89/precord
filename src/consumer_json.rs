@@ -1,6 +1,6 @@
 use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, Pid};
+use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo, Pid};
 use serde::Serialize;
 use std::fs::File;
 use std::path::Path;
@@ -12,6 +12,7 @@ pub fn consume<P: AsRef<Path>>(
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
     cpu_info: &[CpuInfo],
+    physical_cpu_info: &[PhysicalCpuInfo],
     gpu_info: &[GpuInfo],
 ) {
     let file = File::create(path).unwrap();
@@ -55,6 +56,20 @@ pub fn consume<P: AsRef<Path>>(
                             .map(|(i, t)| Record {
                                 timestamp: t.to_rfc3339(),
                                 value: info.freq[i],
+                            })
+                            .collect(),
+                    });
+                }
+            }
+            SystemCategory::CPUTemp => {
+                for info in physical_cpu_info {
+                    json_output.sys_cpu_temp.push(SystemRecord {
+                        records: timestamps
+                            .iter()
+                            .enumerate()
+                            .map(|(i, t)| Record {
+                                timestamp: t.to_rfc3339(),
+                                value: info.temp[i],
                             })
                             .collect(),
                     });
@@ -107,35 +122,6 @@ struct JsonOutput {
     gpu: Vec<ProcessRecord>,
     fps: Vec<ProcessRecord>,
     sys_cpu_freq: Vec<SystemRecord>,
+    sys_cpu_temp: Vec<SystemRecord>,
     sys_gpu: Vec<SystemRecord>,
 }
-
-/*
-
-{
-    "cpu": [
-        {
-            "pid": 1,
-            "name": "",
-            "command": "",
-            "records": [
-                {
-                    "timestamp": "<timestamp>",
-                    "value": 1.0,
-                }
-            ]
-        }
-    ],
-    "sys_cpu_freq": [
-        {
-            "records": [
-                {
-                    "timestamp": "<timestamp>",
-                    "value": 1.0,
-                }
-            ]
-        }
-    ]
-}
-
-*/

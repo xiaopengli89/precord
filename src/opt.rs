@@ -131,6 +131,8 @@ pub enum Category {
     FPS,
     #[clap(name = "sys_cpu_freq")]
     SysCPUFreq,
+    #[clap(name = "sys_cpu_temp")]
+    SysCPUTemp,
     #[clap(name = "sys_gpu")]
     SysGPU,
 }
@@ -146,5 +148,6 @@ pub enum ProcessCategory {
 #[derive(Copy, Clone, PartialEq)]
 pub enum SystemCategory {
     CPUFreq,
+    CPUTemp,
     GPU,
 }
