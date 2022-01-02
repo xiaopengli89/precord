@@ -14,4 +14,7 @@ pub enum Error {
     Smc(#[from] smc::SMCError),
     #[error("Can't get physical core count")]
     PhysicalCoreCount,
+    #[cfg(target_os = "windows")]
+    #[error(transparent)]
+    Wmi(#[from] wmi::WMIError),
 }

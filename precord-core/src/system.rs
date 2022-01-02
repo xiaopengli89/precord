@@ -65,8 +65,7 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.wmi_con =
-                    Some(wmi::WMIConnection::new(wmi::COMLibrary::new().unwrap().into()).unwrap());
+                system.wmi_con = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
             }
         }
 
@@ -81,6 +80,12 @@ impl System {
             #[cfg(target_os = "macos")]
             {
                 system.smc = Some(smc::SMC::new()?);
+            }
+            #[cfg(target_os = "windows")]
+            {
+                if system.wmi_con.is_none() {
+                    system.wmi_con = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
+                }
             }
         }
 
@@ -206,6 +211,12 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
+            let wmi_conn = self
+                .wmi_con
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::SMC))?;
+            let _: Vec<std::collections::HashMap<String, String>> =
+                wmi_conn.raw_query("Select * From MSAcpi_ThermalZoneTemperature")?;
             unimplemented!()
         }
     }
