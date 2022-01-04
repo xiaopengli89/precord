@@ -19,8 +19,6 @@ pub struct System {
     power_metrics: Option<PowerMetrics>,
     #[cfg(target_os = "macos")]
     ioreg: Option<IOKitRegistry>,
-    #[cfg(target_os = "macos")]
-    smc: Option<smc::SMC>,
     #[cfg(target_os = "windows")]
     pdh: Option<Pdh>,
     #[cfg(target_os = "windows")]
@@ -37,10 +35,6 @@ impl System {
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
             system.refresh_kind = system.refresh_kind.with_processes();
-            use_sysinfo_system = true;
-        }
-        if features.contains(Features::SMC) {
-            system.refresh_kind = system.refresh_kind.with_cpu();
             use_sysinfo_system = true;
         }
         if use_sysinfo_system {
@@ -79,7 +73,9 @@ impl System {
         if features.contains(Features::SMC) {
             #[cfg(target_os = "macos")]
             {
-                system.smc = Some(smc::SMC::new()?);
+                if system.power_metrics.is_none() {
+                    system.power_metrics = Some(PowerMetrics::new());
+                }
             }
             #[cfg(target_os = "windows")]
             {
@@ -195,24 +191,11 @@ impl System {
     pub fn cpus_temperature(&mut self) -> Result<Vec<f32>, Error> {
         #[cfg(target_os = "macos")]
         {
-            let sysinfo_system = self
-                .sysinfo_system
+            Ok(self
+                .power_metrics
                 .as_ref()
-                .ok_or(Error::FeatureMissing(Features::SMC))?;
-            let smc = self
-                .smc
-                .as_ref()
-                .ok_or(Error::FeatureMissing(Features::SMC))?;
-            let mut cpus_temp = vec![];
-
-            for i in 0..sysinfo_system
-                .physical_core_count()
-                .ok_or(Error::PhysicalCoreCount)?
-            {
-                cpus_temp.push(smc.cpu_temperature(i as _)? as f32);
-            }
-
-            Ok(cpus_temp)
+                .ok_or(Error::FeatureMissing(Features::SMC))?
+                .cpus_temperature())
         }
         #[cfg(target_os = "windows")]
         {
