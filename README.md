@@ -94,7 +94,7 @@ fn main() {
 | gpu                                                |               |               |
 | fps                                                |               | Administrator |
 | sys_cpu_freq                                       | Administrator |               |
-| sys_cpu_temp                                       |               |               |
+| sys_cpu_temp                                       | Administrator |               |
 | sys_gpu                                            |               |               |
 | system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator | Administrator |
 
