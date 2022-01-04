@@ -140,7 +140,7 @@ fn main() {
             for &c in sys_category.iter() {
                 match c {
                     SystemCategory::CPUFreq => {
-                        let cpus_frequency = system.cpus_frequency();
+                        let cpus_frequency = system.cpus_frequency().unwrap();
 
                         println!(
                             "CPUs Frequency: [{}]",

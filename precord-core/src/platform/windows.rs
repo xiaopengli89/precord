@@ -111,6 +111,12 @@ pub struct ProcessorInfo {
     pub processor_frequency: f32,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ThermalZoneInformation {
+    pub temperature: f32,
+}
+
 struct ProcessCounter {
     pid: Pid,
     counter: PDH_HCOUNTER,

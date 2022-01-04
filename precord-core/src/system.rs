@@ -5,7 +5,7 @@ use crate::platform::macos::PowerMetrics;
 #[cfg(target_os = "windows")]
 use crate::platform::windows::EtwTrace;
 #[cfg(target_os = "windows")]
-use crate::platform::windows::{Pdh, ProcessorInfo};
+use crate::platform::windows::{Pdh, ProcessorInfo, ThermalZoneInformation};
 use crate::{Error, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
@@ -24,7 +24,7 @@ pub struct System {
     #[cfg(target_os = "windows")]
     pdh: Option<Pdh>,
     #[cfg(target_os = "windows")]
-    wmi_con: Option<wmi::WMIConnection>,
+    wmi_conn: Option<wmi::WMIConnection>,
     #[cfg(target_os = "windows")]
     etw_trace: Option<EtwTrace>,
 }
@@ -65,7 +65,7 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.wmi_con = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
+                system.wmi_conn = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
             }
         }
 
@@ -83,8 +83,9 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                if system.wmi_con.is_none() {
-                    system.wmi_con = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
+                if system.wmi_conn.is_none() {
+                    system.wmi_conn =
+                        Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
                 }
             }
         }
@@ -133,15 +134,19 @@ impl System {
         Some(self.sysinfo_system.as_ref()?.process(pid)?.cmd())
     }
 
-    pub fn cpus_frequency(&self) -> Vec<f32> {
+    pub fn cpus_frequency(&self) -> Result<Vec<f32>, Error> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref().unwrap().cpu_frequency()
+            Ok(self
+                .power_metrics
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?
+                .cpu_frequency())
         }
         #[cfg(target_os = "windows")]
         {
-            let processor_info: Vec<ProcessorInfo> = self.wmi_con.as_ref().unwrap().raw_query("SELECT Name, PercentProcessorPerformance, ProcessorFrequency FROM Win32_PerfFormattedData_Counters_ProcessorInformation WHERE NOT Name LIKE '%_Total\'
-").unwrap();
+            let processor_info: Vec<ProcessorInfo> = self.wmi_conn.as_ref().ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?.raw_query("SELECT Name, PercentProcessorPerformance, ProcessorFrequency FROM Win32_PerfFormattedData_Counters_ProcessorInformation WHERE NOT Name LIKE '%_Total\'
+")?;
             processor_info
                 .into_iter()
                 .map(|p| p.processor_frequency * p.percent_processor_performance / 100.0)
@@ -212,12 +217,16 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             let wmi_conn = self
-                .wmi_con
+                .wmi_conn
                 .as_ref()
                 .ok_or(Error::FeatureMissing(Features::SMC))?;
-            let _: Vec<std::collections::HashMap<String, String>> =
-                wmi_conn.raw_query("Select * From MSAcpi_ThermalZoneTemperature")?;
-            unimplemented!()
+            let thermal_zone_info: Vec<ThermalZoneInformation> = wmi_conn.raw_query(
+                "Select Temperature From Win32_PerfFormattedData_Counters_ThermalZoneInformation",
+            )?;
+            Ok(thermal_zone_info
+                .into_iter()
+                .map(|p| p.temperature - 273.15)
+                .collect())
         }
     }
 }
