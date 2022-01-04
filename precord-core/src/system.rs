@@ -147,10 +147,10 @@ impl System {
         {
             let processor_info: Vec<ProcessorInfo> = self.wmi_conn.as_ref().ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?.raw_query("SELECT Name, PercentProcessorPerformance, ProcessorFrequency FROM Win32_PerfFormattedData_Counters_ProcessorInformation WHERE NOT Name LIKE '%_Total\'
 ")?;
-            processor_info
+            Ok(processor_info
                 .into_iter()
                 .map(|p| p.processor_frequency * p.percent_processor_performance / 100.0)
-                .collect()
+                .collect())
         }
     }
 
