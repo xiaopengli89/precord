@@ -11,7 +11,6 @@ use IOKit_sys::*;
 struct PowerMetricsResult {
     tasks: Vec<Task>,
     processor: ProcessorInfo,
-    smc: Smc,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,7 +35,7 @@ impl PowerMetrics {
         let o = Command::new("powermetrics")
             .args([
                 "--samplers",
-                "tasks,cpu_power,smc",
+                "tasks,cpu_power",
                 "--show-process-gpu",
                 "-n1",
                 "-i1000",
@@ -94,10 +93,6 @@ impl PowerMetrics {
                 .collect()
         }
     }
-
-    pub fn cpus_temperature(&self) -> Vec<f32> {
-        vec![self.last_result.smc.cpu_die]
-    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -128,11 +123,6 @@ struct Package {
 #[derive(Debug, Deserialize)]
 struct Core {
     cpus: Vec<Cpu>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct Smc {
-    cpu_die: f32,
 }
 
 pub struct IOKitRegistry {
