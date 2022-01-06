@@ -2,6 +2,7 @@ use crate::{Error, Pid};
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
+use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX2};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -13,9 +14,14 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{mem, process};
-use winapi::shared::minwindef::DWORD;
+use winapi::shared::minwindef::{DWORD, FALSE};
+use winapi::shared::ntdef::NT_SUCCESS;
 use winapi::shared::winerror::ERROR_SUCCESS;
+use winapi::um::handleapi::CloseHandle;
+use winapi::um::lmaccess::NTSTATUS;
 use winapi::um::pdh::*;
+use winapi::um::processthreadsapi::OpenProcess;
+use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
 
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
 // 0x800007D2 (PDH_MORE_DATA)
@@ -396,4 +402,68 @@ impl EtwTraceHandler {
 struct PresentInfo {
     last_time: Instant,
     count: u32,
+}
+
+pub struct VmCounter {
+    process_counters: Vec<ProcessVmCounter>,
+}
+
+impl VmCounter {
+    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
+        let mut vm_counter = Self {
+            process_counters: vec![],
+        };
+
+        for pid in pids {
+            let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+            let handle = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
+            if handle.is_null() {
+                return Err(Error::ProcessHandle);
+            } else {
+                vm_counter.process_counters.push(ProcessVmCounter {
+                    pid,
+                    handle,
+                    mem: 0.0,
+                });
+            }
+        }
+
+        Ok(vm_counter)
+    }
+
+    pub fn process_mem(&self, pid: Pid) -> Option<f32> {
+        self.process_counters
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| unsafe {
+                let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
+                let r = NtQueryInformationProcess(
+                    p.handle,
+                    ProcessVmCounters,
+                    std::mem::transmute(&mut info),
+                    std::mem::size_of::<VM_COUNTERS_EX2>() as _,
+                    std::ptr::null_mut(),
+                );
+                if NT_SUCCESS(r) {
+                    Some((info.PrivateWorkingSetSize >> 10) as f32)
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+}
+
+struct ProcessVmCounter {
+    pid: Pid,
+    handle: HANDLE,
+    mem: f32,
+}
+
+impl Drop for ProcessVmCounter {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = CloseHandle(self.handle);
+        }
+    }
 }

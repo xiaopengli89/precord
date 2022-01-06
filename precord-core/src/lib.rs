@@ -19,5 +19,8 @@ pub enum Error {
     Wmi(#[from] wmi::WMIError),
     #[cfg(target_os = "windows")]
     #[error("PDH_STATUS({0})")]
-    Pdh(#[from] winapi::um::pdh::PDH_STATUS),
+    Pdh(winapi::um::pdh::PDH_STATUS),
+    #[cfg(target_os = "windows")]
+    #[error("Can't open process handle")]
+    ProcessHandle,
 }

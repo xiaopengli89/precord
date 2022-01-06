@@ -32,3 +32,4 @@ wmi = "0.9.1"
 winapi = { version = "0.3.9", features = ["pdh"] }
 widestring = "1.0.0-beta.1"
 ferrisetw = "0.1.1"
+ntapi = "0.3.6"

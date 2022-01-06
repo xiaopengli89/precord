@@ -1,11 +1,7 @@
 #[cfg(target_os = "macos")]
-use crate::platform::macos::IOKitRegistry;
-#[cfg(target_os = "macos")]
-use crate::platform::macos::PowerMetrics;
+use crate::platform::macos::{IOKitRegistry, PowerMetrics};
 #[cfg(target_os = "windows")]
-use crate::platform::windows::EtwTrace;
-#[cfg(target_os = "windows")]
-use crate::platform::windows::{Pdh, ProcessorInfo, ThermalZoneInformation};
+use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
 use crate::{Error, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
@@ -27,17 +23,27 @@ pub struct System {
     wmi_conn: Option<wmi::WMIConnection>,
     #[cfg(target_os = "windows")]
     etw_trace: Option<EtwTrace>,
+    #[cfg(target_os = "windows")]
+    vm_counter: Option<VmCounter>,
 }
 
 impl System {
     #[allow(unused_variables)]
-    pub fn new<T: IntoIterator<Item = Pid>>(features: Features, pids: T) -> Result<Self, Error> {
+    pub fn new<T: IntoIterator<Item = Pid> + Clone>(
+        features: Features,
+        pids: T,
+    ) -> Result<Self, Error> {
         let mut system = System::default();
 
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
             system.refresh_kind = system.refresh_kind.with_processes();
             use_sysinfo_system = true;
+
+            #[cfg(target_os = "windows")]
+            {
+                system.vm_counter = Some(VmCounter::new(pids.clone())?);
+            }
         }
         if features.contains(Features::SMC) {
             system.refresh_kind = system.refresh_kind.with_cpu();
@@ -142,7 +148,10 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            Some(self.sysinfo_system.as_ref()?.process(pid)?.memory() as f32)
+            self.vm_counter
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::PROCESS))?
+                .process_mem(pid)
         }
     }
 

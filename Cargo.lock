@@ -921,6 +921,7 @@ dependencies = [
  "core-foundation",
  "ferrisetw",
  "libc",
+ "ntapi",
  "plist",
  "serde",
  "smc",
