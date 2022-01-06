@@ -148,10 +148,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.vm_counter
-                .as_ref()
-                .ok_or(Error::FeatureMissing(Features::PROCESS))?
-                .process_mem(pid)
+            self.vm_counter.as_ref()?.process_mem(pid)
         }
     }
 

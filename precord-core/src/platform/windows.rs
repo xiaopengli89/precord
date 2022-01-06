@@ -18,7 +18,6 @@ use winapi::shared::minwindef::{DWORD, FALSE};
 use winapi::shared::ntdef::NT_SUCCESS;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
-use winapi::um::lmaccess::NTSTATUS;
 use winapi::um::pdh::*;
 use winapi::um::processthreadsapi::OpenProcess;
 use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
