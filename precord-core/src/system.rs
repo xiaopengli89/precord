@@ -123,7 +123,27 @@ impl System {
     }
 
     pub fn process_mem(&self, pid: Pid) -> Option<f32> {
-        Some(self.sysinfo_system.as_ref()?.process(pid)?.memory() as f32)
+        #[cfg(target_os = "macos")]
+        unsafe {
+            let mut rusage_info_data: libc::rusage_info_v2 =
+                std::mem::MaybeUninit::uninit().assume_init();
+            let r = libc::proc_pid_rusage(
+                pid,
+                libc::RUSAGE_INFO_V2,
+                std::mem::transmute(&mut rusage_info_data),
+            );
+            if r == libc::KERN_SUCCESS {
+                let mem = (rusage_info_data.ri_phys_footprint / 1024) as f32;
+                Some(mem)
+            } else {
+                None
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            Some(self.sysinfo_system.as_ref()?.process(pid)?.memory() as f32)
+        }
     }
 
     pub fn process_name(&self, pid: Pid) -> Option<&str> {
