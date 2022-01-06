@@ -54,7 +54,7 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.pdh = Some(Pdh::new(pids));
+                system.pdh = Some(Pdh::new(pids)?);
             }
         }
 

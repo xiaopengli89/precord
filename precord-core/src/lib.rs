@@ -17,4 +17,7 @@ pub enum Error {
     #[cfg(target_os = "windows")]
     #[error(transparent)]
     Wmi(#[from] wmi::WMIError),
+    #[cfg(target_os = "windows")]
+    #[error("PDH_STATUS({0})")]
+    Pdh(#[from] winapi::um::pdh::PDH_STATUS),
 }

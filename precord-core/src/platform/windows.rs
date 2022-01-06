@@ -1,4 +1,4 @@
-use crate::Pid;
+use crate::{Error, Pid};
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
@@ -129,55 +129,61 @@ pub struct Pdh {
 }
 
 impl Pdh {
-    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
+    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
         unsafe {
             let mut query = MaybeUninit::uninit().assume_init();
             let mut r = PdhOpenQueryW(ptr::null(), 0, &mut query);
-            assert_eq!(r, ERROR_SUCCESS as _);
+            if r != ERROR_SUCCESS as PDH_STATUS {
+                return Err(Error::Pdh(r));
+            }
 
-            let process_gpu_counters = pids
-                .into_iter()
-                .map(|pid| {
-                    let mut process_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
-                    r = PdhAddCounterW(
-                        query,
-                        widestring::U16CString::from_str(format!(
-                            "\\GPU Engine(pid_{}*)\\Utilization Percentage",
-                            pid
-                        ))
-                        .unwrap()
-                        .as_ptr(),
-                        0,
-                        &mut process_gpu_counter,
-                    );
-                    assert_eq!(r, ERROR_SUCCESS as _);
+            let mut pdh = Self {
+                query,
+                process_gpu_counters: vec![],
+                total_gpu_counter: MaybeUninit::uninit().assume_init(),
+            };
 
-                    ProcessCounter {
-                        pid,
-                        counter: process_gpu_counter,
-                    }
-                })
-                .collect();
+            for pid in pids {
+                let mut process_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
+                r = PdhAddCounterW(
+                    query,
+                    widestring::U16CString::from_str(format!(
+                        "\\GPU Engine(pid_{}*)\\Utilization Percentage",
+                        pid
+                    ))
+                    .unwrap()
+                    .as_ptr(),
+                    0,
+                    &mut process_gpu_counter,
+                );
+                if r != ERROR_SUCCESS as PDH_STATUS {
+                    return Err(Error::Pdh(r));
+                }
 
-            let mut total_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
+                pdh.process_gpu_counters.push(ProcessCounter {
+                    pid,
+                    counter: process_gpu_counter,
+                });
+            }
+
             r = PdhAddCounterW(
                 query,
                 widestring::U16CString::from_str("\\GPU Engine(*)\\Utilization Percentage")
                     .unwrap()
                     .as_ptr(),
                 0,
-                &mut total_gpu_counter,
+                &mut pdh.total_gpu_counter,
             );
-            assert_eq!(r, ERROR_SUCCESS as _);
+            if r != ERROR_SUCCESS as PDH_STATUS {
+                return Err(Error::Pdh(r));
+            }
 
             r = PdhCollectQueryData(query);
-            assert_eq!(r, ERROR_SUCCESS as _);
-
-            Self {
-                query,
-                process_gpu_counters,
-                total_gpu_counter,
+            if r != ERROR_SUCCESS as PDH_STATUS {
+                return Err(Error::Pdh(r));
             }
+
+            Ok(pdh)
         }
     }
 
