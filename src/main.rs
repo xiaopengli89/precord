@@ -120,6 +120,7 @@ fn main() {
 
             if let Some(ext) = output.extension() {
                 if ext == "csv" {
+                    println!("Write to {}\r", output.display());
                     consumer_csv::consume(
                         output,
                         proc_categories,
@@ -131,6 +132,7 @@ fn main() {
                         gpu_info,
                     );
                 } else if ext == "svg" {
+                    println!("Write to {}\r", output.display());
                     consumer_svg::consume(
                         output,
                         proc_categories,
@@ -144,6 +146,7 @@ fn main() {
                         gpu_info,
                     );
                 } else if ext == "json" {
+                    println!("Write to {}\r", output.display());
                     consumer_json::consume(
                         output,
                         proc_categories,

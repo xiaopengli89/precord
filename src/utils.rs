@@ -1,5 +1,5 @@
 use crossterm::cursor::MoveLeft;
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
@@ -50,18 +50,33 @@ impl CommandPrompt {
 
     pub fn command(&mut self, timeout: Duration) -> Command {
         match self.rx.recv_timeout(timeout) {
-            Ok(key_event) => {
-                if key_event.code == KeyCode::Char(':') {
+            Ok(key_event) => match key_event {
+                KeyEvent {
+                    code: KeyCode::Char(':'),
+                    ..
+                } => {
                     execute!(&self.stdout, Print(':'),).unwrap();
 
                     self.current_command.clear();
                     loop {
-                        match self.rx.recv().unwrap().code {
-                            KeyCode::Char(c) => {
+                        match self.rx.recv().unwrap() {
+                            KeyEvent {
+                                code: KeyCode::Char('c'),
+                                modifiers: KeyModifiers::CONTROL,
+                            } => {
+                                return Command::Quit;
+                            }
+                            KeyEvent {
+                                code: KeyCode::Char(c),
+                                ..
+                            } => {
                                 self.current_command.push(c);
                                 execute!(&self.stdout, Print(c),).unwrap();
                             }
-                            KeyCode::Backspace => {
+                            KeyEvent {
+                                code: KeyCode::Backspace,
+                                ..
+                            } => {
                                 if self.current_command.pop().is_some() {
                                     execute!(
                                         &self.stdout,
@@ -71,11 +86,16 @@ impl CommandPrompt {
                                     .unwrap();
                                 }
                             }
-                            KeyCode::Esc => {
+                            KeyEvent {
+                                code: KeyCode::Esc, ..
+                            } => {
                                 self.current_command.clear();
                                 break;
                             }
-                            KeyCode::Enter => {
+                            KeyEvent {
+                                code: KeyCode::Enter,
+                                ..
+                            } => {
                                 break;
                             }
                             _ => {}
@@ -83,10 +103,13 @@ impl CommandPrompt {
                     }
                     execute!(&self.stdout, Print("\r\n"),).unwrap();
                     self.current_command.as_str().into()
-                } else {
-                    Command::Continue
                 }
-            }
+                KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                } => Command::Quit,
+                _ => Command::Continue,
+            },
             Err(RecvTimeoutError::Timeout) => Command::Timeout,
             Err(RecvTimeoutError::Disconnected) => panic!("Command prompt is disconnected"),
         }
