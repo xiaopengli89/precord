@@ -163,20 +163,24 @@ fn main() {
     };
 
     for i in 0..opts.count {
+        let mut command_mode = false;
+
         loop {
-            let now = Instant::now();
-            let since = now.saturating_duration_since(last_record_time);
-            let delay = Duration::from_secs(opts.interval).saturating_sub(since);
+            let delay = if command_mode {
+                None
+            } else {
+                let now = Instant::now();
+                let since = now.saturating_duration_since(last_record_time);
+                let delay = Duration::from_secs(opts.interval).saturating_sub(since);
+                Some(delay)
+            };
+
             match prompt.command(delay) {
                 Command::Timeout => {
-                    if !delay.is_zero() {
-                        last_record_time = Instant::now();
-                    } else {
-                        last_record_time = now;
-                    }
+                    last_record_time = Instant::now();
                     break;
                 }
-                Command::Continue => {}
+                Command::Continue => command_mode = false,
                 Command::Write => {
                     write_result(
                         &proc_category,
@@ -189,6 +193,7 @@ fn main() {
                         cpu_temperature_max,
                         &gpu_info,
                     );
+                    command_mode = true;
                 }
                 Command::Quit => return,
                 Command::WriteThenQuit => {
@@ -205,6 +210,7 @@ fn main() {
                     );
                     return;
                 }
+                Command::Unknown => command_mode = true,
             }
         }
 

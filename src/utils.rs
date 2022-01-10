@@ -36,7 +36,11 @@ impl CommandPrompt {
 
         thread::spawn(move || loop {
             match event::read().unwrap() {
-                Event::Key(key_event) => tx.send(key_event).unwrap(),
+                Event::Key(key_event) => {
+                    if tx.send(key_event).is_err() {
+                        break;
+                    }
+                }
                 _ => {}
             }
         });
@@ -48,70 +52,77 @@ impl CommandPrompt {
         }
     }
 
-    pub fn command(&mut self, timeout: Duration) -> Command {
-        match self.rx.recv_timeout(timeout) {
-            Ok(key_event) => match key_event {
-                KeyEvent {
-                    code: KeyCode::Char(':'),
-                    ..
-                } => {
-                    execute!(&self.stdout, Print(':'),).unwrap();
+    pub fn command(&mut self, timeout: Option<Duration>) -> Command {
+        let key_event = if let Some(timeout) = timeout {
+            match self.rx.recv_timeout(timeout) {
+                Ok(key_event) => key_event,
+                Err(RecvTimeoutError::Timeout) => return Command::Timeout,
+                Err(RecvTimeoutError::Disconnected) => panic!("Command prompt is disconnected"),
+            }
+        } else {
+            KeyEvent {
+                code: KeyCode::Char(':'),
+                modifiers: KeyModifiers::NONE,
+            }
+        };
+        match key_event {
+            KeyEvent {
+                code: KeyCode::Char(':'),
+                ..
+            } => {
+                execute!(&self.stdout, Print(':'),).unwrap();
 
-                    self.current_command.clear();
-                    loop {
-                        match self.rx.recv().unwrap() {
-                            KeyEvent {
-                                code: KeyCode::Char('c'),
-                                modifiers: KeyModifiers::CONTROL,
-                            } => {
-                                return Command::Quit;
-                            }
-                            KeyEvent {
-                                code: KeyCode::Char(c),
-                                ..
-                            } => {
-                                self.current_command.push(c);
-                                execute!(&self.stdout, Print(c),).unwrap();
-                            }
-                            KeyEvent {
-                                code: KeyCode::Backspace,
-                                ..
-                            } => {
-                                if self.current_command.pop().is_some() {
-                                    execute!(
+                self.current_command.clear();
+                loop {
+                    match self.rx.recv().unwrap() {
+                        KeyEvent {
+                            code: KeyCode::Char('c'),
+                            modifiers: KeyModifiers::CONTROL,
+                        } => {
+                            break Command::Quit;
+                        }
+                        KeyEvent {
+                            code: KeyCode::Char(c),
+                            ..
+                        } => {
+                            self.current_command.push(c);
+                            execute!(&self.stdout, Print(c),).unwrap();
+                        }
+                        KeyEvent {
+                            code: KeyCode::Backspace,
+                            ..
+                        } => {
+                            if self.current_command.pop().is_some() {
+                                execute!(
                                         &self.stdout,
                                         MoveLeft(1),
                                         Clear(ClearType::UntilNewLine),
                                     )
                                     .unwrap();
-                                }
                             }
-                            KeyEvent {
-                                code: KeyCode::Esc, ..
-                            } => {
-                                self.current_command.clear();
-                                break;
-                            }
-                            KeyEvent {
-                                code: KeyCode::Enter,
-                                ..
-                            } => {
-                                break;
-                            }
-                            _ => {}
                         }
+                        KeyEvent {
+                            code: KeyCode::Esc, ..
+                        } => {
+                            execute!(&self.stdout, Print("\r\n"),).unwrap();
+                            break Command::Continue;
+                        }
+                        KeyEvent {
+                            code: KeyCode::Enter,
+                            ..
+                        } => {
+                            execute!(&self.stdout, Print("\r\n"),).unwrap();
+                            break self.current_command.as_str().into();
+                        }
+                        _ => {}
                     }
-                    execute!(&self.stdout, Print("\r\n"),).unwrap();
-                    self.current_command.as_str().into()
                 }
-                KeyEvent {
-                    code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL,
-                } => Command::Quit,
-                _ => Command::Continue,
-            },
-            Err(RecvTimeoutError::Timeout) => Command::Timeout,
-            Err(RecvTimeoutError::Disconnected) => panic!("Command prompt is disconnected"),
+            }
+            KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+            } => Command::Quit,
+            _ => Command::Continue,
         }
     }
 }
@@ -128,6 +139,7 @@ pub enum Command {
     Quit,
     Write,
     WriteThenQuit,
+    Unknown,
 }
 
 impl From<&str> for Command {
@@ -136,7 +148,7 @@ impl From<&str> for Command {
             "q" => Self::Quit,
             "w" => Self::Write,
             "wq" => Self::WriteThenQuit,
-            _ => Self::Continue,
+            _ => Self::Unknown,
         }
     }
 }
