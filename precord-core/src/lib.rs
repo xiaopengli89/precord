@@ -23,4 +23,7 @@ pub enum Error {
     #[cfg(target_os = "windows")]
     #[error("Can't open process handle")]
     ProcessHandle,
+    #[cfg(target_os = "windows")]
+    #[error("Access denied")]
+    AccessDenied,
 }

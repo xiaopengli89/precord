@@ -21,6 +21,7 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::*;
 use winapi::um::processthreadsapi::OpenProcess;
 use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
+use windows::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
 
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
 // 0x800007D2 (PDH_MORE_DATA)
@@ -417,7 +418,15 @@ impl VmCounter {
             let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
             let handle = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
             if handle.is_null() {
-                return Err(Error::ProcessHandle);
+                let err = unsafe {
+                    if GetLastError() == ERROR_ACCESS_DENIED {
+                        Error::AccessDenied
+                    } else {
+                        Error::ProcessHandle
+                    }
+                };
+
+                return Err(err);
             } else {
                 vm_counter.process_counters.push(ProcessVmCounter {
                     pid,

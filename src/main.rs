@@ -2,10 +2,12 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
 use crate::utils::{Command, CommandPrompt};
 use clap::Parser;
-use precord_core::{Features, Pid, System};
+use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fs;
 use std::time::{Duration, Instant};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Shell::ShellExecuteW;
 
 mod consumer_csv;
 mod consumer_json;
@@ -67,7 +69,19 @@ fn main() {
 
     let mut processes = opts.find_processes(&system, proc_category.len());
 
-    let mut system = System::new(features, processes.iter().map(|p| p.pid)).unwrap();
+    let mut system = match System::new(features, processes.iter().map(|p| p.pid)) {
+        Ok(system) => system,
+        #[cfg(target_os = "windows")]
+        Err(Error::AccessDenied) => unsafe {
+            if let Ok(current_exe) = std::env::current_exe() {
+                let args = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
+                ShellExecuteW(0, "runas", current_exe, args, 1);
+            }
+            return;
+        },
+        Err(err) => panic!("{:?}", err),
+    };
+
     system.update();
 
     let mut cpu_info: Vec<CpuInfo> = vec![];
