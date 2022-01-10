@@ -71,14 +71,14 @@ fn main() {
 
     let mut system = match System::new(features, processes.iter().map(|p| p.pid)) {
         Ok(system) => system,
-        #[cfg(target_os = "windows")]
-        Err(Error::AccessDenied) => unsafe {
-            if let Ok(current_exe) = std::env::current_exe() {
-                let args = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
-                ShellExecuteW(0, "runas", current_exe, args, 1);
-            }
-            return;
-        },
+        // #[cfg(target_os = "windows")]
+        // Err(Error::AccessDenied) => unsafe {
+        //     if let Ok(current_exe) = std::env::current_exe() {
+        //         let args = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
+        //         ShellExecuteW(0, "runas", current_exe, args, 1);
+        //     }
+        //     return;
+        // },
         Err(err) => panic!("{:?}", err),
     };
 
@@ -238,33 +238,37 @@ fn main() {
                 match c {
                     ProcessCategory::CPU => {
                         if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
+                            process.valid = true;
                             process.values[idx].push(cpu_usage);
-
                             message.push_str(&format!(" / CPU {:.2}%", cpu_usage));
                         } else {
                             process.valid = false;
-                            continue 'p;
+                            process.values[idx].push(0.0);
+                            message.push_str(" / CPU Lost");
                         }
                     }
                     ProcessCategory::Mem => {
                         if let Some(mem_usage) = system.process_mem(process.pid) {
                             let mem_usage = mem_usage / 1024.0;
-                            process.values[idx].push(mem_usage);
 
+                            process.valid = true;
+                            process.values[idx].push(mem_usage);
                             message.push_str(&format!(" / MEM {:.2}M", mem_usage));
                         } else {
                             process.valid = false;
-                            continue 'p;
+                            process.values[idx].push(0.0);
+                            message.push_str(" / MEM Lost");
                         }
                     }
                     ProcessCategory::GPU => {
                         if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
+                            process.valid = true;
                             process.values[idx].push(gpu_usage);
-
                             message.push_str(&format!(" / GPU {:.2}%", gpu_usage));
                         } else {
                             process.valid = false;
-                            continue 'p;
+                            process.values[idx].push(0.0);
+                            message.push_str(" / GPU Lost");
                         }
                     }
                     ProcessCategory::FPS => {
@@ -357,7 +361,7 @@ fn main() {
 
         println!("================ {}/{}\r", i, opts.count);
 
-        let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
+        // let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
         timestamps.push(chrono::Local::now());
     }
