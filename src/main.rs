@@ -2,12 +2,12 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
 use crate::utils::{Command, CommandPrompt};
 use clap::Parser;
-use precord_core::{Error, Features, Pid, System};
+use precord_core::{Features, Pid, System};
 use regex::Regex;
 use std::fs;
 use std::time::{Duration, Instant};
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::Shell::ShellExecuteW;
+// #[cfg(target_os = "windows")]
+// use windows::Win32::UI::Shell::ShellExecuteW;
 
 mod consumer_csv;
 mod consumer_json;
@@ -231,7 +231,7 @@ fn main() {
         system.update();
 
         // Process
-        'p: for process in processes.iter_mut() {
+        for process in processes.iter_mut() {
             let mut message = format!("{}({})", &process.name, process.pid);
 
             for (idx, &c) in proc_category.iter().enumerate() {
