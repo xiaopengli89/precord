@@ -128,7 +128,7 @@ impl System {
         Some(self.sysinfo_system.as_ref()?.process(pid)?.cpu_usage())
     }
 
-    pub fn process_mem(&self, pid: Pid) -> Option<f32> {
+    pub fn process_mem(&mut self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         unsafe {
             let mut rusage_info_data: libc::rusage_info_v2 =
@@ -148,7 +148,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.vm_counter.as_ref()?.process_mem(pid)
+            self.vm_counter.as_mut()?.process_mem(pid)
         }
     }
 

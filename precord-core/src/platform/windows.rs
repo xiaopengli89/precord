@@ -19,8 +19,8 @@ use winapi::shared::ntdef::NT_SUCCESS;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::*;
-use winapi::um::processthreadsapi::OpenProcess;
-use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
+use winapi::um::processthreadsapi::{GetExitCodeProcess, OpenProcess};
+use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, STATUS_PENDING};
 use windows::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
 
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
@@ -431,6 +431,7 @@ impl VmCounter {
                 vm_counter.process_counters.push(ProcessVmCounter {
                     pid,
                     handle,
+                    valid: true,
                     mem: 0.0,
                 });
             }
@@ -439,22 +440,27 @@ impl VmCounter {
         Ok(vm_counter)
     }
 
-    pub fn process_mem(&self, pid: Pid) -> Option<f32> {
+    pub fn process_mem(&mut self, pid: Pid) -> Option<f32> {
         self.process_counters
-            .iter()
-            .find(|p| p.pid == pid)
+            .iter_mut()
+            .find(|p| p.pid == pid && p.valid)
             .map(|p| unsafe {
-                let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
-                let r = NtQueryInformationProcess(
-                    p.handle,
-                    ProcessVmCounters,
-                    std::mem::transmute(&mut info),
-                    std::mem::size_of::<VM_COUNTERS_EX2>() as _,
-                    std::ptr::null_mut(),
-                );
-                if NT_SUCCESS(r) {
-                    Some((info.PrivateWorkingSetSize >> 10) as f32)
+                if is_proc_running(p.handle) {
+                    let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
+                    let r = NtQueryInformationProcess(
+                        p.handle,
+                        ProcessVmCounters,
+                        std::mem::transmute(&mut info),
+                        std::mem::size_of::<VM_COUNTERS_EX2>() as _,
+                        std::ptr::null_mut(),
+                    );
+                    if NT_SUCCESS(r) {
+                        Some((info.PrivateWorkingSetSize >> 10) as f32)
+                    } else {
+                        None
+                    }
                 } else {
+                    p.valid = false;
                     None
                 }
             })
@@ -465,6 +471,7 @@ impl VmCounter {
 struct ProcessVmCounter {
     pid: Pid,
     handle: HANDLE,
+    valid: bool,
     mem: f32,
 }
 
@@ -474,4 +481,11 @@ impl Drop for ProcessVmCounter {
             let _ = CloseHandle(self.handle);
         }
     }
+}
+
+// Source from sysinfo
+fn is_proc_running(handle: HANDLE) -> bool {
+    let mut exit_code = 0;
+    let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
+    !(ret == FALSE || exit_code != STATUS_PENDING)
 }
