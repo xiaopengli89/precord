@@ -24,6 +24,10 @@ precord -p 1203 -o result.svg
 
 ### Options
 
+```shell
+precord -h
+```
+
 - `-c / --category` - categories for recording, possible values:
   - `cpu` - CPU usage of process
   - `mem` - Memory usage of process
@@ -42,6 +46,12 @@ precord -p 1203 -o result.svg
 - `-n` - Count of recording
 - `-r / --recurse_children` - Flag to recurse child processes
 
+### Command Mode
+Type `:` during recording will enter the command mode, and press `Esc` will back to recording. The supported commands are:
+- `w` - Write(Save) output
+- `q` - Exit
+- `wq` - Combination of `w` and `q` 
+
 ## precord-core
 
 A library for retrieving process and system performance data.
@@ -52,7 +62,7 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
-  let mut system = System::new(Features::PROCESS || Features::GPU, [1203]);
+  let mut system = System::new(Features::PROCESS || Features::GPU, [1203]).unwrap();
   system.update();
   
   thread::sleep(Duration::from_secs(1));
@@ -92,9 +102,9 @@ fn main() {
 | cpu                                                |               |               |
 | mem                                                |               |               |
 | gpu                                                |               |               |
-| fps                                                |               | Administrator |
+| fps                                                |               |               |
 | sys_cpu_freq                                       | Administrator |               |
-| sys_cpu_temp                                       | Administrator |               |
+| sys_cpu_temp                                       |               |               |
 | sys_gpu                                            |               |               |
 | system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator | Administrator |
 
