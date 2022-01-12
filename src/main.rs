@@ -18,6 +18,8 @@ mod types;
 mod utils;
 
 fn main() {
+    utils::adjust_privileges();
+
     let path_re = Regex::new(r"^\{([\w,]+)}$").unwrap();
     let opts: Opts = Opts::parse();
     let proc_category: Vec<_> = opts
