@@ -2,7 +2,7 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
 use crate::utils::{Command, CommandPrompt};
 use clap::Parser;
-use precord_core::{Features, Pid, System};
+use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fs;
 use std::time::{Duration, Instant};
@@ -18,8 +18,6 @@ mod types;
 mod utils;
 
 fn main() {
-    utils::adjust_privileges();
-
     let path_re = Regex::new(r"^\{([\w,]+)}$").unwrap();
     let opts: Opts = Opts::parse();
     let proc_category: Vec<_> = opts
@@ -72,18 +70,25 @@ fn main() {
 
     let mut processes = opts.find_processes(&system, proc_category.len());
 
-    let mut system = match System::new(features, processes.iter().map(|p| p.pid)) {
-        Ok(system) => system,
-        // #[cfg(target_os = "windows")]
-        // Err(Error::AccessDenied) => unsafe {
-        //     if let Ok(current_exe) = std::env::current_exe() {
-        //         let args = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
-        //         ShellExecuteW(0, "runas", current_exe, args, 1);
-        //     }
-        //     return;
-        // },
-        Err(err) => panic!("{:?}", err),
-    };
+    let mut system = None;
+    for i in 0..2 {
+        match System::new(features, processes.iter().map(|p| p.pid)) {
+            Ok(system1) => {
+                system = Some(system1);
+                break;
+            },
+            #[cfg(target_os = "windows")]
+            Err(Error::AccessDenied) => unsafe {
+                if i == 0 {
+                    utils::adjust_privileges();
+                } else {
+                    panic!("{:?}", Error::AccessDenied);
+                }
+            },
+            Err(err) => panic!("{:?}", err),
+        }
+    }
+    let mut system = system.unwrap();
 
     system.update();
 
