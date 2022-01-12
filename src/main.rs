@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 // use windows::Win32::UI::Shell::ShellExecuteW;
 
 mod consumer_csv;
+mod consumer_html;
 mod consumer_json;
 mod consumer_svg;
 mod opt;
@@ -169,6 +170,20 @@ fn main() {
                         processes,
                         cpu_info,
                         physical_cpu_info,
+                        gpu_info,
+                    );
+                } else if ext == "html" {
+                    println!("Write to {}\r", output.display());
+                    consumer_html::consume(
+                        output,
+                        proc_categories,
+                        sys_categories,
+                        timestamps,
+                        processes,
+                        cpu_info,
+                        cpu_frequency_max,
+                        physical_cpu_info,
+                        cpu_temperature_max,
                         gpu_info,
                     );
                 }
