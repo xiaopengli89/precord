@@ -1001,6 +1001,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo",
+ "winapi",
  "windows 0.29.0",
 ]
 
