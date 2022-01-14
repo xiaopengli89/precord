@@ -3,6 +3,8 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
+use regex::Regex;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::Duration;
 use std::{io, thread};
@@ -137,20 +139,77 @@ pub enum Command {
     Timeout,
     Continue,
     Quit,
-    Write,
-    WriteThenQuit,
+    Write(Vec<PathBuf>),
+    WriteThenQuit(Vec<PathBuf>),
     Unknown,
 }
 
 impl From<&str> for Command {
     fn from(s: &str) -> Self {
-        match s {
+        let mut tokens = s.split_whitespace();
+        let command = if let Some(command) = tokens.next() {
+            command
+        } else {
+            return Self::Unknown;
+        };
+
+        match command {
             "q" => Self::Quit,
-            "w" => Self::Write,
-            "wq" => Self::WriteThenQuit,
+            "w" => {
+                let mut ps = vec![];
+                while let Some(p) = tokens.next() {
+                    if let Ok(p) = p.parse::<PathBuf>() {
+                        ps.push(p);
+                    } else {
+                        eprintln!("Invalid output path");
+                        return Self::Unknown;
+                    }
+                }
+                Self::Write(ps)
+            }
+            "wq" => {
+                let mut ps = vec![];
+                while let Some(p) = tokens.next() {
+                    if let Ok(p) = p.parse::<PathBuf>() {
+                        ps.push(p);
+                    } else {
+                        eprintln!("Invalid output path");
+                        return Self::Unknown;
+                    }
+                }
+                Self::WriteThenQuit(ps)
+            }
             _ => Self::Unknown,
         }
     }
+}
+
+pub fn extend_path(path_re: &Regex, ps: Vec<PathBuf>) -> Vec<PathBuf> {
+    ps.into_iter()
+        .filter_map(|path| {
+            let ext = path.extension()?;
+            let mut paths = vec![];
+
+            if let Some(ext) = ext.to_str() {
+                if path_re.is_match(ext) {
+                    for cap in path_re.captures_iter(ext) {
+                        for ext_str in cap[1].split(',') {
+                            let mut path_cloned = path.clone();
+                            path_cloned.set_extension(ext_str);
+                            paths.push(path_cloned);
+                        }
+                    }
+                } else {
+                    paths.push(path);
+                }
+            } else {
+                paths.push(path);
+            };
+
+            Some(paths)
+        })
+        .flatten()
+        .collect()
 }
 
 pub fn adjust_privileges() {

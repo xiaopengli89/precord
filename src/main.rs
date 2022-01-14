@@ -1,10 +1,11 @@
 use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
-use crate::utils::{Command, CommandPrompt};
+use crate::utils::{extend_path, Command, CommandPrompt};
 use clap::Parser;
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fs;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 // #[cfg(target_os = "windows")]
 // use windows::Win32::UI::Shell::ShellExecuteW;
@@ -97,32 +98,7 @@ fn main() {
 
     let mut last_record_time = Instant::now();
 
-    let outputs = opts
-        .output
-        .into_iter()
-        .filter_map(|path| {
-            let ext = path.extension()?;
-            let mut paths = vec![];
-
-            if let Some(ext) = ext.to_str() {
-                if path_re.is_match(ext) {
-                    for cap in path_re.captures_iter(ext) {
-                        for ext_str in cap[1].split(',') {
-                            let mut path_cloned = path.clone();
-                            path_cloned.set_extension(ext_str);
-                            paths.push(path_cloned);
-                        }
-                    }
-                } else {
-                    paths.push(path);
-                }
-            } else {
-                paths.push(path);
-            };
-
-            Some(paths)
-        })
-        .flatten();
+    let outputs = extend_path(&path_re, opts.output);
 
     let write_result = |proc_categories: &[ProcessCategory],
                         sys_categories: &[SystemCategory],
@@ -132,8 +108,9 @@ fn main() {
                         cpu_frequency_max: f32,
                         physical_cpu_info: &[PhysicalCpuInfo],
                         cpu_temperature_max: f32,
-                        gpu_info: &[GpuInfo]| {
-        for output in outputs.clone() {
+                        gpu_info: &[GpuInfo],
+                        o: &[PathBuf]| {
+        for output in o.into_iter() {
             if let Some(parent) = output.parent() {
                 if parent.components().count() > 0 && !parent.exists() {
                     fs::create_dir_all(parent).unwrap();
@@ -217,7 +194,8 @@ fn main() {
                     break;
                 }
                 Command::Continue => command_mode = false,
-                Command::Write => {
+                Command::Write(p) => {
+                    let p = extend_path(&path_re, p);
                     write_result(
                         &proc_category,
                         &sys_category,
@@ -228,11 +206,13 @@ fn main() {
                         &physical_cpu_info,
                         cpu_temperature_max,
                         &gpu_info,
+                        if !p.is_empty() { &p } else { &outputs },
                     );
                     command_mode = true;
                 }
                 Command::Quit => return,
-                Command::WriteThenQuit => {
+                Command::WriteThenQuit(p) => {
+                    let p = extend_path(&path_re, p);
                     write_result(
                         &proc_category,
                         &sys_category,
@@ -243,6 +223,7 @@ fn main() {
                         &physical_cpu_info,
                         cpu_temperature_max,
                         &gpu_info,
+                        if !p.is_empty() { &p } else { &outputs },
                     );
                     return;
                 }
@@ -398,5 +379,6 @@ fn main() {
         &physical_cpu_info,
         cpu_temperature_max,
         &gpu_info,
+        &outputs,
     );
 }
