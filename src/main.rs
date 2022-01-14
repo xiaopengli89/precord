@@ -76,7 +76,7 @@ fn main() {
             Ok(system1) => {
                 system = Some(system1);
                 break;
-            },
+            }
             #[cfg(target_os = "windows")]
             Err(Error::AccessDenied) => unsafe {
                 if i == 0 {
