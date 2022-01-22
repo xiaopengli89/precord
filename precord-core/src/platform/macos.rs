@@ -22,14 +22,14 @@ pub struct Task {
     gputime_ms_per_s: f32,
 }
 
-pub struct PowerMetrics {
+pub struct CommandSource {
     last_update: Instant,
     last_update_prev: Instant,
     last_result: PowerMetricsResult,
     net_traffic_result: Vec<ProcessNetTraffic>,
 }
 
-impl PowerMetrics {
+impl CommandSource {
     pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
         let net_traffic_result: Vec<_> = pids
             .into_iter()
@@ -50,7 +50,7 @@ impl PowerMetrics {
         cmd_source
     }
 
-    pub fn poll(&mut self) {
+    pub fn update_cpu_frequency(&mut self) {
         let o = Command::new("powermetrics")
             .args([
                 "--samplers",
