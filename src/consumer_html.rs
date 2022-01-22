@@ -61,6 +61,16 @@ pub fn consume<P: AsRef<Path>>(
                 category_title = "Process FPS";
                 unit = "";
             }
+            ProcessCategory::NetIn => {
+                max_value = 1024.0;
+                category_title = "Process Net In(KBps)";
+                unit = "KBps";
+            }
+            ProcessCategory::NetOut => {
+                max_value = 1024.0;
+                category_title = "Process Net Out(KBps)";
+                unit = "KBps";
+            }
         }
 
         for p in processes {

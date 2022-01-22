@@ -26,6 +26,8 @@ pub fn consume<P: AsRef<Path>>(
             ProcessCategory::Mem => &mut json_output.mem,
             ProcessCategory::GPU => &mut json_output.gpu,
             ProcessCategory::FPS => &mut json_output.fps,
+            ProcessCategory::NetIn => &mut json_output.net_in,
+            ProcessCategory::NetOut => &mut json_output.net_out,
         };
         for p in processes {
             target.push(ProcessRecord {
@@ -121,6 +123,8 @@ struct JsonOutput {
     mem: Vec<ProcessRecord>,
     gpu: Vec<ProcessRecord>,
     fps: Vec<ProcessRecord>,
+    net_in: Vec<ProcessRecord>,
+    net_out: Vec<ProcessRecord>,
     sys_cpu_freq: Vec<SystemRecord>,
     sys_cpu_temp: Vec<SystemRecord>,
     sys_gpu: Vec<SystemRecord>,

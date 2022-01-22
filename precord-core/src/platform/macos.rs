@@ -23,8 +23,6 @@ pub struct Task {
 }
 
 pub struct CommandSource {
-    last_update: Instant,
-    last_update_prev: Instant,
     last_result: PowerMetricsResult,
     net_traffic_result: Vec<ProcessNetTraffic>,
 }
@@ -39,15 +37,10 @@ impl CommandSource {
             })
             .collect();
 
-        let mut now = Instant::now();
-        let mut cmd_source = Self {
-            last_update: now,
-            last_update_prev: now,
+        Self {
             last_result: Default::default(),
             net_traffic_result,
-        };
-        cmd_source.update_net_traffic();
-        cmd_source
+        }
     }
 
     pub fn update_cpu_frequency(&mut self) {
@@ -76,7 +69,7 @@ impl CommandSource {
 
     pub fn update_net_traffic(&mut self) {
         let mut command = Command::new("nettop");
-        command.args(["-P", "-L", "1", "-J", "bytes_in,bytes_out"]);
+        command.args(["-P", "-d", "-L", "2", "-J", "bytes_in,bytes_out"]);
 
         for p in self.net_traffic_result.iter() {
             command.args(["-p", p.pid.to_string().as_str()]);
@@ -91,16 +84,27 @@ impl CommandSource {
             }
         }
 
-        self.last_update_prev = self.last_update;
-        self.last_update = Instant::now();
         for p in self.net_traffic_result.iter_mut() {
-            p.updated = false;
+            p.bytes_in = 0;
+            p.bytes_out = 0;
         }
         let mut cursor = Cursor::new(o.stdout);
         let mut line = String::new();
+        let mut session_index = 0;
         while let Ok(read) = cursor.read_line(&mut line) {
             if read == 0 {
                 break;
+            }
+
+            if line.starts_with(",bytes_in,bytes_out,") {
+                session_index += 1;
+                line.clear();
+                continue;
+            }
+
+            if session_index < 2 {
+                line.clear();
+                continue;
             }
 
             let data: Vec<_> = line.split(',').collect();
@@ -121,23 +125,13 @@ impl CommandSource {
 
             self.net_traffic_result
                 .iter_mut()
-                .find(|p| p.pid == pid && !p.updated)
+                .find(|p| p.pid == pid)
                 .map(|p| {
-                    p.bytes_in_prev = p.bytes_in;
-                    p.bytes_out_prev = p.bytes_out;
                     p.bytes_in = bytes_in;
                     p.bytes_out = bytes_out;
-                    p.updated = true;
                 });
 
             line.clear()
-        }
-        for p in self.net_traffic_result.iter_mut() {
-            if !p.updated {
-                p.bytes_in_prev = p.bytes_in;
-                p.bytes_out_prev = p.bytes_out;
-                p.updated = true;
-            }
         }
     }
 
@@ -180,24 +174,18 @@ impl CommandSource {
         }
     }
 
-    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<f32> {
+    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<u32> {
         self.net_traffic_result
             .iter()
             .find(|p| p.pid == pid)
-            .map(|p| {
-                let d = (self.last_update - self.last_update_prev).as_secs_f32();
-                (p.bytes_in - p.bytes_in_prev) as f32 / d
-            })
+            .map(|p| p.bytes_in)
     }
 
-    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<f32> {
+    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<u32> {
         self.net_traffic_result
             .iter()
             .find(|p| p.pid == pid)
-            .map(|p| {
-                let d = (self.last_update - self.last_update_prev).as_secs_f32();
-                (p.bytes_out - p.bytes_out_prev) as f32 / d
-            })
+            .map(|p| p.bytes_out)
     }
 }
 
@@ -352,8 +340,5 @@ struct PerformanceStatistics {
 struct ProcessNetTraffic {
     pid: Pid,
     bytes_in: u32,
-    bytes_in_prev: u32,
     bytes_out: u32,
-    bytes_out_prev: u32,
-    updated: bool,
 }
