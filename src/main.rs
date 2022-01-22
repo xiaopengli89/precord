@@ -29,6 +29,8 @@ fn main() {
             Category::Mem => Some(ProcessCategory::Mem),
             Category::GPU => Some(ProcessCategory::GPU),
             Category::FPS => Some(ProcessCategory::FPS),
+            Category::NetIn => Some(ProcessCategory::NetIn),
+            Category::NetOut => Some(ProcessCategory::NetOut),
             _ => None,
         })
         .collect();
@@ -58,6 +60,11 @@ fn main() {
     }
     if proc_category.contains(&ProcessCategory::FPS) {
         features.insert(Features::FPS);
+    }
+    if proc_category.contains(&ProcessCategory::NetIn)
+        || proc_category.contains(&ProcessCategory::NetOut)
+    {
+        features.insert(Features::NET_TRAFFIC);
     }
     if sys_category.contains(&SystemCategory::CPUFreq) {
         features.insert(Features::CPU_FREQUENCY);
@@ -90,8 +97,6 @@ fn main() {
         }
     }
     let mut system = system.unwrap();
-
-    system.update();
 
     let mut cpu_info: Vec<CpuInfo> = vec![];
     let mut gpu_info: Vec<GpuInfo> = vec![];
@@ -279,6 +284,30 @@ fn main() {
                         process.values[idx].push(fps);
 
                         message.push_str(&format!(" / FPS {}", fps));
+                    }
+                    ProcessCategory::NetIn => {
+                        if let Some(mut net_in) = system.process_net_traffic_in(process.pid) {
+                            let net_in = (net_in >> 10) as f32;
+                            process.valid = true;
+                            process.values[idx].push(net_in);
+                            message.push_str(&format!(" / NET_IN {:.2}KBps", net_in));
+                        } else {
+                            process.valid = false;
+                            process.values[idx].push(0.0);
+                            message.push_str(" / NET_IN Lost");
+                        }
+                    }
+                    ProcessCategory::NetOut => {
+                        if let Some(mut net_out) = system.process_net_traffic_out(process.pid) {
+                            let net_out = (net_out >> 10) as f32;
+                            process.valid = true;
+                            process.values[idx].push(net_out);
+                            message.push_str(&format!(" / NET_OUT {:.2}KBps", net_out));
+                        } else {
+                            process.valid = false;
+                            process.values[idx].push(0.0);
+                            message.push_str(" / NET_OUT Lost");
+                        }
                     }
                 }
             }

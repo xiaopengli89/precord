@@ -129,6 +129,10 @@ pub enum Category {
     Mem,
     GPU,
     FPS,
+    #[clap(name = "net_in")]
+    NetIn,
+    #[clap(name = "net_out")]
+    NetOut,
     #[clap(name = "sys_cpu_freq")]
     SysCPUFreq,
     #[clap(name = "sys_cpu_temp")]
@@ -143,6 +147,8 @@ pub enum ProcessCategory {
     Mem,
     GPU,
     FPS,
+    NetIn,
+    NetOut,
 }
 
 #[derive(Copy, Clone, PartialEq)]

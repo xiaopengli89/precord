@@ -224,7 +224,7 @@ impl System {
         }
     }
 
-    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<f32> {
+    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {
             self.command_source.as_ref()?.process_net_traffic_in(pid)
@@ -235,7 +235,7 @@ impl System {
         }
     }
 
-    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<f32> {
+    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {
             self.command_source.as_ref()?.process_net_traffic_out(pid)

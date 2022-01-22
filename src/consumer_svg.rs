@@ -98,6 +98,16 @@ pub fn consume<P: AsRef<Path>>(
                 unit = "";
                 max = max.max(60.0);
             }
+            ProcessCategory::NetIn => {
+                max = max.max(1024.0);
+                caption = "Process Net In";
+                unit = "KBps";
+            }
+            ProcessCategory::NetOut => {
+                max = max.max(1024.0);
+                caption = "Process Net Out";
+                unit = "KBps";
+            }
         };
 
         let mut chart = ChartBuilder::on(&area)

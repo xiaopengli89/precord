@@ -26,6 +26,8 @@ pub fn consume<P: AsRef<Path>>(
             ProcessCategory::Mem => "Process Memory Usage",
             ProcessCategory::GPU => "Process GPU Usage",
             ProcessCategory::FPS => "Process FPS",
+            ProcessCategory::NetIn => "Process Net In",
+            ProcessCategory::NetOut => "Process Net Out",
         })
         .unwrap();
         for p in processes {
