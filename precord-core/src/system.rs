@@ -9,6 +9,7 @@ use sysinfo::{ProcessExt, SystemExt};
 
 #[derive(Default)]
 pub struct System {
+    features: Features,
     sysinfo_system: Option<sysinfo::System>,
     refresh_kind: sysinfo::RefreshKind,
     #[cfg(target_os = "macos")]
@@ -34,6 +35,7 @@ impl System {
         pids: T,
     ) -> Result<Self, Error> {
         let mut system = System::default();
+        system.features = features;
 
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
@@ -67,7 +69,7 @@ impl System {
         if features.contains(Features::CPU_FREQUENCY) {
             #[cfg(target_os = "macos")]
             {
-                system.power_metrics = Some(PowerMetrics::new());
+                system.power_metrics = Some(PowerMetrics::new(pids.clone()));
             }
             #[cfg(target_os = "windows")]
             {
@@ -96,6 +98,17 @@ impl System {
             }
         }
 
+        if features.contains(Features::NET_TRAFFIC) {
+            #[cfg(target_os = "macos")]
+            {
+                system.power_metrics = Some(
+                    system
+                        .power_metrics
+                        .unwrap_or_else(|| PowerMetrics::new(pids)),
+                );
+            }
+        }
+
         Ok(system)
     }
 
@@ -106,7 +119,12 @@ impl System {
 
         #[cfg(target_os = "macos")]
         if let Some(power_metrics) = &mut self.power_metrics {
-            power_metrics.poll();
+            if self.features.contains(Features::CPU_FREQUENCY) {
+                power_metrics.poll();
+            }
+            if self.features.contains(Features::NET_TRAFFIC) {
+                power_metrics.update_net_traffic();
+            }
         }
 
         #[cfg(target_os = "macos")]
@@ -206,6 +224,28 @@ impl System {
         }
     }
 
+    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            self.power_metrics.as_ref()?.process_net_traffic_in(pid)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            None
+        }
+    }
+
+    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            self.power_metrics.as_ref()?.process_net_traffic_out(pid)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            None
+        }
+    }
+
     pub fn system_gpu_usage(&mut self) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
@@ -262,12 +302,14 @@ impl System {
 }
 
 bitflags! {
+    #[derive(Default)]
     pub struct Features: u32 {
         const PROCESS =         1 << 0;
         const GPU =             1 << 1;
         const CPU_FREQUENCY =   1 << 2;
         const FPS =             1 << 3;
         const SMC =             1 << 4;
+        const NET_TRAFFIC =     1 << 5;
     }
 }
 

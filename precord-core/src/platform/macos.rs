@@ -4,7 +4,9 @@ use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictio
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
 use serde::Deserialize;
+use std::io::{BufRead, Cursor};
 use std::process::Command;
+use std::time::Instant;
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
@@ -21,14 +23,31 @@ pub struct Task {
 }
 
 pub struct PowerMetrics {
+    last_update: Instant,
+    last_update_prev: Instant,
     last_result: PowerMetricsResult,
+    net_traffic_result: Vec<ProcessNetTraffic>,
 }
 
 impl PowerMetrics {
-    pub fn new() -> Self {
-        Self {
+    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
+        let net_traffic_result: Vec<_> = pids
+            .into_iter()
+            .map(|pid| ProcessNetTraffic {
+                pid,
+                ..Default::default()
+            })
+            .collect();
+
+        let mut now = Instant::now();
+        let mut cmd_source = Self {
+            last_update: now,
+            last_update_prev: now,
             last_result: Default::default(),
-        }
+            net_traffic_result,
+        };
+        cmd_source.update_net_traffic();
+        cmd_source
     }
 
     pub fn poll(&mut self) {
@@ -53,6 +72,73 @@ impl PowerMetrics {
         }
 
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
+    }
+
+    pub fn update_net_traffic(&mut self) {
+        let mut command = Command::new("nettop");
+        command.args(["-P", "-L", "1", "-J", "bytes_in,bytes_out"]);
+
+        for p in self.net_traffic_result.iter() {
+            command.args(["-p", p.pid.to_string().as_str()]);
+        }
+
+        let o = command.output().unwrap();
+
+        match o.status.code() {
+            Some(0) => {}
+            _ => {
+                panic!("Error: {}", String::from_utf8_lossy(&o.stderr));
+            }
+        }
+
+        self.last_update_prev = self.last_update;
+        self.last_update = Instant::now();
+        for p in self.net_traffic_result.iter_mut() {
+            p.updated = false;
+        }
+        let mut cursor = Cursor::new(o.stdout);
+        let mut line = String::new();
+        while let Ok(read) = cursor.read_line(&mut line) {
+            if read == 0 {
+                break;
+            }
+
+            let data: Vec<_> = line.split(',').collect();
+            if data.len() < 3 {
+                line.clear();
+                continue;
+            }
+
+            let process: Vec<_> = data[0].split('.').collect();
+            if process.len() < 2 {
+                line.clear();
+                continue;
+            }
+
+            let pid: Pid = process.last().unwrap().parse().unwrap();
+            let bytes_in: u32 = data[1].parse().unwrap();
+            let bytes_out: u32 = data[2].parse().unwrap();
+
+            self.net_traffic_result
+                .iter_mut()
+                .find(|p| p.pid == pid && !p.updated)
+                .map(|p| {
+                    p.bytes_in_prev = p.bytes_in;
+                    p.bytes_out_prev = p.bytes_out;
+                    p.bytes_in = bytes_in;
+                    p.bytes_out = bytes_out;
+                    p.updated = true;
+                });
+
+            line.clear()
+        }
+        for p in self.net_traffic_result.iter_mut() {
+            if !p.updated {
+                p.bytes_in_prev = p.bytes_in;
+                p.bytes_out_prev = p.bytes_out;
+                p.updated = true;
+            }
+        }
     }
 
     pub fn gpu_usage(&self, pid: Option<Pid>) -> Option<f32> {
@@ -92,6 +178,26 @@ impl PowerMetrics {
                 .map(|c| c.freq_hz / 1_000_000.0)
                 .collect()
         }
+    }
+
+    pub fn process_net_traffic_in(&self, pid: Pid) -> Option<f32> {
+        self.net_traffic_result
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| {
+                let d = (self.last_update - self.last_update_prev).as_secs_f32();
+                (p.bytes_in - p.bytes_in_prev) as f32 / d
+            })
+    }
+
+    pub fn process_net_traffic_out(&self, pid: Pid) -> Option<f32> {
+        self.net_traffic_result
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| {
+                let d = (self.last_update - self.last_update_prev).as_secs_f32();
+                (p.bytes_out - p.bytes_out_prev) as f32 / d
+            })
     }
 }
 
@@ -240,4 +346,14 @@ struct IOKitResult {
 struct PerformanceStatistics {
     #[serde(rename = "Device Utilization %", default)]
     device_utilization: f32,
+}
+
+#[derive(Default)]
+struct ProcessNetTraffic {
+    pid: Pid,
+    bytes_in: u32,
+    bytes_in_prev: u32,
+    bytes_out: u32,
+    bytes_out_prev: u32,
+    updated: bool,
 }
