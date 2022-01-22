@@ -9,6 +9,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::Duration;
 use std::{io, thread};
 
+#[allow(dead_code)]
 pub fn drain_filter_vec<T>(input: &mut Vec<T>, mut filter: impl FnMut(&mut T) -> bool) -> Vec<T> {
     let mut output = vec![];
 

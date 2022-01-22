@@ -85,14 +85,13 @@ fn main() {
                 system = Some(system1);
                 break;
             }
-            #[cfg(target_os = "windows")]
-            Err(Error::AccessDenied) => unsafe {
+            Err(Error::AccessDenied) => {
                 if i == 0 {
                     utils::adjust_privileges();
                 } else {
                     panic!("{:?}", Error::AccessDenied);
                 }
-            },
+            }
             Err(err) => panic!("{:?}", err),
         }
     }
@@ -286,7 +285,7 @@ fn main() {
                         message.push_str(&format!(" / FPS {}", fps));
                     }
                     ProcessCategory::NetIn => {
-                        if let Some(mut net_in) = system.process_net_traffic_in(process.pid) {
+                        if let Some(net_in) = system.process_net_traffic_in(process.pid) {
                             let net_in = (net_in >> 10) as f32;
                             process.valid = true;
                             process.values[idx].push(net_in);
@@ -298,7 +297,7 @@ fn main() {
                         }
                     }
                     ProcessCategory::NetOut => {
-                        if let Some(mut net_out) = system.process_net_traffic_out(process.pid) {
+                        if let Some(net_out) = system.process_net_traffic_out(process.pid) {
                             let net_out = (net_out >> 10) as f32;
                             process.valid = true;
                             process.values[idx].push(net_out);

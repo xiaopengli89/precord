@@ -6,16 +6,17 @@ use core_foundation::string::CFString;
 use serde::Deserialize;
 use std::io::{BufRead, Cursor};
 use std::process::Command;
-use std::time::Instant;
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
 struct PowerMetricsResult {
+    #[allow(dead_code)]
     tasks: Vec<Task>,
     processor: ProcessorInfo,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Task {
     pid: Pid,
     #[serde(default)]
@@ -135,7 +136,9 @@ impl CommandSource {
         }
     }
 
-    pub fn gpu_usage(&self, pid: Option<Pid>) -> Option<f32> {
+    #[deprecated]
+    #[allow(dead_code)]
+    fn gpu_usage(&self, pid: Option<Pid>) -> Option<f32> {
         let pid = if let Some(pid) = pid {
             pid
         } else {
@@ -297,7 +300,9 @@ impl IOKitRegistry {
         }
     }
 
-    pub fn poll_from_command(&mut self) {
+    #[deprecated]
+    #[allow(dead_code)]
+    fn poll_from_command(&mut self) {
         let o = Command::new("ioreg")
             .args(["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator", "-a"])
             .output()
@@ -324,6 +329,7 @@ impl IOKitRegistry {
 
 #[derive(Debug, Deserialize)]
 struct IOKitResult {
+    #[allow(dead_code)]
     #[serde(rename = "IOClass")]
     io_class: String,
     #[serde(rename = "PerformanceStatistics")]
