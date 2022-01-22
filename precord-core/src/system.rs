@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use crate::platform::macos::{IOKitRegistry, PowerMetrics};
+use crate::platform::macos::{CommandSource, IOKitRegistry};
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
 use crate::{Error, Pid};
@@ -13,7 +13,7 @@ pub struct System {
     sysinfo_system: Option<sysinfo::System>,
     refresh_kind: sysinfo::RefreshKind,
     #[cfg(target_os = "macos")]
-    power_metrics: Option<PowerMetrics>,
+    command_source: Option<CommandSource>,
     #[cfg(target_os = "macos")]
     ioreg: Option<IOKitRegistry>,
     #[cfg(target_os = "macos")]
@@ -69,7 +69,7 @@ impl System {
         if features.contains(Features::CPU_FREQUENCY) {
             #[cfg(target_os = "macos")]
             {
-                system.power_metrics = Some(PowerMetrics::new(pids.clone()));
+                system.command_source = Some(CommandSource::new(pids.clone()));
             }
             #[cfg(target_os = "windows")]
             {
@@ -101,10 +101,10 @@ impl System {
         if features.contains(Features::NET_TRAFFIC) {
             #[cfg(target_os = "macos")]
             {
-                system.power_metrics = Some(
+                system.command_source = Some(
                     system
-                        .power_metrics
-                        .unwrap_or_else(|| PowerMetrics::new(pids)),
+                        .command_source
+                        .unwrap_or_else(|| CommandSource::new(pids)),
                 );
             }
         }
@@ -118,12 +118,12 @@ impl System {
         }
 
         #[cfg(target_os = "macos")]
-        if let Some(power_metrics) = &mut self.power_metrics {
+        if let Some(command_source) = &mut self.command_source {
             if self.features.contains(Features::CPU_FREQUENCY) {
-                power_metrics.poll();
+                command_source.update_cpu_frequency();
             }
             if self.features.contains(Features::NET_TRAFFIC) {
-                power_metrics.update_net_traffic();
+                command_source.update_net_traffic();
             }
         }
 
@@ -182,7 +182,7 @@ impl System {
         #[cfg(target_os = "macos")]
         {
             Ok(self
-                .power_metrics
+                .command_source
                 .as_ref()
                 .ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?
                 .cpu_frequency())
@@ -227,7 +227,7 @@ impl System {
     pub fn process_net_traffic_in(&self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref()?.process_net_traffic_in(pid)
+            self.command_source.as_ref()?.process_net_traffic_in(pid)
         }
         #[cfg(target_os = "windows")]
         {
@@ -238,7 +238,7 @@ impl System {
     pub fn process_net_traffic_out(&self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
-            self.power_metrics.as_ref()?.process_net_traffic_out(pid)
+            self.command_source.as_ref()?.process_net_traffic_out(pid)
         }
         #[cfg(target_os = "windows")]
         {
