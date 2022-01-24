@@ -4,8 +4,12 @@ use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictio
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
 use serde::Deserialize;
-use std::io::{BufRead, Cursor};
+use std::io::{BufRead, BufReader};
 use std::process::Command;
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
+use std::time::Instant;
+use std::{process, thread};
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
@@ -24,13 +28,16 @@ pub struct Task {
 }
 
 pub struct CommandSource {
+    last_update: Instant,
     last_result: PowerMetricsResult,
     net_traffic_result: Vec<ProcessNetTraffic>,
+    net_traffic_rx: Option<Receiver<ProcessNetTraffic>>,
 }
 
 impl CommandSource {
-    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
+    pub fn new<T: IntoIterator<Item = Pid> + Clone>(pids: T, net_traffic: bool) -> Self {
         let net_traffic_result: Vec<_> = pids
+            .clone()
             .into_iter()
             .map(|pid| ProcessNetTraffic {
                 pid,
@@ -38,9 +45,22 @@ impl CommandSource {
             })
             .collect();
 
+        let pids: Vec<_> = pids.into_iter().collect();
+        let rx = if net_traffic && !pids.is_empty() {
+            let (net_top_runner, rx) = NetTopRunner::new();
+            thread::spawn(move || {
+                net_top_runner.run(pids);
+            });
+            Some(rx)
+        } else {
+            None
+        };
+
         Self {
+            last_update: Instant::now(),
             last_result: Default::default(),
             net_traffic_result,
+            net_traffic_rx: rx,
         }
     }
 
@@ -69,71 +89,31 @@ impl CommandSource {
     }
 
     pub fn update_net_traffic(&mut self) {
-        let mut command = Command::new("nettop");
-        command.args(["-P", "-d", "-L", "2", "-J", "bytes_in,bytes_out"]);
+        let rx = if let Some(rx) = &self.net_traffic_rx {
+            rx
+        } else {
+            return;
+        };
 
-        for p in self.net_traffic_result.iter() {
-            command.args(["-p", p.pid.to_string().as_str()]);
-        }
-
-        let o = command.output().unwrap();
-
-        match o.status.code() {
-            Some(0) => {}
-            _ => {
-                panic!("Error: {}", String::from_utf8_lossy(&o.stderr));
+        while let Ok(net_traffic) = rx.try_recv() {
+            if let Some(p) = self
+                .net_traffic_result
+                .iter_mut()
+                .find(|p| p.pid == net_traffic.pid)
+            {
+                p.bytes_in += net_traffic.bytes_in;
+                p.bytes_out += net_traffic.bytes_out;
             }
         }
-
+        let now = Instant::now();
+        let d = (now - self.last_update).as_secs_f32();
         for p in self.net_traffic_result.iter_mut() {
+            p.bytes_in_per_sec = (p.bytes_in as f32 / d) as _;
+            p.bytes_out_per_sec = (p.bytes_out as f32 / d) as _;
             p.bytes_in = 0;
             p.bytes_out = 0;
         }
-        let mut cursor = Cursor::new(o.stdout);
-        let mut line = String::new();
-        let mut session_index = 0;
-        while let Ok(read) = cursor.read_line(&mut line) {
-            if read == 0 {
-                break;
-            }
-
-            if line.starts_with(",bytes_in,bytes_out,") {
-                session_index += 1;
-                line.clear();
-                continue;
-            }
-
-            if session_index < 2 {
-                line.clear();
-                continue;
-            }
-
-            let data: Vec<_> = line.split(',').collect();
-            if data.len() < 3 {
-                line.clear();
-                continue;
-            }
-
-            let process: Vec<_> = data[0].split('.').collect();
-            if process.len() < 2 {
-                line.clear();
-                continue;
-            }
-
-            let pid: Pid = process.last().unwrap().parse().unwrap();
-            let bytes_in: u32 = data[1].parse().unwrap();
-            let bytes_out: u32 = data[2].parse().unwrap();
-
-            self.net_traffic_result
-                .iter_mut()
-                .find(|p| p.pid == pid)
-                .map(|p| {
-                    p.bytes_in = bytes_in;
-                    p.bytes_out = bytes_out;
-                });
-
-            line.clear()
-        }
+        self.last_update = now;
     }
 
     #[deprecated]
@@ -181,14 +161,14 @@ impl CommandSource {
         self.net_traffic_result
             .iter()
             .find(|p| p.pid == pid)
-            .map(|p| p.bytes_in)
+            .map(|p| p.bytes_in_per_sec)
     }
 
     pub fn process_net_traffic_out(&self, pid: Pid) -> Option<u32> {
         self.net_traffic_result
             .iter()
             .find(|p| p.pid == pid)
-            .map(|p| p.bytes_out)
+            .map(|p| p.bytes_out_per_sec)
     }
 }
 
@@ -346,5 +326,94 @@ struct PerformanceStatistics {
 struct ProcessNetTraffic {
     pid: Pid,
     bytes_in: u32,
+    bytes_in_per_sec: u32,
     bytes_out: u32,
+    bytes_out_per_sec: u32,
+}
+
+struct NetTopRunner {
+    tx: Sender<ProcessNetTraffic>,
+}
+
+impl NetTopRunner {
+    fn new() -> (Self, Receiver<ProcessNetTraffic>) {
+        let (tx, rx) = mpsc::channel();
+        (Self { tx }, rx)
+    }
+
+    fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
+        let mut command = Command::new("script");
+        command.args([
+            "-q",
+            "/dev/null",
+            "nettop",
+            "-P",
+            "-d",
+            "-L",
+            "0",
+            "-J",
+            "bytes_in,bytes_out",
+        ]);
+
+        for p in pids {
+            command.args(["-p", p.to_string().as_str()]);
+        }
+
+        let mut child = command
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut buf = BufReader::new(child.stdout.as_mut().unwrap());
+        let mut line = String::new();
+        let mut session_index = 0;
+        while let Ok(read) = buf.read_line(&mut line) {
+            if read == 0 {
+                break;
+            }
+
+            if line.starts_with(",bytes_in,bytes_out,") {
+                if session_index < 2 {
+                    session_index += 1;
+                }
+                line.clear();
+                continue;
+            }
+
+            if session_index < 2 {
+                line.clear();
+                continue;
+            }
+
+            let data: Vec<_> = line.split(',').collect();
+            if data.len() < 3 {
+                line.clear();
+                continue;
+            }
+
+            let process: Vec<_> = data[0].split('.').collect();
+            if process.len() < 2 {
+                line.clear();
+                continue;
+            }
+
+            let pid: Pid = process.last().unwrap().parse().unwrap();
+            let bytes_in: u32 = data[1].parse().unwrap();
+            let bytes_out: u32 = data[2].parse().unwrap();
+
+            if let Err(_) = self.tx.send(ProcessNetTraffic {
+                pid,
+                bytes_in,
+                bytes_out,
+                ..Default::default()
+            }) {
+                break;
+            }
+
+            line.clear();
+        }
+
+        let _ = child.kill();
+    }
 }
