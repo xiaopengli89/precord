@@ -69,7 +69,10 @@ impl System {
         if features.contains(Features::CPU_FREQUENCY) {
             #[cfg(target_os = "macos")]
             {
-                system.command_source = Some(CommandSource::new(pids.clone()));
+                system.command_source = Some(CommandSource::new(
+                    pids.clone(),
+                    features.contains(Features::NET_TRAFFIC),
+                ));
             }
             #[cfg(target_os = "windows")]
             {
@@ -104,7 +107,7 @@ impl System {
                 system.command_source = Some(
                     system
                         .command_source
-                        .unwrap_or_else(|| CommandSource::new(pids)),
+                        .unwrap_or_else(|| CommandSource::new(pids, true)),
                 );
             }
         }
