@@ -1,6 +1,7 @@
 use crate::{Error, Pid};
 use ferrisetw::native::etw_types::EventRecord;
-use ferrisetw::provider::Provider;
+use ferrisetw::parser::{Parser, TryParse};
+use ferrisetw::provider::{kernel_providers, Provider};
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX2};
 use serde::Deserialize;
@@ -274,6 +275,7 @@ struct EtwProvider {
 }
 
 pub struct EtwTrace {
+    last_update: Instant,
     user_trace: UserTrace,
     handler: Arc<RwLock<EtwTraceHandler>>,
     _trace_guard: Receiver<Option<UserTrace>>,
@@ -286,49 +288,94 @@ impl Drop for EtwTrace {
 }
 
 impl EtwTrace {
-    pub fn new() -> Self {
+    pub fn new(present: bool, tcp_ip: bool) -> Self {
         let mut trace = UserTrace::new().named("precord".to_string());
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
-        for provider_guid in [
-            // Microsoft-Windows-DXGI
-            EtwProvider {
-                guid: "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9",
-                name: "Microsoft-Windows-DXGI",
-                present_event_id: 0x002a,
-            },
-            // Microsoft-Windows-D3D9
-            EtwProvider {
-                guid: "783ACA0A-790E-4d7f-8451-AA850511C6B9",
-                name: "Microsoft-Windows-D3D9",
-                present_event_id: 0x0001,
-            },
-            // Microsoft-Windows-Dwm-Core
-            EtwProvider {
-                guid: "9E9BBA3C-2E38-40CB-99F4-9E8281425164",
-                name: "Microsoft-Windows-Dwm-Core",
-                present_event_id: 0x000f,
-            },
-            // Microsoft-Windows-DxgKrnl
-            EtwProvider {
-                guid: "802EC45A-1E99-4B83-9920-87C98277BA9D",
-                name: "Microsoft-Windows-DxgKrnl",
-                present_event_id: 0x00aa, // RenderKm
-            },
-        ] {
+        if present {
+            for provider_guid in [
+                // Microsoft-Windows-DXGI
+                EtwProvider {
+                    guid: "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9",
+                    name: "Microsoft-Windows-DXGI",
+                    present_event_id: 0x002a,
+                },
+                // Microsoft-Windows-D3D9
+                EtwProvider {
+                    guid: "783ACA0A-790E-4d7f-8451-AA850511C6B9",
+                    name: "Microsoft-Windows-D3D9",
+                    present_event_id: 0x0001,
+                },
+                // Microsoft-Windows-Dwm-Core
+                EtwProvider {
+                    guid: "9E9BBA3C-2E38-40CB-99F4-9E8281425164",
+                    name: "Microsoft-Windows-Dwm-Core",
+                    present_event_id: 0x000f,
+                },
+                // Microsoft-Windows-DxgKrnl
+                EtwProvider {
+                    guid: "802EC45A-1E99-4B83-9920-87C98277BA9D",
+                    name: "Microsoft-Windows-DxgKrnl",
+                    present_event_id: 0x00aa, // RenderKm
+                },
+            ] {
+                let handler = handler.clone();
+                let provider = Provider::new()
+                    .by_guid(provider_guid.guid)
+                    .add_callback(move |record: EventRecord, schema_locator| {
+                        match schema_locator.event_schema(record) {
+                            Ok(schema) => {
+                                if schema.provider_name() == provider_guid.name
+                                    && schema.event_id() == provider_guid.present_event_id
+                                {
+                                    handler.write().unwrap().add_present(schema.process_id());
+                                }
+                            }
+                            Err(_) => {}
+                        };
+                    })
+                    .build()
+                    .unwrap();
+                trace = trace.enable(provider);
+            }
+        }
+
+        if tcp_ip {
             let handler = handler.clone();
-            let provider = Provider::new()
-                .by_guid(provider_guid.guid)
+            let provider = Provider::kernel(&kernel_providers::TCP_IP_PROVIDER)
                 .add_callback(move |record: EventRecord, schema_locator| {
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
-                            if schema.provider_name() == provider_guid.name
-                                && schema.event_id() == provider_guid.present_event_id
-                            {
-                                handler
-                                    .write()
-                                    .unwrap()
-                                    .add_present(schema.process_id(), Instant::now());
+                            if schema.provider_name() == "Microsoft-Windows-TCPIP" {
+                                match schema.task_name().as_str() {
+                                    "TcpDataTransferSend" => {
+                                        let mut parser = Parser::create(&schema);
+                                        match TryParse::<u32>::try_parse(&mut parser, "BytesSent") {
+                                            Ok(bytes) => {
+                                                handler.write().unwrap().add_network(
+                                                    schema.process_id(),
+                                                    bytes,
+                                                    true,
+                                                );
+                                            }
+                                            Err(_) => {}
+                                        };
+                                    }
+                                    "TcpDataTransferReceive" => {
+                                        let mut parser = Parser::create(&schema);
+                                        match TryParse::<u32>::try_parse(&mut parser, "NumBytes") {
+                                            Ok(bytes) => {
+                                                handler.write().unwrap().add_network(
+                                                    schema.process_id(),
+                                                    bytes,
+                                                    false,
+                                                );
+                                            }
+                                            Err(_) => {}
+                                        };
+                                    }
+                                    _ => {}
+                                }
                             }
                         }
                         Err(_) => {}
@@ -352,6 +399,7 @@ impl EtwTrace {
         });
 
         Self {
+            last_update: Instant::now(),
             user_trace: rx.recv().unwrap().unwrap(),
             handler,
             _trace_guard: rx,
@@ -359,49 +407,102 @@ impl EtwTrace {
     }
 
     pub fn fps(&self, pid: Pid) -> f32 {
-        self.handler.write().unwrap().fps(pid as _, Instant::now())
+        self.handler.read().unwrap().fps(pid as _)
+    }
+
+    pub fn net_send_per_sec(&self, pid: Pid) -> u32 {
+        self.handler.read().unwrap().net_send_per_sec(pid as _)
+    }
+
+    pub fn net_recv_per_sec(&self, pid: Pid) -> u32 {
+        self.handler.read().unwrap().net_recv_per_sec(pid as _)
+    }
+
+    pub fn update(&mut self) {
+        let now = Instant::now();
+        let d = (now - self.last_update).as_secs_f32();
+        for value in self.handler.write().unwrap().trace_events.values_mut() {
+            value.present_per_sec = if d < 1.0 {
+                0.0
+            } else {
+                value.present as f32 / d
+            };
+
+            value.net_send_per_sec = if d < 1.0 {
+                0
+            } else {
+                (value.net_send as f32 / d) as _
+            };
+
+            value.net_recv_per_sec = if d < 1.0 {
+                0
+            } else {
+                (value.net_recv as f32 / d) as _
+            };
+        }
+        self.last_update = now;
     }
 }
 
 #[derive(Default)]
 struct EtwTraceHandler {
-    present_event_timestamps: HashMap<u32, PresentInfo>,
+    trace_events: HashMap<u32, TraceEventInfo>,
 }
 
 impl EtwTraceHandler {
-    fn add_present(&mut self, pid: u32, now: Instant) {
-        let timestamps = self
-            .present_event_timestamps
+    fn add_present(&mut self, pid: u32) {
+        let p = self
+            .trace_events
             .entry(pid)
-            .or_insert(PresentInfo {
-                last_time: now,
-                count: 0,
-            });
-        timestamps.count = timestamps.count.saturating_add(1);
+            .or_insert(TraceEventInfo::default());
+        p.present = p.present.saturating_add(1);
     }
 
-    fn fps(&mut self, pid: u32, now: Instant) -> f32 {
-        if let Some(timestamps) = self.present_event_timestamps.get_mut(&pid) {
-            let duration = now - timestamps.last_time;
-            let fps = if duration < Duration::from_millis(1) {
-                0.0
-            } else {
-                (timestamps.count as f32) / (duration.as_millis() as f32) * 1000.0
-            };
+    fn add_network(&mut self, pid: u32, bytes: u32, is_send: bool) {
+        let p = self
+            .trace_events
+            .entry(pid)
+            .or_insert(TraceEventInfo::default());
+        if is_send {
+            p.net_send = p.net_send.saturating_add(bytes);
+        } else {
+            p.net_recv = p.net_recv.saturating_add(bytes);
+        }
+    }
 
-            timestamps.count = 0;
-            timestamps.last_time = now;
-
-            fps
+    fn fps(&self, pid: u32) -> f32 {
+        if let Some(p) = self.trace_events.get(&pid) {
+            p.present_per_sec
         } else {
             0.0
         }
     }
+
+    fn net_send_per_sec(&self, pid: u32) -> u32 {
+        if let Some(p) = self.trace_events.get(&pid) {
+            p.net_send_per_sec
+        } else {
+            0
+        }
+    }
+
+    fn net_recv_per_sec(&self, pid: u32) -> u32 {
+        if let Some(p) = self.trace_events.get(&pid) {
+            p.net_recv_per_sec
+        } else {
+            0
+        }
+    }
 }
 
-struct PresentInfo {
-    last_time: Instant,
-    count: u32,
+#[derive(Default)]
+struct TraceEventInfo {
+    present: u32,
+    present_per_sec: f32,
+    net_send: u32,
+    net_send_per_sec: u32,
+    net_recv: u32,
+    net_recv_per_sec: u32,
 }
 
 pub struct VmCounter {

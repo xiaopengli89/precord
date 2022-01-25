@@ -83,7 +83,10 @@ impl System {
         if features.contains(Features::FPS) {
             #[cfg(target_os = "windows")]
             {
-                system.etw_trace = Some(EtwTrace::new());
+                system.etw_trace = Some(EtwTrace::new(
+                    true,
+                    features.contains(Features::NET_TRAFFIC),
+                ));
             }
         }
 
@@ -108,6 +111,14 @@ impl System {
                     system
                         .command_source
                         .unwrap_or_else(|| CommandSource::new(pids, true)),
+                );
+            }
+            #[cfg(target_os = "windows")]
+            {
+                system.etw_trace = Some(
+                    system
+                        .etw_trace
+                        .unwrap_or_else(|| EtwTrace::new(false, true)),
                 );
             }
         }
@@ -138,6 +149,11 @@ impl System {
         #[cfg(target_os = "windows")]
         if let Some(pdh) = &mut self.pdh {
             pdh.update();
+        }
+
+        #[cfg(target_os = "windows")]
+        if let Some(etw) = &mut self.etw_trace {
+            etw.update();
         }
     }
 
@@ -234,7 +250,7 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            None
+            Some(self.etw_trace.as_ref()?.net_recv_per_sec(pid))
         }
     }
 
@@ -245,7 +261,7 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            None
+            Some(self.etw_trace.as_ref()?.net_send_per_sec(pid))
         }
     }
 
