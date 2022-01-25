@@ -1,7 +1,7 @@
 use crate::{Error, Pid};
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::parser::{Parser, TryParse};
-use ferrisetw::provider::{kernel_providers, Provider};
+use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX2};
 use serde::Deserialize;
@@ -342,37 +342,43 @@ impl EtwTrace {
 
         if tcp_ip {
             let handler = handler.clone();
-            let provider = Provider::kernel(&kernel_providers::TCP_IP_PROVIDER)
+            let provider = Provider::new()
+                .by_guid("7DD42A49-5329-4832-8DFD-43D979153A88") // Microsoft-Windows-Kernel-Network
                 .add_callback(move |record: EventRecord, schema_locator| {
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
-                            if schema.provider_name() == "Microsoft-Windows-TCPIP" {
-                                match schema.task_name().as_str() {
-                                    "TcpDataTransferSend" => {
+                            if schema.provider_name() == "Microsoft-Windows-Kernel-Network" {
+                                match schema.event_id() {
+                                    // https://github.com/repnz/etw-providers-docs/blob/master/Manifests-Win10-17134/Microsoft-Windows-Kernel-Network.xml
+                                    10 | 26 | 42 | 58 => {
                                         let mut parser = Parser::create(&schema);
-                                        match TryParse::<u32>::try_parse(&mut parser, "BytesSent") {
-                                            Ok(bytes) => {
-                                                handler.write().unwrap().add_network(
-                                                    schema.process_id(),
-                                                    bytes,
-                                                    true,
-                                                );
+                                        match (
+                                            TryParse::<u32>::try_parse(&mut parser, "PID"),
+                                            TryParse::<u32>::try_parse(&mut parser, "size"),
+                                        ) {
+                                            (Ok(pid), Ok(bytes)) => {
+                                                handler
+                                                    .write()
+                                                    .unwrap()
+                                                    .add_network(pid, bytes, true);
                                             }
-                                            Err(_) => {}
-                                        };
+                                            _ => {}
+                                        }
                                     }
-                                    "TcpDataTransferReceive" => {
+                                    11 | 27 | 43 | 59 => {
                                         let mut parser = Parser::create(&schema);
-                                        match TryParse::<u32>::try_parse(&mut parser, "NumBytes") {
-                                            Ok(bytes) => {
-                                                handler.write().unwrap().add_network(
-                                                    schema.process_id(),
-                                                    bytes,
-                                                    false,
-                                                );
+                                        match (
+                                            TryParse::<u32>::try_parse(&mut parser, "PID"),
+                                            TryParse::<u32>::try_parse(&mut parser, "size"),
+                                        ) {
+                                            (Ok(pid), Ok(bytes)) => {
+                                                handler
+                                                    .write()
+                                                    .unwrap()
+                                                    .add_network(pid, bytes, false);
                                             }
-                                            Err(_) => {}
-                                        };
+                                            _ => {}
+                                        }
                                     }
                                     _ => {}
                                 }
@@ -439,6 +445,10 @@ impl EtwTrace {
             } else {
                 (value.net_recv as f32 / d) as _
             };
+
+            value.present = 0;
+            value.net_send = 0;
+            value.net_recv = 0;
         }
         self.last_update = now;
     }
