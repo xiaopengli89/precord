@@ -33,6 +33,7 @@ precord -h
   - `mem` - Memory usage of process
   - `gpu` - GPU usage of process
   - `fps` - Frame rate of process
+  - `net_in/net_out` - Network recv/send of process
   - `sys_cpu_freq` - CPU frequency of system
   - `sys_cpu_temp` - CPU temperature of system
   - `sys_gpu` - GPU usage of system
@@ -40,6 +41,7 @@ precord -h
 - `--name` - Name of processes
 - `-o / --output` - Output of recording result, possible extensions:
   - `.svg`
+  - `.html`
   - `.json`
   - `.csv`
 - `-i / --interval` - Interval of recording
@@ -85,15 +87,16 @@ fn main() {
 
 ## Supported Platforms
 
-|              | macOS              | Windows            |
-|--------------|--------------------|--------------------|
-| cpu          | :white_check_mark: | :white_check_mark: |
-| mem          | :white_check_mark: | :white_check_mark: |
-| gpu          |                    | :white_check_mark: |
-| fps          |                    | :white_check_mark: |
-| sys_cpu_freq | :white_check_mark: | :white_check_mark: |
-| sys_cpu_temp | :white_check_mark: | :white_check_mark: |
-| sys_gpu      | :white_check_mark: | :white_check_mark: |
+|                | macOS              | Windows            |
+|----------------|--------------------|--------------------|
+| cpu            | :white_check_mark: | :white_check_mark: |
+| mem            | :white_check_mark: | :white_check_mark: |
+| gpu            |                    | :white_check_mark: |
+| fps            |                    | :white_check_mark: |
+| net_in/net_out | :white_check_mark: | :white_check_mark: |
+| sys_cpu_freq   | :white_check_mark: | :white_check_mark: |
+| sys_cpu_temp   | :white_check_mark: | :white_check_mark: |
+| sys_gpu        | :white_check_mark: | :white_check_mark: |
 
 ## Privileges
 
@@ -103,6 +106,7 @@ fn main() {
 | mem                                                |               |               |
 | gpu                                                |               |               |
 | fps                                                |               |               |
+| net_in/net_out                                     |               | Administrator |
 | sys_cpu_freq                                       | Administrator |               |
 | sys_cpu_temp                                       |               |               |
 | sys_gpu                                            |               |               |
