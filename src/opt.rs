@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
 #[derive(Parser, Debug, Clone)]
-#[clap(version = "0.4.8")]
+#[clap(version = "0.4.9")]
 #[clap(about = "A command line tool to record process and system performance data.")]
 pub struct Opts {
     #[clap(short, long, multiple_values = true)]
