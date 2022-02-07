@@ -142,6 +142,9 @@ pub enum Command {
     Quit,
     Write(Vec<PathBuf>),
     WriteThenQuit(Vec<PathBuf>),
+    Yes,
+    No,
+    Empty,
     Unknown,
 }
 
@@ -149,12 +152,12 @@ impl From<&str> for Command {
     fn from(s: &str) -> Self {
         let mut tokens = s.split_whitespace();
         let command = if let Some(command) = tokens.next() {
-            command
+            command.to_lowercase()
         } else {
-            return Self::Unknown;
+            return Self::Empty;
         };
 
-        match command {
+        match command.as_str() {
             "q" => Self::Quit,
             "w" => {
                 let mut ps = vec![];
@@ -162,7 +165,7 @@ impl From<&str> for Command {
                     if let Ok(p) = p.parse::<PathBuf>() {
                         ps.push(p);
                     } else {
-                        eprintln!("Invalid output path");
+                        eprintln!("Invalid output path\r");
                         return Self::Unknown;
                     }
                 }
@@ -174,12 +177,14 @@ impl From<&str> for Command {
                     if let Ok(p) = p.parse::<PathBuf>() {
                         ps.push(p);
                     } else {
-                        eprintln!("Invalid output path");
+                        eprintln!("Invalid output path\r");
                         return Self::Unknown;
                     }
                 }
                 Self::WriteThenQuit(ps)
             }
+            "y" | "yes" => Self::Yes,
+            "n" | "no" => Self::No,
             _ => Self::Unknown,
         }
     }
@@ -289,5 +294,23 @@ mod platform_windows {
             .encode_wide()
             .chain(Some(0).into_iter())
             .collect()
+    }
+}
+
+pub fn overwrite_detect(ps: &[PathBuf], prompt: &mut CommandPrompt) -> bool {
+    let ps: Vec<_> = ps.into_iter().filter(|p| p.exists()).collect();
+    if ps.is_empty() {
+        return true;
+    }
+
+    println!("Files below already exist:\r");
+    for p in ps {
+        println!("{}\r", p.display());
+    }
+    println!("Do you want to overwrite them?[Y/n](Y)\r");
+
+    match prompt.command(None) {
+        Command::Yes | Command::Empty => true,
+        _ => false,
     }
 }

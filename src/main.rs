@@ -45,8 +45,6 @@ fn main() {
         })
         .collect();
 
-    let mut prompt = CommandPrompt::new();
-
     let mut timestamps = vec![];
     let mut cpu_frequency_max: f32 = 1000.0;
     let mut cpu_temperature_max: f32 = 100.0;
@@ -179,6 +177,12 @@ fn main() {
         }
     };
 
+    let mut prompt = CommandPrompt::new();
+
+    if !utils::overwrite_detect(&outputs, &mut prompt) {
+        return;
+    }
+
     for i in 0..opts.count {
         let mut command_mode = false;
 
@@ -231,7 +235,9 @@ fn main() {
                     );
                     return;
                 }
-                Command::Unknown => command_mode = true,
+                Command::Yes | Command::No | Command::Empty | Command::Unknown => {
+                    command_mode = true
+                }
             }
         }
 
