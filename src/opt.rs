@@ -2,6 +2,7 @@ use crate::types::ProcessInfo;
 use crate::Pid;
 use clap::{ArgEnum, Parser};
 use precord_core::System;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
@@ -84,11 +85,19 @@ impl Opts {
             }
 
             if let Some(sysinfo_system) = system.sysinfo_system() {
+                let mut visited = HashSet::new();
+                visited.insert(parent);
+
                 while let Some(parent_process) = sysinfo_system.process(parent) {
                     if let Some(parent2) = parent_process.parent() {
+                        if visited.contains(&parent2) {
+                            return false;
+                        }
+
                         if processes.iter().position(|p| p.pid == parent2).is_some() {
                             return true;
                         }
+                        visited.insert(parent2);
                         parent = parent2;
                     } else {
                         return false;
