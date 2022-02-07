@@ -7,6 +7,12 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
+const CHART_WIDTH: usize = 900;
+const CHART_HEIGHT: usize = 800;
+const CHART_PADDING_LEFT: usize = 100;
+const CHART_PADDING_RIGHT: usize = 50;
+const CHART_PADDING_TOP_BOTTOM: usize = 100;
+
 pub fn consume<P: AsRef<Path>>(
     output: P,
     proc_category: &[ProcessCategory],
@@ -62,12 +68,12 @@ pub fn consume<P: AsRef<Path>>(
                 unit = "";
             }
             ProcessCategory::NetIn => {
-                max_value = 1024.0;
+                max_value = 1000.0;
                 category_title = "Process Net In(KBps)";
                 unit = "KBps";
             }
             ProcessCategory::NetOut => {
-                max_value = 1024.0;
+                max_value = 1000.0;
                 category_title = "Process Net Out(KBps)";
                 unit = "KBps";
             }
@@ -173,10 +179,10 @@ pub fn consume<P: AsRef<Path>>(
             "top": format!("{}px", 800 * grids.len() + 730),
         }));
         grids.push(json!({
-            "width": "800px",
-            "height": "600px",
-            "left": "50px",
-            "top": format!("{}px", 800 * grids.len() + 100),
+            "width": format!("{}px", CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT),
+            "height": format!("{}px", CHART_HEIGHT - CHART_PADDING_TOP_BOTTOM * 2),
+            "left": format!("{}px", CHART_PADDING_LEFT),
+            "top": format!("{}px", CHART_HEIGHT * grids.len() + CHART_PADDING_TOP_BOTTOM),
         }));
         tooltips.push(tooltip);
     }
@@ -319,10 +325,10 @@ pub fn consume<P: AsRef<Path>>(
             "top": format!("{}px", 800 * grids.len() + 730),
         }));
         grids.push(json!({
-            "width": "800px",
-            "height": "600px",
-            "left": "50px",
-            "top": format!("{}px", 800 * grids.len() + 100),
+            "width": format!("{}px", CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT),
+            "height": format!("{}px", CHART_HEIGHT - CHART_PADDING_TOP_BOTTOM * 2),
+            "left": format!("{}px", CHART_PADDING_LEFT),
+            "top": format!("{}px", CHART_HEIGHT * grids.len() + CHART_PADDING_TOP_BOTTOM),
         }));
         tooltips.push(tooltip);
     }
