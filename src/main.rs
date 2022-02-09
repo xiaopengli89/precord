@@ -7,8 +7,6 @@ use regex::Regex;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-// #[cfg(target_os = "windows")]
-// use windows::Win32::UI::Shell::ShellExecuteW;
 
 mod consumer_csv;
 mod consumer_html;
@@ -243,80 +241,82 @@ fn main() {
         system.update();
 
         // Process
-        for process in processes.iter_mut() {
-            let mut message = format!("{}({})", &process.name, process.pid);
+        if !proc_category.is_empty() {
+            for process in processes.iter_mut() {
+                let mut message = format!("{}({})", &process.name, process.pid);
 
-            for (idx, &c) in proc_category.iter().enumerate() {
-                match c {
-                    ProcessCategory::CPU => {
-                        if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
-                            process.valid = true;
-                            process.values[idx].push(cpu_usage);
-                            message.push_str(&format!(" / CPU {:.2}%", cpu_usage));
-                        } else {
-                            process.valid = false;
-                            process.values[idx].push(0.0);
-                            message.push_str(" / CPU Lost");
+                for (idx, &c) in proc_category.iter().enumerate() {
+                    match c {
+                        ProcessCategory::CPU => {
+                            if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
+                                process.valid = true;
+                                process.values[idx].push(cpu_usage);
+                                message.push_str(&format!(" / CPU {:.2}%", cpu_usage));
+                            } else {
+                                process.valid = false;
+                                process.values[idx].push(0.0);
+                                message.push_str(" / CPU Lost");
+                            }
                         }
-                    }
-                    ProcessCategory::Mem => {
-                        if let Some(mem_usage) = system.process_mem(process.pid) {
-                            let mem_usage = mem_usage / 1024.0;
+                        ProcessCategory::Mem => {
+                            if let Some(mem_usage) = system.process_mem(process.pid) {
+                                let mem_usage = mem_usage / 1024.0;
 
-                            process.valid = true;
-                            process.values[idx].push(mem_usage);
-                            message.push_str(&format!(" / MEM {:.2}M", mem_usage));
-                        } else {
-                            process.valid = false;
-                            process.values[idx].push(0.0);
-                            message.push_str(" / MEM Lost");
+                                process.valid = true;
+                                process.values[idx].push(mem_usage);
+                                message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                            } else {
+                                process.valid = false;
+                                process.values[idx].push(0.0);
+                                message.push_str(" / MEM Lost");
+                            }
                         }
-                    }
-                    ProcessCategory::GPU => {
-                        if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
-                            process.valid = true;
-                            process.values[idx].push(gpu_usage);
-                            message.push_str(&format!(" / GPU {:.2}%", gpu_usage));
-                        } else {
-                            process.valid = false;
-                            process.values[idx].push(0.0);
-                            message.push_str(" / GPU Lost");
+                        ProcessCategory::GPU => {
+                            if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
+                                process.valid = true;
+                                process.values[idx].push(gpu_usage);
+                                message.push_str(&format!(" / GPU {:.2}%", gpu_usage));
+                            } else {
+                                process.valid = false;
+                                process.values[idx].push(0.0);
+                                message.push_str(" / GPU Lost");
+                            }
                         }
-                    }
-                    ProcessCategory::FPS => {
-                        let fps = system.process_fps(process.pid);
-                        process.values[idx].push(fps);
+                        ProcessCategory::FPS => {
+                            let fps = system.process_fps(process.pid);
+                            process.values[idx].push(fps);
 
-                        message.push_str(&format!(" / FPS {}", fps));
-                    }
-                    ProcessCategory::NetIn => {
-                        if let Some(net_in) = system.process_net_traffic_in(process.pid) {
-                            let net_in = (net_in >> 10) as f32;
-                            process.valid = true;
-                            process.values[idx].push(net_in);
-                            message.push_str(&format!(" / NET_IN {:.2}KBps", net_in));
-                        } else {
-                            process.valid = false;
-                            process.values[idx].push(0.0);
-                            message.push_str(" / NET_IN Lost");
+                            message.push_str(&format!(" / FPS {}", fps));
                         }
-                    }
-                    ProcessCategory::NetOut => {
-                        if let Some(net_out) = system.process_net_traffic_out(process.pid) {
-                            let net_out = (net_out >> 10) as f32;
-                            process.valid = true;
-                            process.values[idx].push(net_out);
-                            message.push_str(&format!(" / NET_OUT {:.2}KBps", net_out));
-                        } else {
-                            process.valid = false;
-                            process.values[idx].push(0.0);
-                            message.push_str(" / NET_OUT Lost");
+                        ProcessCategory::NetIn => {
+                            if let Some(net_in) = system.process_net_traffic_in(process.pid) {
+                                let net_in = (net_in >> 10) as f32;
+                                process.valid = true;
+                                process.values[idx].push(net_in);
+                                message.push_str(&format!(" / NET_IN {:.2}KBps", net_in));
+                            } else {
+                                process.valid = false;
+                                process.values[idx].push(0.0);
+                                message.push_str(" / NET_IN Lost");
+                            }
+                        }
+                        ProcessCategory::NetOut => {
+                            if let Some(net_out) = system.process_net_traffic_out(process.pid) {
+                                let net_out = (net_out >> 10) as f32;
+                                process.valid = true;
+                                process.values[idx].push(net_out);
+                                message.push_str(&format!(" / NET_OUT {:.2}KBps", net_out));
+                            } else {
+                                process.valid = false;
+                                process.values[idx].push(0.0);
+                                message.push_str(" / NET_OUT Lost");
+                            }
                         }
                     }
                 }
-            }
 
-            println!("{}\r", message);
+                println!("{}\r", message);
+            }
         }
 
         // System
