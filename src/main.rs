@@ -71,8 +71,7 @@ fn main() {
         features.insert(Features::SMC);
     }
 
-    let mut system = System::new(Features::PROCESS, []).unwrap();
-    system.update();
+    let system = System::new(Features::PROCESS, []).unwrap();
 
     let mut processes = opts.find_processes(&system, proc_category.len());
 

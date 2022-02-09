@@ -52,7 +52,9 @@ impl System {
             use_sysinfo_system = true;
         }
         if use_sysinfo_system {
-            system.sysinfo_system = Some(sysinfo::System::new_with_specifics(system.refresh_kind));
+            let mut sysinfo_system = sysinfo::System::new_with_specifics(system.refresh_kind);
+            sysinfo_system.refresh_specifics(system.refresh_kind);
+            system.sysinfo_system = Some(sysinfo_system);
         }
 
         if features.contains(Features::GPU) {
