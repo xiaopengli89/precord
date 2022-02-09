@@ -73,6 +73,11 @@ fn main() {
 
     let mut processes = opts.find_processes(&system, proc_category.len());
 
+    if (processes.is_empty() || proc_category.is_empty()) && sys_category.is_empty() {
+        println!("No tasks available");
+        return;
+    }
+
     let mut system = None;
     for i in 0..2 {
         match System::new(features, processes.iter().map(|p| p.pid)) {
