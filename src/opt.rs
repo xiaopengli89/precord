@@ -123,6 +123,10 @@ impl Opts {
                 if let Some(parent) = child.parent() {
                     if recurse_parent(parent) {
                         children.push(ProcessInfo::new(system, proc_category_len, pid));
+                    } else if let Some(rpid) = system.process_responsible(pid) {
+                        if processes.iter().position(|p| p.pid == rpid).is_some() {
+                            children.push(ProcessInfo::new(system, proc_category_len, pid));
+                        }
                     }
                 }
             }

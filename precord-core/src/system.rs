@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use crate::platform::macos::{CommandSource, IOKitRegistry};
+use crate::platform::macos::{CommandSource, IOKitRegistry, get_pid_responsible};
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
 use crate::{Error, Pid};
@@ -197,6 +197,25 @@ impl System {
 
     pub fn process_command(&self, pid: Pid) -> Option<&[String]> {
         Some(self.sysinfo_system.as_ref()?.process(pid)?.cmd())
+    }
+
+    pub fn process_responsible(&self, pid: Pid) -> Option<Pid> {
+        #[cfg(target_os = "macos")]
+        {
+            get_pid_responsible().map(|f| {
+                let pid_responsible = f(pid);
+                if pid_responsible < 0 {
+                    None
+                } else {
+                    Some(pid_responsible)
+                }
+            }).flatten()
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            None
+        }
     }
 
     pub fn cpus_frequency(&self) -> Result<Vec<f32>, Error> {

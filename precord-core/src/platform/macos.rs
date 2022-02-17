@@ -6,10 +6,11 @@ use core_foundation::string::CFString;
 use serde::Deserialize;
 use std::io::{BufRead, BufReader};
 use std::process::Command;
-use std::sync::mpsc;
+use std::sync::{mpsc, Once};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
-use std::{process, thread};
+use std::{process, ptr, thread};
+use std::ffi::c_void;
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
@@ -415,5 +416,21 @@ impl NetTopRunner {
         }
 
         let _ = child.kill();
+    }
+}
+
+static mut GET_PID_RESPONSIBLE: *mut c_void = ptr::null_mut();
+static INIT: Once = Once::new();
+
+pub fn get_pid_responsible() -> Option<extern "C" fn(libc::pid_t) -> libc::pid_t> {
+    unsafe {
+        INIT.call_once(|| {
+            GET_PID_RESPONSIBLE = libc::dlsym(libc::RTLD_NEXT, "responsibility_get_pid_responsible_for_pid\0".as_ptr() as _);
+        });
+        if GET_PID_RESPONSIBLE.is_null() {
+            None
+        } else {
+            Some(std::mem::transmute(GET_PID_RESPONSIBLE))
+        }
     }
 }
