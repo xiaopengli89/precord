@@ -4,13 +4,13 @@ use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictio
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
 use serde::Deserialize;
+use std::ffi::c_void;
 use std::io::{BufRead, BufReader};
 use std::process::Command;
-use std::sync::{mpsc, Once};
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Once};
 use std::time::Instant;
 use std::{process, ptr, thread};
-use std::ffi::c_void;
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
@@ -31,37 +31,49 @@ pub struct Task {
 pub struct CommandSource {
     last_update: Instant,
     last_result: PowerMetricsResult,
-    net_traffic_result: Vec<ProcessNetTraffic>,
-    net_traffic_rx: Option<Receiver<ProcessNetTraffic>>,
+    process_command_result: Vec<ProcessCommandResult>,
+    process_command_rx: Receiver<ProcessCommandResult>,
 }
 
 impl CommandSource {
-    pub fn new<T: IntoIterator<Item = Pid> + Clone>(pids: T, net_traffic: bool) -> Self {
-        let net_traffic_result: Vec<_> = pids
-            .clone()
-            .into_iter()
-            .map(|pid| ProcessNetTraffic {
+    pub fn new<T: IntoIterator<Item = Pid> + Clone>(
+        pids: T,
+        net_traffic: bool,
+        frame_rate: bool,
+    ) -> Self {
+        let pids: Vec<_> = pids.into_iter().collect();
+
+        let process_command_result: Vec<_> = pids
+            .iter()
+            .copied()
+            .map(|pid| ProcessCommandResult {
                 pid,
                 ..Default::default()
             })
             .collect();
 
-        let pids: Vec<_> = pids.into_iter().collect();
-        let rx = if net_traffic && !pids.is_empty() {
-            let (net_top_runner, rx) = NetTopRunner::new();
+        let (tx, rx) = mpsc::channel();
+
+        // Net traffic
+        if net_traffic && !pids.is_empty() {
+            let net_top_runner = NetTopRunner::new(tx.clone());
+            let pids = pids.clone();
             thread::spawn(move || {
                 net_top_runner.run(pids);
             });
-            Some(rx)
-        } else {
-            None
+        };
+
+        // Frame rate
+        if frame_rate && !pids.is_empty() {
+            let frame_rate = FrameRateRunner::new(tx.clone());
+            thread::spawn(move || frame_rate.run(pids));
         };
 
         Self {
             last_update: Instant::now(),
             last_result: Default::default(),
-            net_traffic_result,
-            net_traffic_rx: rx,
+            process_command_result,
+            process_command_rx: rx,
         }
     }
 
@@ -89,30 +101,28 @@ impl CommandSource {
         self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
-    pub fn update_net_traffic(&mut self) {
-        let rx = if let Some(rx) = &self.net_traffic_rx {
-            rx
-        } else {
-            return;
-        };
-
-        while let Ok(net_traffic) = rx.try_recv() {
+    pub fn update(&mut self) {
+        while let Ok(p_result) = self.process_command_rx.try_recv() {
             if let Some(p) = self
-                .net_traffic_result
+                .process_command_result
                 .iter_mut()
-                .find(|p| p.pid == net_traffic.pid)
+                .find(|p| p.pid == p_result.pid)
             {
-                p.bytes_in += net_traffic.bytes_in;
-                p.bytes_out += net_traffic.bytes_out;
+                p.bytes_in += p_result.bytes_in;
+                p.bytes_out += p_result.bytes_out;
+                p.frame += p_result.frame;
             }
         }
         let now = Instant::now();
         let d = (now - self.last_update).as_secs_f32();
-        for p in self.net_traffic_result.iter_mut() {
+        for p in self.process_command_result.iter_mut() {
             p.bytes_in_per_sec = (p.bytes_in as f32 / d) as _;
             p.bytes_out_per_sec = (p.bytes_out as f32 / d) as _;
             p.bytes_in = 0;
             p.bytes_out = 0;
+
+            p.frame_per_sec = p.frame as f32 / d;
+            p.frame = 0;
         }
         self.last_update = now;
     }
@@ -159,17 +169,24 @@ impl CommandSource {
     }
 
     pub fn process_net_traffic_in(&self, pid: Pid) -> Option<u32> {
-        self.net_traffic_result
+        self.process_command_result
             .iter()
             .find(|p| p.pid == pid)
             .map(|p| p.bytes_in_per_sec)
     }
 
     pub fn process_net_traffic_out(&self, pid: Pid) -> Option<u32> {
-        self.net_traffic_result
+        self.process_command_result
             .iter()
             .find(|p| p.pid == pid)
             .map(|p| p.bytes_out_per_sec)
+    }
+
+    pub fn process_frame_per_sec(&self, pid: Pid) -> Option<f32> {
+        self.process_command_result
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| p.frame_per_sec)
     }
 }
 
@@ -324,22 +341,23 @@ struct PerformanceStatistics {
 }
 
 #[derive(Default)]
-struct ProcessNetTraffic {
+struct ProcessCommandResult {
     pid: Pid,
     bytes_in: u32,
     bytes_in_per_sec: u32,
     bytes_out: u32,
     bytes_out_per_sec: u32,
+    frame: u32,
+    frame_per_sec: f32,
 }
 
 struct NetTopRunner {
-    tx: Sender<ProcessNetTraffic>,
+    tx: Sender<ProcessCommandResult>,
 }
 
 impl NetTopRunner {
-    fn new() -> (Self, Receiver<ProcessNetTraffic>) {
-        let (tx, rx) = mpsc::channel();
-        (Self { tx }, rx)
+    fn new(tx: Sender<ProcessCommandResult>) -> Self {
+        Self { tx }
     }
 
     fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
@@ -403,10 +421,82 @@ impl NetTopRunner {
             let bytes_in: u32 = data[1].parse().unwrap();
             let bytes_out: u32 = data[2].parse().unwrap();
 
-            if let Err(_) = self.tx.send(ProcessNetTraffic {
+            if let Err(_) = self.tx.send(ProcessCommandResult {
                 pid,
                 bytes_in,
                 bytes_out,
+                ..Default::default()
+            }) {
+                break;
+            }
+
+            line.clear();
+        }
+
+        let _ = child.kill();
+    }
+}
+
+struct FrameRateRunner {
+    tx: Sender<ProcessCommandResult>,
+}
+
+impl FrameRateRunner {
+    fn new(tx: Sender<ProcessCommandResult>) -> Self {
+        Self { tx }
+    }
+
+    fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
+        let mut command = Command::new("script");
+        command.args(["-q", "/dev/null", "dtrace", "-n"]);
+
+        let mut methods = vec![];
+        for pid in pids {
+            methods.push(format!("objc{}:CAMetalLayer:-nextDrawable:entry", pid));
+        }
+        let mut methods = methods.join(",");
+        methods.push_str("{trace(pid)}");
+
+        command.arg(methods);
+
+        let mut child = command
+            .stdin(process::Stdio::piped())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut buf = BufReader::new(child.stdout.as_mut().unwrap());
+        let mut line = String::new();
+        let mut session_index = 0;
+        while let Ok(read) = buf.read_line(&mut line) {
+            if read == 0 {
+                break;
+            }
+
+            if line.starts_with("CPU") {
+                if session_index < 1 {
+                    session_index += 1;
+                }
+                line.clear();
+                continue;
+            }
+
+            if session_index < 1 {
+                line.clear();
+                continue;
+            }
+
+            let data: Vec<_> = line.split_whitespace().collect();
+            if data.len() < 4 {
+                line.clear();
+                continue;
+            }
+
+            let pid: Pid = data[3].parse().unwrap();
+
+            if let Err(_) = self.tx.send(ProcessCommandResult {
+                pid,
+                frame: 1,
                 ..Default::default()
             }) {
                 break;
@@ -425,7 +515,10 @@ static INIT: Once = Once::new();
 pub fn get_pid_responsible() -> Option<extern "C" fn(libc::pid_t) -> libc::pid_t> {
     unsafe {
         INIT.call_once(|| {
-            GET_PID_RESPONSIBLE = libc::dlsym(libc::RTLD_NEXT, "responsibility_get_pid_responsible_for_pid\0".as_ptr() as _);
+            GET_PID_RESPONSIBLE = libc::dlsym(
+                libc::RTLD_NEXT,
+                "responsibility_get_pid_responsible_for_pid\0".as_ptr() as _,
+            );
         });
         if GET_PID_RESPONSIBLE.is_null() {
             None

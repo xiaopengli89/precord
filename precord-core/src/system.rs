@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use crate::platform::macos::{CommandSource, IOKitRegistry, get_pid_responsible};
+use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
 use crate::{Error, Pid};
@@ -74,6 +74,7 @@ impl System {
                 system.command_source = Some(CommandSource::new(
                     pids.clone(),
                     features.contains(Features::NET_TRAFFIC),
+                    features.contains(Features::FPS),
                 ));
             }
             #[cfg(target_os = "windows")]
@@ -83,6 +84,16 @@ impl System {
         }
 
         if features.contains(Features::FPS) {
+            #[cfg(target_os = "macos")]
+            {
+                system.command_source = Some(system.command_source.unwrap_or_else(|| {
+                    CommandSource::new(
+                        pids.clone(),
+                        features.contains(Features::NET_TRAFFIC),
+                        features.contains(Features::FPS),
+                    )
+                }));
+            }
             #[cfg(target_os = "windows")]
             {
                 system.etw_trace = Some(EtwTrace::new(
@@ -109,11 +120,13 @@ impl System {
         if features.contains(Features::NET_TRAFFIC) {
             #[cfg(target_os = "macos")]
             {
-                system.command_source = Some(
-                    system
-                        .command_source
-                        .unwrap_or_else(|| CommandSource::new(pids, true)),
-                );
+                system.command_source = Some(system.command_source.unwrap_or_else(|| {
+                    CommandSource::new(
+                        pids,
+                        features.contains(Features::NET_TRAFFIC),
+                        features.contains(Features::FPS),
+                    )
+                }));
             }
             #[cfg(target_os = "windows")]
             {
@@ -138,8 +151,9 @@ impl System {
             if self.features.contains(Features::CPU_FREQUENCY) {
                 command_source.update_cpu_frequency();
             }
-            if self.features.contains(Features::NET_TRAFFIC) {
-                command_source.update_net_traffic();
+            if self.features.contains(Features::NET_TRAFFIC) | self.features.contains(Features::FPS)
+            {
+                command_source.update();
             }
         }
 
@@ -202,14 +216,12 @@ impl System {
     pub fn process_responsible(&self, pid: Pid) -> Option<Pid> {
         #[cfg(target_os = "macos")]
         {
-            get_pid_responsible().map(|f| {
-                let pid_responsible = f(pid);
-                if pid_responsible < 0 {
-                    None
-                } else {
-                    Some(pid_responsible)
-                }
-            }).flatten()
+            let pid_responsible = (get_pid_responsible()?)(pid);
+            if pid_responsible < 0 {
+                None
+            } else {
+                Some(pid_responsible)
+            }
         }
 
         #[cfg(target_os = "windows")]
@@ -255,7 +267,11 @@ impl System {
     pub fn process_fps(&mut self, pid: Pid) -> f32 {
         #[cfg(target_os = "macos")]
         {
-            0.0
+            self.command_source
+                .as_ref()
+                .unwrap()
+                .process_frame_per_sec(pid)
+                .unwrap_or(0.0)
         }
 
         #[cfg(target_os = "windows")]
