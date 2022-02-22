@@ -65,8 +65,6 @@ use std::time::Duration;
 
 fn main() {
   let mut system = System::new(Features::PROCESS || Features::GPU, [1203]).unwrap();
-  system.update();
-  
   thread::sleep(Duration::from_secs(1));
   system.update();
 
@@ -92,7 +90,7 @@ fn main() {
 | cpu            | :white_check_mark: | :white_check_mark: |
 | mem            | :white_check_mark: | :white_check_mark: |
 | gpu            |                    | :white_check_mark: |
-| fps            |                    | :white_check_mark: |
+| fps            | :white_check_mark: | :white_check_mark: |
 | net_in/net_out | :white_check_mark: | :white_check_mark: |
 | sys_cpu_freq   | :white_check_mark: | :white_check_mark: |
 | sys_cpu_temp   | :white_check_mark: | :white_check_mark: |
@@ -100,17 +98,17 @@ fn main() {
 
 ## Privileges
 
-|                                                    | macOS         | Windows       |
-|----------------------------------------------------|---------------|---------------|
-| cpu                                                |               |               |
-| mem                                                |               |               |
-| gpu                                                |               |               |
-| fps                                                |               |               |
-| net_in/net_out                                     |               | Administrator |
-| sys_cpu_freq                                       | Administrator |               |
-| sys_cpu_temp                                       |               |               |
-| sys_gpu                                            |               |               |
-| system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator | Administrator |
+|                                                    | macOS                          | Windows       |
+|----------------------------------------------------|--------------------------------|---------------|
+| cpu                                                |                                |               |
+| mem                                                |                                |               |
+| gpu                                                |                                |               |
+| fps                                                | Administrator + get-task-allow | Administrator |
+| net_in/net_out                                     |                                | Administrator |
+| sys_cpu_freq                                       | Administrator                  |               |
+| sys_cpu_temp                                       |                                |               |
+| sys_gpu                                            |                                |               |
+| system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator                  | Administrator |
 
 
 ## TODO
