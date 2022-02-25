@@ -453,7 +453,10 @@ impl FrameRateRunner {
         let mut methods = vec![];
         for pid in pids {
             methods.push(format!("objc{}:CAMetalLayer:-nextDrawable:entry", pid));
-            methods.push(format!("pid{}:QuartzCore:CA??Render??Surface??finalize():entry", pid));
+            methods.push(format!(
+                "pid{}:QuartzCore:CA??Render??Surface??finalize():entry",
+                pid
+            ));
         }
         let mut methods = methods.join(",");
         methods.push_str("{trace(pid)}");

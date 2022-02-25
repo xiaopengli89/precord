@@ -2,6 +2,7 @@ use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
 use crate::utils::{extend_path, Command, CommandPrompt};
 use clap::Parser;
+use crossterm::style::{Color, Stylize};
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fs;
@@ -185,6 +186,15 @@ fn main() {
         return;
     }
 
+    let terminal_colors = vec![
+        Color::DarkGreen,
+        Color::DarkCyan,
+        Color::AnsiValue(208),
+        Color::DarkYellow,
+        Color::DarkBlue,
+        Color::DarkMagenta,
+    ];
+
     for i in 0..opts.count {
         let mut command_mode = false;
 
@@ -249,6 +259,7 @@ fn main() {
         if !proc_category.is_empty() {
             for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.pid);
+                let mut color_picker = terminal_colors.iter().copied();
 
                 for (idx, &c) in proc_category.iter().enumerate() {
                     match c {
@@ -256,11 +267,15 @@ fn main() {
                             if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
                                 process.valid = true;
                                 process.values[idx].push(cpu_usage);
-                                message.push_str(&format!(" / CPU {:.2}%", cpu_usage));
+                                message.push_str(&format!(
+                                    " / {}",
+                                    format!("CPU {:.2}%", cpu_usage)
+                                        .with(color_picker.next().unwrap())
+                                ));
                             } else {
                                 process.valid = false;
                                 process.values[idx].push(0.0);
-                                message.push_str(" / CPU Lost");
+                                message.push_str(&format!(" / {}", "CPU Lost".dark_red()));
                             }
                         }
                         ProcessCategory::Mem => {
@@ -269,40 +284,55 @@ fn main() {
 
                                 process.valid = true;
                                 process.values[idx].push(mem_usage);
-                                message.push_str(&format!(" / MEM {:.2}M", mem_usage));
+                                message.push_str(&format!(
+                                    " / {}",
+                                    format!("MEM {:.2}M", mem_usage)
+                                        .with(color_picker.next().unwrap())
+                                ));
                             } else {
                                 process.valid = false;
                                 process.values[idx].push(0.0);
-                                message.push_str(" / MEM Lost");
+                                message.push_str(&format!(" / {}", "MEM Lost".dark_red()));
                             }
                         }
                         ProcessCategory::GPU => {
                             if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
                                 process.valid = true;
                                 process.values[idx].push(gpu_usage);
-                                message.push_str(&format!(" / GPU {:.2}%", gpu_usage));
+                                message.push_str(&format!(
+                                    " / {}",
+                                    format!("GPU {:.2}%", gpu_usage)
+                                        .with(color_picker.next().unwrap())
+                                ));
                             } else {
                                 process.valid = false;
                                 process.values[idx].push(0.0);
-                                message.push_str(" / GPU Lost");
+                                message.push_str(&format!(" / {}", "GPU Lost".dark_red()));
                             }
                         }
                         ProcessCategory::FPS => {
                             let fps = system.process_fps(process.pid);
                             process.values[idx].push(fps);
 
-                            message.push_str(&format!(" / FPS {}", fps));
+                            message.push_str(&format!(
+                                " / {}",
+                                format!("FPS {}", fps).with(color_picker.next().unwrap())
+                            ));
                         }
                         ProcessCategory::NetIn => {
                             if let Some(net_in) = system.process_net_traffic_in(process.pid) {
                                 let net_in = (net_in >> 10) as f32;
                                 process.valid = true;
                                 process.values[idx].push(net_in);
-                                message.push_str(&format!(" / NET_IN {:.2}KBps", net_in));
+                                message.push_str(&format!(
+                                    " / {}",
+                                    format!("NET_IN {:.2}KBps", net_in)
+                                        .with(color_picker.next().unwrap())
+                                ));
                             } else {
                                 process.valid = false;
                                 process.values[idx].push(0.0);
-                                message.push_str(" / NET_IN Lost");
+                                message.push_str(&format!(" / {}", "NET_IN Lost".dark_red()));
                             }
                         }
                         ProcessCategory::NetOut => {
@@ -310,11 +340,15 @@ fn main() {
                                 let net_out = (net_out >> 10) as f32;
                                 process.valid = true;
                                 process.values[idx].push(net_out);
-                                message.push_str(&format!(" / NET_OUT {:.2}KBps", net_out));
+                                message.push_str(&format!(
+                                    " / {}",
+                                    format!("NET_OUT {:.2}KBps", net_out)
+                                        .with(color_picker.next().unwrap())
+                                ));
                             } else {
                                 process.valid = false;
                                 process.values[idx].push(0.0);
-                                message.push_str(" / NET_OUT Lost");
+                                message.push_str(&format!(" / {}", "NET_OUT Lost".dark_red()));
                             }
                         }
                     }
