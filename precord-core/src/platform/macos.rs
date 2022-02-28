@@ -5,7 +5,7 @@ use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
 use serde::Deserialize;
 use std::ffi::c_void;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Cursor};
 use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
@@ -447,6 +447,18 @@ impl FrameRateRunner {
     }
 
     fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
+        let mut pids = pids
+            .into_iter()
+            .filter(|&pid| match get_entitlements_for_pid(pid) {
+                Some(entitlements) => entitlements.get_task_allow,
+                None => true,
+            })
+            .peekable();
+
+        if pids.peek().is_none() {
+            return;
+        }
+
         let mut command = Command::new("script");
         command.args(["-q", "/dev/null", "dtrace", "-n"]);
 
@@ -530,4 +542,31 @@ pub fn get_pid_responsible() -> Option<extern "C" fn(libc::pid_t) -> libc::pid_t
             Some(std::mem::transmute(GET_PID_RESPONSIBLE))
         }
     }
+}
+
+#[derive(Deserialize)]
+struct Entitlements {
+    #[serde(rename = "com.apple.security.get-task-allow")]
+    #[serde(default)]
+    get_task_allow: bool,
+}
+
+fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
+    let mut command = Command::new("codesign");
+    command.args(["--display", "--entitlements", "-", "--xml"]);
+    command.arg(format!("+{}", pid));
+
+    let child = match command.output() {
+        Ok(child) => child,
+        Err(_) => return None,
+    };
+
+    let mut buf = Cursor::new(child.stdout);
+    let mut line = String::new();
+
+    if buf.read_line(&mut line).is_err() {
+        return None;
+    }
+
+    plist::from_bytes(line.as_bytes()).ok()
 }
