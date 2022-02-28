@@ -186,7 +186,7 @@ fn main() {
         return;
     }
 
-    let terminal_colors = vec![
+    let terminal_colors = [
         Color::DarkGreen,
         Color::DarkCyan,
         Color::AnsiValue(208),
@@ -259,9 +259,9 @@ fn main() {
         if !proc_category.is_empty() {
             for process in processes.iter_mut() {
                 let mut message = format!("{}({})", &process.name, process.pid);
-                let mut color_picker = terminal_colors.iter().copied();
 
                 for (idx, &c) in proc_category.iter().enumerate() {
+                    let color = terminal_colors[idx];
                     match c {
                         ProcessCategory::CPU => {
                             if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
@@ -269,8 +269,7 @@ fn main() {
                                 process.values[idx].push(cpu_usage);
                                 message.push_str(&format!(
                                     " / {}",
-                                    format!("CPU {:.2}%", cpu_usage)
-                                        .with(color_picker.next().unwrap())
+                                    format!("CPU {:.2}%", cpu_usage).with(color)
                                 ));
                             } else {
                                 process.valid = false;
@@ -286,8 +285,7 @@ fn main() {
                                 process.values[idx].push(mem_usage);
                                 message.push_str(&format!(
                                     " / {}",
-                                    format!("MEM {:.2}M", mem_usage)
-                                        .with(color_picker.next().unwrap())
+                                    format!("MEM {:.2}M", mem_usage).with(color)
                                 ));
                             } else {
                                 process.valid = false;
@@ -301,8 +299,7 @@ fn main() {
                                 process.values[idx].push(gpu_usage);
                                 message.push_str(&format!(
                                     " / {}",
-                                    format!("GPU {:.2}%", gpu_usage)
-                                        .with(color_picker.next().unwrap())
+                                    format!("GPU {:.2}%", gpu_usage).with(color)
                                 ));
                             } else {
                                 process.valid = false;
@@ -314,10 +311,7 @@ fn main() {
                             let fps = system.process_fps(process.pid);
                             process.values[idx].push(fps);
 
-                            message.push_str(&format!(
-                                " / {}",
-                                format!("FPS {}", fps).with(color_picker.next().unwrap())
-                            ));
+                            message.push_str(&format!(" / {}", format!("FPS {}", fps).with(color)));
                         }
                         ProcessCategory::NetIn => {
                             if let Some(net_in) = system.process_net_traffic_in(process.pid) {
@@ -326,8 +320,7 @@ fn main() {
                                 process.values[idx].push(net_in);
                                 message.push_str(&format!(
                                     " / {}",
-                                    format!("NET_IN {:.2}KBps", net_in)
-                                        .with(color_picker.next().unwrap())
+                                    format!("NET_IN {:.2}KBps", net_in).with(color)
                                 ));
                             } else {
                                 process.valid = false;
@@ -342,8 +335,7 @@ fn main() {
                                 process.values[idx].push(net_out);
                                 message.push_str(&format!(
                                     " / {}",
-                                    format!("NET_OUT {:.2}KBps", net_out)
-                                        .with(color_picker.next().unwrap())
+                                    format!("NET_OUT {:.2}KBps", net_out).with(color)
                                 ));
                             } else {
                                 process.valid = false;
@@ -359,7 +351,8 @@ fn main() {
         }
 
         // System
-        for &c in sys_category.iter() {
+        for (idx, &c) in sys_category.iter().enumerate() {
+            let color = terminal_colors[idx];
             match c {
                 SystemCategory::CPUFreq => {
                     let cpus_frequency = system.cpus_frequency().unwrap();
@@ -368,7 +361,7 @@ fn main() {
                         "CPUs Frequency: [{}]\r",
                         cpus_frequency
                             .iter()
-                            .map(|f| format!("{}MHz", f))
+                            .map(|f| format!("{}MHz", f).with(color).to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
                     );
@@ -395,7 +388,7 @@ fn main() {
                         "CPUs Temperature: [{}]\r",
                         cpus_temperature
                             .iter()
-                            .map(|f| format!("{}°C", f))
+                            .map(|f| format!("{}°C", f).with(color).to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
                     );
@@ -421,7 +414,10 @@ fn main() {
                 SystemCategory::GPU => {
                     let sys_gpu_usage = system.system_gpu_usage().unwrap();
 
-                    println!("System GPU Usage: {}%\r", sys_gpu_usage);
+                    println!(
+                        "System GPU Usage: {}\r",
+                        format!("{}%", sys_gpu_usage).with(color)
+                    );
 
                     if gpu_info.is_empty() {
                         gpu_info.push(GpuInfo {
