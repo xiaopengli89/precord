@@ -460,7 +460,7 @@ impl FrameRateRunner {
         }
 
         let mut command = Command::new("script");
-        command.args(["-q", "/dev/null", "dtrace", "-n"]);
+        command.args(["-q", "/dev/null", "dtrace", "-Z", "-n"]);
 
         let mut methods = vec![];
         for pid in pids {
