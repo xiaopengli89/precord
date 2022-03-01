@@ -24,6 +24,8 @@ pub struct Opts {
     pub category: Vec<Category>,
     #[clap(short, long)]
     recurse_children: bool,
+    #[clap(long, default_value_t = 0)]
+    pub skip: usize,
 }
 
 impl Opts {

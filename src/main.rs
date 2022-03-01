@@ -194,8 +194,9 @@ fn main() {
         Color::DarkBlue,
         Color::DarkMagenta,
     ];
+    let mut skip = opts.skip;
 
-    for i in 0..opts.count {
+    for i in 0..opts.count + skip {
         let mut command_mode = false;
 
         loop {
@@ -254,6 +255,11 @@ fn main() {
         }
 
         system.update();
+
+        if skip > 0 {
+            skip -= 1;
+            continue;
+        }
 
         // Process
         if !proc_category.is_empty() {
@@ -430,7 +436,7 @@ fn main() {
             }
         }
 
-        println!("================ {}/{}\r", i, opts.count);
+        println!("================ {}/{}\r", i - opts.skip, opts.count);
 
         // let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
