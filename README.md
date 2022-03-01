@@ -47,6 +47,7 @@ precord -h
 - `-i / --interval` - Interval of recording
 - `-n` - Count of recording
 - `-r / --recurse_children` - Flag to recurse child processes
+- `--skip` - Number of skip records
 
 ### Command Mode
 Type `:` during recording will enter the command mode, and press `Esc` will back to recording. The supported commands are:
