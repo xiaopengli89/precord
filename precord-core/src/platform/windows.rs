@@ -428,23 +428,9 @@ impl EtwTrace {
         let now = Instant::now();
         let d = (now - self.last_update).as_secs_f32();
         for value in self.handler.write().unwrap().trace_events.values_mut() {
-            value.present_per_sec = if d < 1.0 {
-                0.0
-            } else {
-                value.present as f32 / d
-            };
-
-            value.net_send_per_sec = if d < 1.0 {
-                0
-            } else {
-                (value.net_send as f32 / d) as _
-            };
-
-            value.net_recv_per_sec = if d < 1.0 {
-                0
-            } else {
-                (value.net_recv as f32 / d) as _
-            };
+            value.present_per_sec = value.present as f32 / d;
+            value.net_send_per_sec = (value.net_send as f32 / d) as _;
+            value.net_recv_per_sec = (value.net_recv as f32 / d) as _;
 
             value.present = 0;
             value.net_send = 0;
