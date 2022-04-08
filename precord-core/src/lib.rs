@@ -26,3 +26,15 @@ pub enum Error {
     #[error("Access denied")]
     AccessDenied,
 }
+
+#[derive(Copy, Clone)]
+pub enum GpuCalculation {
+    Max,
+    Sum,
+}
+
+impl Default for GpuCalculation {
+    fn default() -> Self {
+        Self::Max
+    }
+}

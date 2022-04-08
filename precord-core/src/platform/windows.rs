@@ -1,4 +1,4 @@
-use crate::{Error, Pid};
+use crate::{Error, GpuCalculation, Pid};
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::parser::{Parser, TryParse};
 use ferrisetw::provider::Provider;
@@ -201,7 +201,7 @@ impl Pdh {
         }
     }
 
-    pub fn poll_gpu_usage(&mut self, pid: Option<Pid>) -> Option<f32> {
+    pub fn poll_gpu_usage(&mut self, pid: Option<Pid>, calc: GpuCalculation) -> Option<f32> {
         let counter = if let Some(pid) = pid {
             if let Some(counter) = self.process_gpu_counters.iter().find(|p| p.pid == pid) {
                 counter.counter
@@ -251,7 +251,16 @@ impl Pdh {
             assert_eq!(r, ERROR_SUCCESS as _);
 
             for i in 0..item_count {
-                sum = sum.max((*buffer[i as usize].FmtValue.u.doubleValue()) as f32);
+                let value = (*buffer[i as usize].FmtValue.u.doubleValue()) as f32;
+
+                match calc {
+                    GpuCalculation::Max => {
+                        sum = sum.max(value);
+                    }
+                    GpuCalculation::Sum => {
+                        sum += value;
+                    }
+                }
             }
         }
 

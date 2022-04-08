@@ -300,7 +300,9 @@ fn main() {
                             }
                         }
                         ProcessCategory::GPU => {
-                            if let Some(gpu_usage) = system.process_gpu_usage(process.pid) {
+                            if let Some(gpu_usage) =
+                                system.process_gpu_usage(process.pid, opts.gpu_calc.into())
+                            {
                                 process.valid = true;
                                 process.values[idx].push(gpu_usage);
                                 message.push_str(&format!(
@@ -418,7 +420,7 @@ fn main() {
                     }
                 }
                 SystemCategory::GPU => {
-                    let sys_gpu_usage = system.system_gpu_usage().unwrap();
+                    let sys_gpu_usage = system.system_gpu_usage(opts.gpu_calc.into()).unwrap();
 
                     println!(
                         "System GPU Usage: {}\r",

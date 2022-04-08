@@ -26,6 +26,8 @@ pub struct Opts {
     recurse_children: bool,
     #[clap(long, default_value_t = 0)]
     pub skip: usize,
+    #[clap(long, arg_enum, default_value = "max")]
+    pub gpu_calc: GpuCalculation,
 }
 
 impl Opts {
@@ -171,4 +173,19 @@ pub enum SystemCategory {
     CPUFreq,
     CPUTemp,
     GPU,
+}
+
+#[derive(ArgEnum, Debug, Copy, Clone)]
+pub enum GpuCalculation {
+    Max,
+    Sum,
+}
+
+impl From<GpuCalculation> for precord_core::GpuCalculation {
+    fn from(calc: GpuCalculation) -> Self {
+        match calc {
+            GpuCalculation::Max => Self::Max,
+            GpuCalculation::Sum => Self::Sum,
+        }
+    }
 }

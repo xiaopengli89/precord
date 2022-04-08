@@ -2,7 +2,7 @@
 use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 #[cfg(target_os = "windows")]
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
-use crate::{Error, Pid};
+use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
 use sysinfo::{ProcessExt, SystemExt};
@@ -251,7 +251,7 @@ impl System {
     }
 
     #[allow(unused_variables)]
-    pub fn process_gpu_usage(&mut self, pid: Pid) -> Option<f32> {
+    pub fn process_gpu_usage(&mut self, pid: Pid, calc: GpuCalculation) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
             Some(0.0)
@@ -259,7 +259,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_usage(Some(pid))
+            self.pdh.as_mut().unwrap().poll_gpu_usage(Some(pid), calc)
         }
     }
 
@@ -302,7 +302,8 @@ impl System {
         }
     }
 
-    pub fn system_gpu_usage(&mut self) -> Option<f32> {
+    #[allow(unused_variables)]
+    pub fn system_gpu_usage(&mut self, calc: GpuCalculation) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
             Some(self.ioreg.as_ref().unwrap().sys_gpu_usage())
@@ -310,7 +311,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_usage(None)
+            self.pdh.as_mut().unwrap().poll_gpu_usage(None, calc)
         }
     }
 
