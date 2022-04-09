@@ -18,8 +18,10 @@ pub struct Opts {
     pub output: Vec<PathBuf>,
     #[clap(short, long, default_value_t = 1)]
     pub interval: u64,
-    #[clap(short = 'n', default_value_t = 30)]
-    pub count: usize,
+    #[clap(short = 'n')]
+    pub count: Option<usize>,
+    #[clap(long, parse(try_from_str))]
+    pub time: Option<humantime::Duration>,
     #[clap(short, long, multiple_values = true, arg_enum, default_value = "cpu")]
     pub category: Vec<Category>,
     #[clap(short, long)]

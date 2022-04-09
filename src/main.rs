@@ -5,6 +5,7 @@ use clap::Parser;
 use crossterm::style::{Color, Stylize};
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
+use std::fmt::Write;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -19,7 +20,12 @@ mod utils;
 
 fn main() {
     let path_re = Regex::new(r"^\{([\w,]+)}$").unwrap();
-    let opts: Opts = Opts::parse();
+    let mut opts: Opts = Opts::parse();
+
+    if opts.count.is_none() && opts.time.is_none() {
+        opts.count = Some(30);
+    }
+
     let proc_category: Vec<_> = opts
         .category
         .iter()
@@ -102,6 +108,9 @@ fn main() {
     let mut gpu_info: Vec<GpuInfo> = vec![];
 
     let mut last_record_time = Instant::now();
+    let end_time = opts
+        .time
+        .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
 
     let outputs = extend_path(&path_re, opts.output);
 
@@ -196,7 +205,7 @@ fn main() {
     ];
     let mut skip = opts.skip;
 
-    for i in 0..opts.count + skip {
+    for i in 0.. {
         let mut command_mode = false;
 
         loop {
@@ -438,11 +447,34 @@ fn main() {
             }
         }
 
-        println!("================ {}/{}\r", i - opts.skip, opts.count);
+        let mut progress = format!("================ {}", i - opts.skip);
+
+        if let Some(count) = opts.count {
+            let _ = write!(&mut progress, " / {}", count);
+        }
+
+        if let Some(end_time) = end_time {
+            let _ = write!(&mut progress, " / {}", end_time);
+        }
+
+        println!("{}\r", progress);
 
         // let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
-        timestamps.push(chrono::Local::now());
+        let now = chrono::Local::now();
+        timestamps.push(now);
+
+        if let Some(count) = opts.count {
+            if i > count {
+                break;
+            }
+        }
+
+        if let Some(end_time) = end_time {
+            if now > end_time {
+                break;
+            }
+        }
     }
 
     write_result(
