@@ -39,15 +39,19 @@ precord -h
   - `sys_gpu` - GPU usage of system
 - `-p / --process` - ID of processes
 - `--name` - Name of processes
-- `-o / --output` - Output of recording result, possible extensions:
+- `-o / --output` - Specify the output file, possible extensions:
   - `.svg`
   - `.html`
   - `.json`
   - `.csv`
-- `-i / --interval` - Interval of recording
-- `-n` - Count of recording
-- `-r / --recurse_children` - Flag to recurse child processes
+- `-i / --interval` - Interval for recording
+- `-n` - Count for recording
+- `--time` - Time limit for recording , e.g., `--time 1h30m59s`
+- `-r / --recurse-children` - Flag to recurse child processes
 - `--skip` - Number of skip records
+- `--gpu-calc` - Gpu calculation, possible values:
+  - `max`
+  - `sum`
 
 ### Command Mode
 Type `:` during recording will enter the command mode, and press `Esc` will back to recording. The supported commands are:
@@ -60,7 +64,7 @@ Type `:` during recording will enter the command mode, and press `Esc` will back
 A library for retrieving process and system performance data.
 
 ```rust
-use precord_core::{Features, System};
+use precord_core::{Features, GpuCalculation, System};
 use std::thread;
 use std::time::Duration;
 
@@ -74,11 +78,11 @@ fn main() {
   }
   
   #[cfg(target_os = "windows")]
-  if let Some(gpu_usage) = system.process_gpu_usage(1203) {
+  if let Some(gpu_usage) = system.process_gpu_usage(1203, GpuCalculation::Max) {
     println!("Process({}) %GPU: {:.2}%", 1203, gpu_usage)
   }
   
-  if let Some(sys_gpu_usage) = system.system_gpu_usage() {
+  if let Some(sys_gpu_usage) = system.system_gpu_usage(GpuCalculation::Max) {
     println!("System %GPU: {:.2}%", sys_gpu_usage);
   }
 }
