@@ -4,7 +4,7 @@
 [![docs.rs](https://docs.rs/precord/badge.svg)](https://docs.rs/precord)
 ![Minimum rustc version](https://img.shields.io/badge/rustc-1.56+-green.svg)
 
-A command line tool to record process and system performance data.
+Command line tool for recording process or system performance data.
 
 <img src="asset/Chrome.svg" width="480"></img>
 
