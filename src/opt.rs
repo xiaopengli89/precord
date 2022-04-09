@@ -6,20 +6,21 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
 
-#[derive(Parser, Debug, Clone)]
-#[clap(version = "0.4.15")]
-#[clap(about = "A command line tool to record process and system performance data.")]
+#[derive(Parser, Debug)]
+#[clap(version, about)]
 pub struct Opts {
     #[clap(short, long, multiple_values = true)]
     process: Vec<Pid>,
     #[clap(long, multiple_values = true)]
     name: Vec<String>,
+    /// Specify the output file, e.g., -o result.{svg,html,json,csv}
     #[clap(short, long, multiple_values = true, parse(from_os_str))]
     pub output: Vec<PathBuf>,
     #[clap(short, long, default_value_t = 1)]
     pub interval: u64,
     #[clap(short = 'n')]
     pub count: Option<usize>,
+    /// Recording time limit, e.g., --time 1h30m59s
     #[clap(long, parse(try_from_str))]
     pub time: Option<humantime::Duration>,
     #[clap(short, long, multiple_values = true, arg_enum, default_value = "cpu")]

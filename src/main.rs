@@ -465,7 +465,7 @@ fn main() {
         timestamps.push(now);
 
         if let Some(count) = opts.count {
-            if i > count {
+            if i + 1 >= count {
                 break;
             }
         }

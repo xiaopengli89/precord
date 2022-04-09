@@ -3,7 +3,7 @@ name = "precord"
 version = "0.4.15"
 edition = "2021"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
-description = "A command line tool to record process or system performance data"
+description = "Command line tool for recording process or system performance data"
 homepage = "https://github.com/xiaopengli89/precord"
 repository = "https://github.com/xiaopengli89/precord"
 keywords = ["performance"]
@@ -26,7 +26,7 @@ crossterm = "0.22.1"
 humantime = "2.1.0"
 
 [dependencies.clap]
-version = "3.0.0"
+version = "3.1.8"
 features = ["derive"]
 
 [dependencies.chrono]
