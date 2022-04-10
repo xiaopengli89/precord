@@ -29,6 +29,7 @@ jobs:
     - name: Build Release macOS x86_64
       if: "startsWith(github.ref, 'refs/tags/') && matrix.os == 'macos-latest'"
       run : |
+        rustup target add aarch64-apple-darwin
         cargo build --release --verbose
         cargo build --release --target aarch64-apple-darwin --verbose
         tar -C target/release -czvf target/precord-macos-x86_64.tar.gz precord
