@@ -3,7 +3,7 @@ use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::parser::{Parser, TryParse};
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
-use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX2};
+use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -15,8 +15,9 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{mem, process};
+use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::minwindef::{DWORD, FALSE};
-use winapi::shared::ntdef::NT_SUCCESS;
+use winapi::shared::ntdef::{NT_SUCCESS, ULONGLONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::*;
@@ -127,6 +128,15 @@ pub struct ThermalZoneInformation {
 struct ProcessCounter {
     pid: Pid,
     counter: PDH_HCOUNTER,
+}
+
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+struct VM_COUNTERS_EX2 {
+    CountersEx: VM_COUNTERS_EX,
+    PrivateWorkingSetSize: SIZE_T,
+    SharedCommitUsage: ULONGLONG,
 }
 
 pub struct Pdh {
