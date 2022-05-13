@@ -1,3 +1,4 @@
+use crate::platform;
 #[cfg(target_os = "macos")]
 use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 #[cfg(target_os = "windows")]
@@ -79,7 +80,9 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.wmi_conn = Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
+                system.wmi_conn = Some(wmi::WMIConnection::new(
+                    platform::windows::get_com_lib().ok_or(Error::ComLib)?,
+                )?);
             }
         }
 
@@ -111,8 +114,9 @@ impl System {
             #[cfg(target_os = "windows")]
             {
                 if system.wmi_conn.is_none() {
-                    system.wmi_conn =
-                        Some(wmi::WMIConnection::new(wmi::COMLibrary::new()?.into())?);
+                    system.wmi_conn = Some(wmi::WMIConnection::new(
+                        platform::windows::get_com_lib().ok_or(Error::ComLib)?,
+                    )?);
                 }
             }
         }

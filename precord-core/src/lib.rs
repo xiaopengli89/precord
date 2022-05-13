@@ -18,6 +18,9 @@ pub enum Error {
     #[error(transparent)]
     Wmi(#[from] wmi::WMIError),
     #[cfg(target_os = "windows")]
+    #[error("Can't get com library")]
+    ComLib,
+    #[cfg(target_os = "windows")]
     #[error("PDH_STATUS({0})")]
     Pdh(winapi::um::pdh::PDH_STATUS),
     #[cfg(target_os = "windows")]

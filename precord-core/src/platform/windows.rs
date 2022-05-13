@@ -10,8 +10,9 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, TrySendError};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Once, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{mem, process};
@@ -616,4 +617,22 @@ fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
     !(ret == FALSE || exit_code != STATUS_PENDING)
+}
+
+static mut COM_LIB: Option<wmi::COMLibrary> = None;
+static INIT: Once = Once::new();
+
+pub fn get_com_lib() -> Option<Rc<wmi::COMLibrary>> {
+    unsafe {
+        INIT.call_once(|| {
+            COM_LIB = wmi::COMLibrary::new().ok();
+        });
+
+        let com_lib = COM_LIB.as_ref().map(|c| {
+            let c = Rc::new(mem::transmute_copy(c));
+            mem::forget(c.clone());
+            c
+        });
+        com_lib
+    }
 }
