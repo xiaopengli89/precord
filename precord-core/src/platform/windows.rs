@@ -30,6 +30,8 @@ use windows::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
 const PDH_MORE_DATA: DWORD = 0x800007D2;
 // 0x800007D5 (PDH_NO_DATA)
 const PDH_NO_DATA: DWORD = 0x800007D5;
+// 0xC0000BBA (PDH_CSTATUS_INVALID_DATA)
+const PDH_CSTATUS_INVALID_DATA: DWORD = 0xC0000BBA;
 
 #[allow(dead_code)]
 pub struct Powershell {
@@ -140,6 +142,7 @@ struct VM_COUNTERS_EX2 {
 }
 
 pub struct Pdh {
+    update_success: bool,
     query: PDH_HQUERY,
     process_gpu_counters: Vec<ProcessCounter>,
     total_gpu_counter: PDH_HCOUNTER,
@@ -155,6 +158,7 @@ impl Pdh {
             }
 
             let mut pdh = Self {
+                update_success: true,
                 query,
                 process_gpu_counters: vec![],
                 total_gpu_counter: MaybeUninit::uninit().assume_init(),
@@ -207,11 +211,15 @@ impl Pdh {
     pub fn update(&mut self) {
         unsafe {
             let r = PdhCollectQueryData(self.query);
-            assert_eq!(r, ERROR_SUCCESS as _);
+            self.update_success = r as DWORD == ERROR_SUCCESS;
         }
     }
 
     pub fn poll_gpu_usage(&mut self, pid: Option<Pid>, calc: GpuCalculation) -> Option<f32> {
+        if !self.update_success {
+            return None;
+        }
+
         let counter = if let Some(pid) = pid {
             if let Some(counter) = self.process_gpu_counters.iter().find(|p| p.pid == pid) {
                 counter.counter
@@ -239,7 +247,9 @@ impl Pdh {
                 return Some(0.0);
             }
 
-            assert_eq!(r as DWORD, PDH_MORE_DATA);
+            if r as DWORD != PDH_MORE_DATA {
+                return None;
+            }
 
             let mut buffer: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
                 buffer_size as usize / mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>() + 1,
@@ -258,7 +268,9 @@ impl Pdh {
                 return Some(0.0);
             }
 
-            assert_eq!(r, ERROR_SUCCESS as _);
+            if r as DWORD != ERROR_SUCCESS {
+                return None;
+            }
 
             for i in 0..item_count {
                 let value = (*buffer[i as usize].FmtValue.u.doubleValue()) as f32;
@@ -281,8 +293,8 @@ impl Pdh {
 impl Drop for Pdh {
     fn drop(&mut self) {
         unsafe {
-            let r = PdhCloseQuery(self.query);
-            assert_eq!(r, ERROR_SUCCESS as _);
+            let _r = PdhCloseQuery(self.query);
+            debug_assert_eq!(_r, ERROR_SUCCESS as _);
         }
     }
 }
