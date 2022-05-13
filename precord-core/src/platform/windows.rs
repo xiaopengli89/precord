@@ -629,7 +629,7 @@ pub fn get_com_lib() -> Option<Rc<wmi::COMLibrary>> {
         });
 
         let com_lib = COM_LIB.as_ref().map(|c| {
-            let c = Rc::new(mem::transmute_copy(c));
+            let c = Rc::new(mem::transmute_copy::<_, wmi::COMLibrary>(c));
             mem::forget(c.clone());
             c
         });
