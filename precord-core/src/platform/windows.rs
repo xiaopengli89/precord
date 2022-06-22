@@ -308,15 +308,8 @@ struct EtwProvider {
 
 pub struct EtwTrace {
     last_update: Instant,
-    user_trace: UserTrace,
     handler: Arc<RwLock<EtwTraceHandler>>,
-    _trace_guard: Receiver<Option<UserTrace>>,
-}
-
-impl Drop for EtwTrace {
-    fn drop(&mut self) {
-        self.user_trace.stop();
-    }
+    _trace_guard: Receiver<()>,
 }
 
 impl EtwTrace {
@@ -426,10 +419,10 @@ impl EtwTrace {
 
         let (tx, rx) = mpsc::sync_channel(1);
         thread::spawn(move || {
-            tx.try_send(Some(trace.start().unwrap())).unwrap();
+            let _trace = trace.start().unwrap();
             // Block here
             loop {
-                match tx.try_send(None) {
+                match tx.try_send(()) {
                     Err(TrySendError::Disconnected(_)) => break,
                     _ => thread::sleep(Duration::from_secs(1)),
                 }
@@ -438,7 +431,6 @@ impl EtwTrace {
 
         Self {
             last_update: Instant::now(),
-            user_trace: rx.recv().unwrap().unwrap(),
             handler,
             _trace_guard: rx,
         }
