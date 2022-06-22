@@ -108,9 +108,6 @@ fn main() {
     let mut gpu_info: Vec<GpuInfo> = vec![];
 
     let mut last_record_time = Instant::now();
-    let end_time = opts
-        .time
-        .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
 
     let outputs = extend_path(&path_re, opts.output);
 
@@ -204,6 +201,9 @@ fn main() {
         Color::DarkMagenta,
     ];
     let mut skip = opts.skip;
+    let end_time = opts
+        .time
+        .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
 
     for i in 0.. {
         let mut command_mode = false;
