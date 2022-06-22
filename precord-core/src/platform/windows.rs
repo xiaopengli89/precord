@@ -313,7 +313,7 @@ pub struct EtwTrace {
 }
 
 impl EtwTrace {
-    pub fn new(present: bool, tcp_ip: bool) -> Self {
+    pub fn new(present: bool, tcp_ip: bool) -> Result<Self, Error> {
         let mut trace = UserTrace::new().named("precord".to_string());
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
@@ -417,23 +417,28 @@ impl EtwTrace {
             trace = trace.enable(provider);
         }
 
-        let (tx, rx) = mpsc::sync_channel(1);
+        let (tx, rx) = mpsc::sync_channel(0);
         thread::spawn(move || {
-            let _trace = trace.start().unwrap();
-            // Block here
-            loop {
-                match tx.try_send(()) {
-                    Err(TrySendError::Disconnected(_)) => break,
-                    _ => thread::sleep(Duration::from_secs(1)),
+            match trace.start() {
+                Ok(_trace) => {
+                    // Success signal
+                    let _ = tx.send(());
+                    // Block here
+                    let _ = tx.send(());
                 }
+                Err(_err) => {}
             }
         });
 
-        Self {
+        if rx.recv().is_err() {
+            return Err(Error::Etw);
+        }
+
+        Ok(Self {
             last_update: Instant::now(),
             handler,
             _trace_guard: rx,
-        }
+        })
     }
 
     pub fn fps(&self, pid: Pid) -> f32 {

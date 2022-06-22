@@ -28,6 +28,8 @@ pub enum Error {
     ProcessHandle,
     #[error("Access denied")]
     AccessDenied,
+    #[error("Etw error")]
+    Etw,
 }
 
 #[derive(Copy, Clone)]

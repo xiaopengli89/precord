@@ -102,7 +102,7 @@ impl System {
                 system.etw_trace = Some(EtwTrace::new(
                     true,
                     features.contains(Features::NET_TRAFFIC),
-                ));
+                )?);
             }
         }
 
@@ -134,11 +134,9 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.etw_trace = Some(
-                    system
-                        .etw_trace
-                        .unwrap_or_else(|| EtwTrace::new(false, true)),
-                );
+                if system.etw_trace.is_none() {
+                    system.etw_trace = Some(EtwTrace::new(false, true)?);
+                }
             }
         }
 
