@@ -447,15 +447,18 @@ impl FrameRateRunner {
     }
 
     fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
-        let mut pids = pids
-            .into_iter()
-            .filter(|&pid| match get_entitlements_for_pid(pid) {
-                Some(entitlements) => entitlements.get_task_allow,
-                None => true,
-            })
-            .peekable();
+        let pids: Vec<_> = if csr_allow_unrestricted_dtrace() {
+            pids.into_iter().collect()
+        } else {
+            pids.into_iter()
+                .filter(|&pid| match get_entitlements_for_pid(pid) {
+                    Some(entitlements) => entitlements.get_task_allow,
+                    None => true,
+                })
+                .collect()
+        };
 
-        if pids.peek().is_none() {
+        if pids.is_empty() {
             return;
         }
 
@@ -569,4 +572,21 @@ fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
     }
 
     plist::from_bytes(line.as_bytes()).ok()
+}
+
+extern "C" {
+    fn csr_get_active_config(config: *mut u32) -> i32;
+}
+
+const CSR_ALLOW_UNRESTRICTED_DTRACE: u32 = 1 << 5;
+
+fn csr_allow_unrestricted_dtrace() -> bool {
+    let mut config = 0;
+    unsafe {
+        let r = csr_get_active_config(&mut config);
+        if r != 0 {
+            return false;
+        }
+    }
+    config & CSR_ALLOW_UNRESTRICTED_DTRACE == CSR_ALLOW_UNRESTRICTED_DTRACE
 }
