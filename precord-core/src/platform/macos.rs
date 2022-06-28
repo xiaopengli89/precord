@@ -555,23 +555,50 @@ struct Entitlements {
 }
 
 fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
-    let mut command = Command::new("codesign");
-    command.args(["--display", "--entitlements", "-", "--xml"]);
+    let mut command = Command::new("script");
+    command.args([
+        "-q",
+        "/dev/null",
+        "codesign",
+        "--display",
+        "--entitlements",
+        "-",
+        "--xml",
+    ]);
     command.arg(format!("+{}", pid));
+
+    let mut entitlements = Entitlements {
+        get_task_allow: false,
+    };
 
     let child = match command.output() {
         Ok(child) => child,
-        Err(_) => return None,
+        Err(_) => return Some(entitlements),
     };
 
     let mut buf = Cursor::new(child.stdout);
     let mut line = String::new();
 
-    if buf.read_line(&mut line).is_err() {
-        return None;
+    match buf.read_line(&mut line) {
+        Ok(n) if n > 0 => {
+            if line.contains("code object is not signed at all") {
+                return None;
+            }
+        }
+        _ => return Some(entitlements),
     }
 
-    plist::from_bytes(line.as_bytes()).ok()
+    line.clear();
+
+    match buf.read_line(&mut line) {
+        Ok(n) if n > 0 => {
+            if let Ok(e) = plist::from_bytes(line.as_bytes()) {
+                entitlements = e;
+            }
+        }
+        _ => {}
+    }
+    Some(entitlements)
 }
 
 extern "C" {
