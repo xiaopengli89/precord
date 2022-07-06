@@ -303,7 +303,7 @@ impl Drop for Pdh {
 struct EtwProvider {
     guid: &'static str,
     name: &'static str,
-    present_event_id: u16,
+    present_event_id: Vec<u16>,
 }
 
 pub struct EtwTrace {
@@ -323,25 +323,25 @@ impl EtwTrace {
                 EtwProvider {
                     guid: "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9",
                     name: "Microsoft-Windows-DXGI",
-                    present_event_id: 0x002a,
+                    present_event_id: vec![0x002a],
                 },
                 // Microsoft-Windows-D3D9
                 EtwProvider {
                     guid: "783ACA0A-790E-4d7f-8451-AA850511C6B9",
                     name: "Microsoft-Windows-D3D9",
-                    present_event_id: 0x0001,
+                    present_event_id: vec![0x0001],
                 },
                 // Microsoft-Windows-Dwm-Core
                 EtwProvider {
                     guid: "9E9BBA3C-2E38-40CB-99F4-9E8281425164",
                     name: "Microsoft-Windows-Dwm-Core",
-                    present_event_id: 0x000f,
+                    present_event_id: vec![0x000f],
                 },
                 // Microsoft-Windows-DxgKrnl
                 EtwProvider {
                     guid: "802EC45A-1E99-4B83-9920-87C98277BA9D",
                     name: "Microsoft-Windows-DxgKrnl",
-                    present_event_id: 0x00aa, // RenderKm
+                    present_event_id: vec![0x00aa, 0x00a9], // [RenderKm, Render]
                 },
             ] {
                 let handler = handler.clone();
@@ -351,7 +351,7 @@ impl EtwTrace {
                         match schema_locator.event_schema(record) {
                             Ok(schema) => {
                                 if schema.provider_name() == provider_guid.name
-                                    && schema.event_id() == provider_guid.present_event_id
+                                    && provider_guid.present_event_id.contains(&schema.event_id())
                                 {
                                     handler.write().unwrap().add_present(schema.process_id());
                                 }
@@ -576,9 +576,9 @@ impl VmCounter {
                     let r = NtQueryInformationProcess(
                         p.handle,
                         ProcessVmCounters,
-                        std::mem::transmute(&mut info),
-                        std::mem::size_of::<VM_COUNTERS_EX2>() as _,
-                        std::ptr::null_mut(),
+                        mem::transmute(&mut info),
+                        mem::size_of::<VM_COUNTERS_EX2>() as _,
+                        ptr::null_mut(),
                     );
                     if NT_SUCCESS(r) {
                         Some((info.PrivateWorkingSetSize >> 10) as f32)
