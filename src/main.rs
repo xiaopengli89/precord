@@ -429,7 +429,8 @@ fn main() {
                     }
                 }
                 SystemCategory::GPU => {
-                    let sys_gpu_usage = system.system_gpu_usage(opts.gpu_calc.into()).unwrap();
+                    let sys_gpu_usage =
+                        system.system_gpu_usage(opts.gpu_calc.into()).unwrap_or(0.0);
 
                     println!(
                         "System GPU Usage: {}\r",
