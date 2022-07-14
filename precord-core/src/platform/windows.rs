@@ -318,7 +318,7 @@ impl EtwTrace {
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
         if present {
-            for provider_guid in [
+            for (index, provider_guid) in [
                 // Microsoft-Windows-DXGI
                 EtwProvider {
                     guid: "CA11C036-0102-4A2D-A6AD-F03CFED5D3C9",
@@ -341,9 +341,12 @@ impl EtwTrace {
                 EtwProvider {
                     guid: "802EC45A-1E99-4B83-9920-87C98277BA9D",
                     name: "Microsoft-Windows-DxgKrnl",
-                    present_event_id: vec![0x00aa, 0x00a9], // [RenderKm, Render]
+                    present_event_id: vec![0x00b8],
                 },
-            ] {
+            ]
+            .into_iter()
+            .enumerate()
+            {
                 let handler = handler.clone();
                 let provider = Provider::new()
                     .by_guid(provider_guid.guid)
@@ -353,7 +356,10 @@ impl EtwTrace {
                                 if schema.provider_name() == provider_guid.name
                                     && provider_guid.present_event_id.contains(&schema.event_id())
                                 {
-                                    handler.write().unwrap().add_present(schema.process_id());
+                                    handler
+                                        .write()
+                                        .unwrap()
+                                        .add_present(index, schema.process_id());
                                 }
                             }
                             Err(_) => {}
@@ -457,11 +463,11 @@ impl EtwTrace {
         let now = Instant::now();
         let d = (now - self.last_update).as_secs_f32();
         for value in self.handler.write().unwrap().trace_events.values_mut() {
-            value.present_per_sec = value.present as f32 / d;
+            value.present_per_sec = value.present.into_iter().max().unwrap() as f32 / d;
             value.net_send_per_sec = (value.net_send as f32 / d) as _;
             value.net_recv_per_sec = (value.net_recv as f32 / d) as _;
 
-            value.present = 0;
+            value.present = [0; 4];
             value.net_send = 0;
             value.net_recv = 0;
         }
@@ -475,12 +481,12 @@ struct EtwTraceHandler {
 }
 
 impl EtwTraceHandler {
-    fn add_present(&mut self, pid: u32) {
+    fn add_present(&mut self, index: usize, pid: u32) {
         let p = self
             .trace_events
             .entry(pid)
             .or_insert(TraceEventInfo::default());
-        p.present = p.present.saturating_add(1);
+        p.present[index] = p.present[index].saturating_add(1);
     }
 
     fn add_network(&mut self, pid: u32, bytes: u32, is_send: bool) {
@@ -522,7 +528,7 @@ impl EtwTraceHandler {
 
 #[derive(Default)]
 struct TraceEventInfo {
-    present: u32,
+    present: [u32; 4],
     present_per_sec: f32,
     net_send: u32,
     net_send_per_sec: u32,
