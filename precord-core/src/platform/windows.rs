@@ -343,6 +343,12 @@ impl EtwTrace {
                     name: "Microsoft-Windows-DxgKrnl",
                     present_event_id: vec![0x00b8],
                 },
+                // Microsoft-Windows-Win32k
+                EtwProvider {
+                    guid: "8C416C79-D49B-4F01-A467-E56D3AA8234C",
+                    name: "Microsoft-Windows-Win32k",
+                    present_event_id: vec![0x0029],
+                },
             ]
             .into_iter()
             .enumerate()
@@ -467,7 +473,7 @@ impl EtwTrace {
             value.net_send_per_sec = (value.net_send as f32 / d) as _;
             value.net_recv_per_sec = (value.net_recv as f32 / d) as _;
 
-            value.present = [0; 4];
+            value.present = Default::default();
             value.net_send = 0;
             value.net_recv = 0;
         }
@@ -528,7 +534,7 @@ impl EtwTraceHandler {
 
 #[derive(Default)]
 struct TraceEventInfo {
-    present: [u32; 4],
+    present: [u32; 5],
     present_per_sec: f32,
     net_send: u32,
     net_send_per_sec: u32,
