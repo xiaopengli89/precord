@@ -136,6 +136,7 @@ struct ProcessCounter {
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+#[repr(C)]
 struct VM_COUNTERS_EX2 {
     CountersEx: VM_COUNTERS_EX,
     PrivateWorkingSetSize: SIZE_T,
