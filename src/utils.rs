@@ -1,5 +1,5 @@
 use crossterm::cursor::MoveLeft;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
@@ -66,6 +66,8 @@ impl CommandPrompt {
             KeyEvent {
                 code: KeyCode::Char(':'),
                 modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Release,
+                state: KeyEventState::NONE
             }
         };
         match key_event {
@@ -81,6 +83,7 @@ impl CommandPrompt {
                         KeyEvent {
                             code: KeyCode::Char('c'),
                             modifiers: KeyModifiers::CONTROL,
+                            ..
                         } => {
                             break Command::Quit;
                         }
@@ -124,6 +127,7 @@ impl CommandPrompt {
             KeyEvent {
                 code: KeyCode::Char('c'),
                 modifiers: KeyModifiers::CONTROL,
+                ..
             } => Command::Quit,
             _ => Command::Continue,
         }
