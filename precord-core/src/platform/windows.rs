@@ -11,9 +11,8 @@ use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
 use std::ptr;
-use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver};
-use std::sync::{Arc, Once, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Instant;
 use std::{mem, process};
@@ -635,13 +634,11 @@ thread_local! {
 }
 
 pub fn get_com_lib() -> Option<wmi::COMLibrary> {
-    unsafe {
-        COM_LIB.with(|com| {
-            let mut com_ref = com.borrow_mut();
-            if com_ref.is_none() {
-                *com_ref = wmi::COMLibrary::new().ok();
-            }
-            *com_ref
-        })
-    }
+    COM_LIB.with(|com| {
+        let mut com_ref = com.borrow_mut();
+        if com_ref.is_none() {
+            *com_ref = wmi::COMLibrary::new().ok();
+        }
+        *com_ref
+    })
 }
