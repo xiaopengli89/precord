@@ -5,6 +5,7 @@ use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX};
 use serde::Deserialize;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
@@ -629,20 +630,18 @@ fn is_proc_running(handle: HANDLE) -> bool {
     !(ret == FALSE || exit_code != STATUS_PENDING)
 }
 
-static mut COM_LIB: Option<wmi::COMLibrary> = None;
-static INIT: Once = Once::new();
+thread_local! {
+    static COM_LIB: RefCell<Option<wmi::COMLibrary>> = RefCell::new(None);
+}
 
-pub fn get_com_lib() -> Option<Rc<wmi::COMLibrary>> {
+pub fn get_com_lib() -> Option<wmi::COMLibrary> {
     unsafe {
-        INIT.call_once(|| {
-            COM_LIB = wmi::COMLibrary::new().ok();
-        });
-
-        let com_lib = COM_LIB.as_ref().map(|c| {
-            let c = Rc::new(mem::transmute_copy::<_, wmi::COMLibrary>(c));
-            mem::forget(c.clone());
-            c
-        });
-        com_lib
+        COM_LIB.with(|com| {
+            let mut com_ref = com.borrow_mut();
+            if com_ref.is_none() {
+                *com_ref = wmi::COMLibrary::new().ok();
+            }
+            *com_ref
+        })
     }
 }
