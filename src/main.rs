@@ -200,12 +200,9 @@ fn main() {
         Color::DarkBlue,
         Color::DarkMagenta,
     ];
-    let mut skip = opts.skip;
-    let end_time = opts
-        .time
-        .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
+    let mut end_time = None;
 
-    for i in 0.. {
+    for i in -(opts.skip as isize).. {
         let mut command_mode = false;
 
         loop {
@@ -265,9 +262,14 @@ fn main() {
 
         system.update();
 
-        if skip > 0 {
-            skip -= 1;
+        if i < 0 {
             continue;
+        }
+
+        if i == 0 {
+            end_time = opts
+                .time
+                .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
         }
 
         // Process
@@ -448,7 +450,7 @@ fn main() {
             }
         }
 
-        let mut progress = format!("================ {}", i - opts.skip);
+        let mut progress = format!("================ {}", i + 1);
 
         if let Some(count) = opts.count {
             let _ = write!(&mut progress, " / {}", count);
@@ -466,7 +468,7 @@ fn main() {
         timestamps.push(now);
 
         if let Some(count) = opts.count {
-            if i + 1 >= count {
+            if i + 1 >= count as isize {
                 break;
             }
         }

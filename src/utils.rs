@@ -67,7 +67,7 @@ impl CommandPrompt {
                 code: KeyCode::Char(':'),
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Release,
-                state: KeyEventState::NONE
+                state: KeyEventState::NONE,
             }
         };
         match key_event {
