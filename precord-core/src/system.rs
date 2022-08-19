@@ -194,7 +194,7 @@ impl System {
                 std::mem::transmute(&mut rusage_info_data),
             );
             if r == libc::KERN_SUCCESS {
-                let mem = (rusage_info_data.ri_phys_footprint / 1024) as f32;
+                let mem = (rusage_info_data.ri_phys_footprint >> 10) as f32;
                 Some(mem)
             } else {
                 None

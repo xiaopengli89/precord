@@ -4,6 +4,7 @@ use ferrisetw::parser::{Parser, TryParse};
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX};
+use regex::Regex;
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -148,6 +149,8 @@ pub struct Pdh {
     query: PDH_HQUERY,
     process_gpu_counters: Vec<ProcessCounter>,
     total_gpu_counter: PDH_HCOUNTER,
+    pid_re: Regex,
+    read_buffer: HashMap<Pid, f32>,
 }
 
 impl Pdh {
@@ -164,6 +167,8 @@ impl Pdh {
                 query,
                 process_gpu_counters: vec![],
                 total_gpu_counter: MaybeUninit::uninit().assume_init(),
+                pid_re: Regex::new(r"^pid_([0-9]+)_").unwrap(),
+                read_buffer: Default::default(),
             };
 
             for pid in pids {
@@ -210,6 +215,11 @@ impl Pdh {
         }
     }
 
+    fn extract_pid(&self, name: &str) -> Option<Pid> {
+        let caps = self.pid_re.captures(name)?;
+        caps.get(1)?.as_str().parse().ok()
+    }
+
     pub fn update(&mut self) {
         unsafe {
             let r = PdhCollectQueryData(self.query);
@@ -234,7 +244,6 @@ impl Pdh {
 
         let mut buffer_size = 0;
         let mut item_count = 0;
-        let mut sum: f32 = 0.0;
 
         unsafe {
             let mut r = PdhGetFormattedCounterArrayW(
@@ -274,21 +283,32 @@ impl Pdh {
                 return None;
             }
 
-            for i in 0..item_count {
-                let value = (*buffer[i as usize].FmtValue.u.doubleValue()) as f32;
+            self.read_buffer.clear();
 
-                match calc {
-                    GpuCalculation::Max => {
-                        sum = sum.max(value);
-                    }
-                    GpuCalculation::Sum => {
-                        sum += value;
+            for i in 0..item_count {
+                let name =
+                    widestring::U16CStr::from_ptr_str(buffer[i as usize].szName).to_string_lossy();
+                if let Some(pid) = self.extract_pid(&name) {
+                    let pid_sum = self.read_buffer.entry(pid).or_default();
+                    let value = (*buffer[i as usize].FmtValue.u.doubleValue()) as f32;
+
+                    match calc {
+                        GpuCalculation::Max => {
+                            *pid_sum = pid_sum.max(value);
+                        }
+                        GpuCalculation::Sum => {
+                            *pid_sum += value;
+                        }
                     }
                 }
             }
         }
 
-        Some(sum)
+        if let Some(pid) = pid {
+            self.read_buffer.remove(&pid)
+        } else {
+            Some(self.read_buffer.drain().map(|(_, v)| v).sum())
+        }
     }
 }
 
