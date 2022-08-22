@@ -34,6 +34,7 @@ precord -h
   - `gpu` - GPU usage of process
   - `fps` - Frame rate of process
   - `net_in/net_out` - Network recv/send of process
+  - `disk_read/disk_write` - Disk read/write of process
   - `sys_cpu_freq` - CPU frequency of system
   - `sys_cpu_temp` - CPU temperature of system
   - `sys_gpu` - GPU usage of system
@@ -90,16 +91,17 @@ fn main() {
 
 ## Supported Platforms
 
-|                | macOS              | Windows            |
-|----------------|--------------------|--------------------|
-| cpu            | :white_check_mark: | :white_check_mark: |
-| mem            | :white_check_mark: | :white_check_mark: |
-| gpu            |                    | :white_check_mark: |
-| fps            | :white_check_mark: | :white_check_mark: |
-| net_in/net_out | :white_check_mark: | :white_check_mark: |
-| sys_cpu_freq   | :white_check_mark: | :white_check_mark: |
-| sys_cpu_temp   | :white_check_mark: | :white_check_mark: |
-| sys_gpu        | :white_check_mark: | :white_check_mark: |
+|                      | macOS              | Windows            |
+|----------------------|--------------------|--------------------|
+| cpu                  | :white_check_mark: | :white_check_mark: |
+| mem                  | :white_check_mark: | :white_check_mark: |
+| gpu                  |                    | :white_check_mark: |
+| fps                  | :white_check_mark: | :white_check_mark: |
+| net_in/net_out       | :white_check_mark: | :white_check_mark: |
+| disk_read/disk_write | :white_check_mark: |                    |
+| sys_cpu_freq         | :white_check_mark: | :white_check_mark: |
+| sys_cpu_temp         | :white_check_mark: | :white_check_mark: |
+| sys_gpu              | :white_check_mark: | :white_check_mark: |
 
 ## Privileges
 
@@ -110,6 +112,7 @@ fn main() {
 | gpu                                                |                                |               |
 | fps                                                | Administrator + get-task-allow | Administrator |
 | net_in/net_out                                     |                                | Administrator |
+| disk_read/disk_write                               |                                |               |
 | sys_cpu_freq                                       | Administrator                  |               |
 | sys_cpu_temp                                       |                                |               |
 | sys_gpu                                            |                                |               |
