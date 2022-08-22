@@ -39,45 +39,12 @@ pub fn consume<P: AsRef<Path>>(
     let mut tooltips = vec![];
 
     for ci in 0..proc_category.len() {
-        let mut max_value: f32;
-        let category_title;
-        let unit;
+        let mut max_value: f32 = proc_category[ci].lower_bound();
+        let category_title = format!("Process {:?}", proc_category[ci]);
+        let unit = proc_category[ci].unit();
         let mut total = vec![];
         let mut legend_c = vec![];
         let mut tooltip = HashMap::new();
-
-        match proc_category[ci] {
-            ProcessCategory::CPU => {
-                max_value = 100.0;
-                category_title = "Process CPU Usage(%)";
-                unit = "%";
-            }
-            ProcessCategory::Mem => {
-                max_value = 10.0;
-                category_title = "Process Memory Usage(M)";
-                unit = "M";
-            }
-            ProcessCategory::GPU => {
-                max_value = 100.0;
-                category_title = "Process GPU Usage(%)";
-                unit = "%";
-            }
-            ProcessCategory::FPS => {
-                max_value = 60.0;
-                category_title = "Process FPS";
-                unit = "";
-            }
-            ProcessCategory::NetIn => {
-                max_value = 1000.0;
-                category_title = "Process Net In(KBps)";
-                unit = "KBps";
-            }
-            ProcessCategory::NetOut => {
-                max_value = 1000.0;
-                category_title = "Process Net Out(KBps)";
-                unit = "KBps";
-            }
-        }
 
         for p in processes {
             let avg = p.avg_value(ci);

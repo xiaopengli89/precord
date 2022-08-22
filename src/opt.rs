@@ -1,7 +1,9 @@
 use crate::types::ProcessInfo;
 use crate::Pid;
 use clap::{ArgEnum, Parser};
+use crossterm::style::Color;
 use precord_core::System;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
@@ -161,14 +163,68 @@ pub enum Category {
     SysGPU,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Hash)]
 pub enum ProcessCategory {
+    #[serde(rename = "cpu")]
     CPU,
+    #[serde(rename = "mem")]
     Mem,
+    #[serde(rename = "gpu")]
     GPU,
+    #[serde(rename = "fps")]
     FPS,
+    #[serde(rename = "net_in")]
     NetIn,
+    #[serde(rename = "net_out")]
     NetOut,
+}
+
+impl ProcessCategory {
+    pub fn unit(&self) -> &'static str {
+        match self {
+            Self::CPU => "%",
+            Self::Mem => "M",
+            Self::GPU => "%",
+            Self::FPS => "",
+            Self::NetIn => "KBps",
+            Self::NetOut => "KBps",
+        }
+    }
+
+    pub fn color(&self) -> Color {
+        match self {
+            Self::CPU => Color::DarkGreen,
+            Self::Mem => Color::DarkCyan,
+            Self::GPU => Color::AnsiValue(208),
+            Self::FPS => Color::DarkYellow,
+            Self::NetIn => Color::DarkBlue,
+            Self::NetOut => Color::DarkMagenta,
+        }
+    }
+
+    pub fn lower_bound(&self) -> f32 {
+        match self {
+            Self::CPU => 100.,
+            Self::Mem => 10.,
+            Self::GPU => 100.,
+            Self::FPS => 60.,
+            Self::NetIn => (1 << 10) as _,
+            Self::NetOut => (1 << 10) as _,
+        }
+    }
+
+    pub fn sample(&self, system: &mut System, gpu_calc: GpuCalculation, pid: Pid) -> Option<f32> {
+        match self {
+            Self::CPU => system.process_cpu_usage(pid),
+            Self::Mem => system.process_mem(pid).map(|v| v / 1024.),
+            Self::GPU => system.process_gpu_usage(pid, gpu_calc.into()),
+            Self::FPS => Some(system.process_fps(pid)),
+            Self::NetIn => system.process_net_traffic_in(pid).map(|v| (v >> 10) as f32),
+            Self::NetOut => system
+                .process_net_traffic_out(pid)
+                .map(|v| (v >> 10) as f32),
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]

@@ -2,6 +2,7 @@ use crate::opt::{ProcessCategory, SystemCategory};
 use crate::types::ProcessInfo;
 use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo, Pid};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 
@@ -21,14 +22,8 @@ pub fn consume<P: AsRef<Path>>(
 
     // Process
     for (ci, &c) in proc_categories.into_iter().enumerate() {
-        let target = match c {
-            ProcessCategory::CPU => &mut json_output.cpu,
-            ProcessCategory::Mem => &mut json_output.mem,
-            ProcessCategory::GPU => &mut json_output.gpu,
-            ProcessCategory::FPS => &mut json_output.fps,
-            ProcessCategory::NetIn => &mut json_output.net_in,
-            ProcessCategory::NetOut => &mut json_output.net_out,
-        };
+        let mut target = vec![];
+
         for p in processes {
             target.push(ProcessRecord {
                 pid: p.pid,
@@ -44,6 +39,8 @@ pub fn consume<P: AsRef<Path>>(
                     .collect(),
             });
         }
+
+        json_output.process_records.insert(c, target);
     }
 
     // System
@@ -119,12 +116,8 @@ struct SystemRecord {
 
 #[derive(Default, Serialize)]
 struct JsonOutput {
-    cpu: Vec<ProcessRecord>,
-    mem: Vec<ProcessRecord>,
-    gpu: Vec<ProcessRecord>,
-    fps: Vec<ProcessRecord>,
-    net_in: Vec<ProcessRecord>,
-    net_out: Vec<ProcessRecord>,
+    #[serde(flatten)]
+    process_records: HashMap<ProcessCategory, Vec<ProcessRecord>>,
     sys_cpu_freq: Vec<SystemRecord>,
     sys_cpu_temp: Vec<SystemRecord>,
     sys_gpu: Vec<SystemRecord>,

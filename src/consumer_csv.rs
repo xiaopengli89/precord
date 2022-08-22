@@ -21,15 +21,7 @@ pub fn consume<P: AsRef<Path>>(
     // Process
     for (ci, &c) in proc_categories.into_iter().enumerate() {
         // Title
-        wtr.write_field(match c {
-            ProcessCategory::CPU => "Process CPU Usage",
-            ProcessCategory::Mem => "Process Memory Usage",
-            ProcessCategory::GPU => "Process GPU Usage",
-            ProcessCategory::FPS => "Process FPS",
-            ProcessCategory::NetIn => "Process Net In",
-            ProcessCategory::NetOut => "Process Net Out",
-        })
-        .unwrap();
+        wtr.write_field(format!("Process {:?}", c)).unwrap();
         for p in processes {
             wtr.write_field(format!("{}({})", &p.name, p.pid)).unwrap();
         }

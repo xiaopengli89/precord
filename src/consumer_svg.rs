@@ -74,44 +74,13 @@ pub fn consume<P: AsRef<Path>>(
             max = max.max(t);
         }
 
-        let caption;
-        let unit;
-
-        match proc_category[idx_c] {
-            ProcessCategory::CPU => {
-                caption = "Process CPU Usage";
-                unit = "%";
-                max = max.max(100.0);
-            }
-            ProcessCategory::Mem => {
-                caption = "Process Memory Usage";
-                unit = "M";
-                max += 100.0;
-            }
-            ProcessCategory::GPU => {
-                caption = "Process GPU Usage";
-                unit = "%";
-                max = max.max(100.0);
-            }
-            ProcessCategory::FPS => {
-                caption = "Process FPS";
-                unit = "";
-                max = max.max(60.0);
-            }
-            ProcessCategory::NetIn => {
-                max = max.max(1024.0);
-                caption = "Process Net In";
-                unit = "KBps";
-            }
-            ProcessCategory::NetOut => {
-                max = max.max(1024.0);
-                caption = "Process Net Out";
-                unit = "KBps";
-            }
-        };
+        max = max.max(proc_category[idx_c].lower_bound());
 
         let mut chart = ChartBuilder::on(&area)
-            .caption(caption, ("sans-serif", 30).into_font())
+            .caption(
+                format!("Process {:?}", proc_category[idx_c]),
+                ("sans-serif", 30).into_font(),
+            )
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(50)
@@ -120,7 +89,7 @@ pub fn consume<P: AsRef<Path>>(
 
         chart
             .configure_mesh()
-            .y_label_formatter(&|y| format!("{}{}", y, unit))
+            .y_label_formatter(&|y| format!("{}{}", y, proc_category[idx_c].unit()))
             .draw()
             .unwrap();
 
@@ -140,7 +109,7 @@ pub fn consume<P: AsRef<Path>>(
                     &process.name,
                     process.pid,
                     process.avg_value(idx_c),
-                    unit
+                    proc_category[idx_c].unit(),
                 ))
                 .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
         }
@@ -155,7 +124,11 @@ pub fn consume<P: AsRef<Path>>(
                     color.clone(),
                 ))
                 .unwrap()
-                .label(format!("Total / AVG({:.2}{})", avg, unit))
+                .label(format!(
+                    "Total / AVG({:.2}{})",
+                    avg,
+                    proc_category[idx_c].unit()
+                ))
                 .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
         }
 

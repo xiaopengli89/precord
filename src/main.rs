@@ -278,90 +278,17 @@ fn main() {
                 let mut message = format!("{}({})", &process.name, process.pid);
 
                 for (idx, &c) in proc_category.iter().enumerate() {
-                    let color = terminal_colors[idx];
-                    match c {
-                        ProcessCategory::CPU => {
-                            if let Some(cpu_usage) = system.process_cpu_usage(process.pid) {
-                                process.valid = true;
-                                process.values[idx].push(cpu_usage);
-                                message.push_str(&format!(
-                                    " / {}",
-                                    format!("CPU {:.2}%", cpu_usage).with(color)
-                                ));
-                            } else {
-                                process.valid = false;
-                                process.values[idx].push(0.0);
-                                message.push_str(&format!(" / {}", "CPU Lost".dark_red()));
-                            }
-                        }
-                        ProcessCategory::Mem => {
-                            if let Some(mem_usage) = system.process_mem(process.pid) {
-                                let mem_usage = mem_usage / 1024.0;
-
-                                process.valid = true;
-                                process.values[idx].push(mem_usage);
-                                message.push_str(&format!(
-                                    " / {}",
-                                    format!("MEM {:.2}M", mem_usage).with(color)
-                                ));
-                            } else {
-                                process.valid = false;
-                                process.values[idx].push(0.0);
-                                message.push_str(&format!(" / {}", "MEM Lost".dark_red()));
-                            }
-                        }
-                        ProcessCategory::GPU => {
-                            if let Some(gpu_usage) =
-                                system.process_gpu_usage(process.pid, opts.gpu_calc.into())
-                            {
-                                process.valid = true;
-                                process.values[idx].push(gpu_usage);
-                                message.push_str(&format!(
-                                    " / {}",
-                                    format!("GPU {:.2}%", gpu_usage).with(color)
-                                ));
-                            } else {
-                                process.valid = false;
-                                process.values[idx].push(0.0);
-                                message.push_str(&format!(" / {}", "GPU Lost".dark_red()));
-                            }
-                        }
-                        ProcessCategory::FPS => {
-                            let fps = system.process_fps(process.pid);
-                            process.values[idx].push(fps);
-
-                            message.push_str(&format!(" / {}", format!("FPS {}", fps).with(color)));
-                        }
-                        ProcessCategory::NetIn => {
-                            if let Some(net_in) = system.process_net_traffic_in(process.pid) {
-                                let net_in = (net_in >> 10) as f32;
-                                process.valid = true;
-                                process.values[idx].push(net_in);
-                                message.push_str(&format!(
-                                    " / {}",
-                                    format!("NET_IN {:.2}KBps", net_in).with(color)
-                                ));
-                            } else {
-                                process.valid = false;
-                                process.values[idx].push(0.0);
-                                message.push_str(&format!(" / {}", "NET_IN Lost".dark_red()));
-                            }
-                        }
-                        ProcessCategory::NetOut => {
-                            if let Some(net_out) = system.process_net_traffic_out(process.pid) {
-                                let net_out = (net_out >> 10) as f32;
-                                process.valid = true;
-                                process.values[idx].push(net_out);
-                                message.push_str(&format!(
-                                    " / {}",
-                                    format!("NET_OUT {:.2}KBps", net_out).with(color)
-                                ));
-                            } else {
-                                process.valid = false;
-                                process.values[idx].push(0.0);
-                                message.push_str(&format!(" / {}", "NET_OUT Lost".dark_red()));
-                            }
-                        }
+                    if let Some(v) = c.sample(&mut system, opts.gpu_calc, process.pid) {
+                        process.valid = true;
+                        process.values[idx].push(v);
+                        message.push_str(&format!(
+                            " / {}",
+                            format!("{:?} {:.2}{}", c, v, c.unit()).with(c.color())
+                        ));
+                    } else {
+                        process.valid = false;
+                        process.values[idx].push(0.0);
+                        message.push_str(&format!(" / {}", format!("{:?} Lost", c).dark_red()));
                     }
                 }
 
