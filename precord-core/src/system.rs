@@ -6,10 +6,12 @@ use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformat
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
+use std::time::{Duration, Instant};
 use sysinfo::{ProcessExt, SystemExt};
 
-#[derive(Default)]
 pub struct System {
+    last_update: Instant,
+    last_duration: Duration,
     features: Features,
     sysinfo_system: Option<sysinfo::System>,
     refresh_kind: sysinfo::RefreshKind,
@@ -35,8 +37,27 @@ impl System {
         features: Features,
         pids: T,
     ) -> Result<Self, Error> {
-        let mut system = System::default();
-        system.features = features;
+        let mut system = System {
+            last_update: Instant::now(),
+            last_duration: Duration::ZERO,
+            features,
+            sysinfo_system: None,
+            refresh_kind: sysinfo::RefreshKind::default(),
+            #[cfg(target_os = "macos")]
+            command_source: None,
+            #[cfg(target_os = "macos")]
+            ioreg: None,
+            #[cfg(target_os = "macos")]
+            smc: None,
+            #[cfg(target_os = "windows")]
+            pdh: None,
+            #[cfg(target_os = "windows")]
+            wmi_conn: None,
+            #[cfg(target_os = "windows")]
+            etw_trace: None,
+            #[cfg(target_os = "windows")]
+            vm_counter: None,
+        };
 
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
@@ -143,7 +164,10 @@ impl System {
         Ok(system)
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, now: Instant) {
+        self.last_duration = now - self.last_update;
+        self.last_update = now;
+
         if let Some(sysinfo_system) = &mut self.sysinfo_system {
             sysinfo_system.refresh_specifics(self.refresh_kind);
         }
@@ -204,6 +228,44 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             self.vm_counter.as_mut()?.process_mem(pid)
+        }
+    }
+
+    pub fn process_disk_read(&self, pid: Pid) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            let read_bytes = self
+                .sysinfo_system
+                .as_ref()?
+                .process(pid)?
+                .disk_usage()
+                .read_bytes;
+            Some(read_bytes as f32 / self.last_duration.as_secs_f32())
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // TODO
+            None
+        }
+    }
+
+    pub fn process_disk_write(&self, pid: Pid) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            let written_bytes = self
+                .sysinfo_system
+                .as_ref()?
+                .process(pid)?
+                .disk_usage()
+                .written_bytes;
+            Some(written_bytes as f32 / self.last_duration.as_secs_f32())
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // TODO
+            None
         }
     }
 

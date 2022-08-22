@@ -155,12 +155,41 @@ pub enum Category {
     NetIn,
     #[clap(name = "net_out")]
     NetOut,
+    #[clap(name = "disk_read")]
+    DiskRead,
+    #[clap(name = "disk_write")]
+    DiskWrite,
     #[clap(name = "sys_cpu_freq")]
     SysCPUFreq,
     #[clap(name = "sys_cpu_temp")]
     SysCPUTemp,
     #[clap(name = "sys_gpu")]
     SysGPU,
+}
+
+impl Category {
+    pub fn to_process(self) -> Option<ProcessCategory> {
+        match self {
+            Category::CPU => Some(ProcessCategory::CPU),
+            Category::Mem => Some(ProcessCategory::Mem),
+            Category::GPU => Some(ProcessCategory::GPU),
+            Category::FPS => Some(ProcessCategory::FPS),
+            Category::NetIn => Some(ProcessCategory::NetIn),
+            Category::NetOut => Some(ProcessCategory::NetOut),
+            Category::DiskRead => Some(ProcessCategory::DiskRead),
+            Category::DiskWrite => Some(ProcessCategory::DiskWrite),
+            _ => None,
+        }
+    }
+
+    pub fn to_system(self) -> Option<SystemCategory> {
+        match self {
+            Category::SysCPUFreq => Some(SystemCategory::CPUFreq),
+            Category::SysCPUTemp => Some(SystemCategory::CPUTemp),
+            Category::SysGPU => Some(SystemCategory::GPU),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Hash)]
@@ -177,6 +206,10 @@ pub enum ProcessCategory {
     NetIn,
     #[serde(rename = "net_out")]
     NetOut,
+    #[serde(rename = "disk_read")]
+    DiskRead,
+    #[serde(rename = "disk_write")]
+    DiskWrite,
 }
 
 impl ProcessCategory {
@@ -188,6 +221,8 @@ impl ProcessCategory {
             Self::FPS => "",
             Self::NetIn => "KBps",
             Self::NetOut => "KBps",
+            Self::DiskRead => "KBps",
+            Self::DiskWrite => "KBps",
         }
     }
 
@@ -199,6 +234,8 @@ impl ProcessCategory {
             Self::FPS => Color::DarkYellow,
             Self::NetIn => Color::DarkBlue,
             Self::NetOut => Color::DarkMagenta,
+            Self::DiskRead => Color::AnsiValue(143),
+            Self::DiskWrite => Color::AnsiValue(136),
         }
     }
 
@@ -210,6 +247,8 @@ impl ProcessCategory {
             Self::FPS => 60.,
             Self::NetIn => (1 << 10) as _,
             Self::NetOut => (1 << 10) as _,
+            Self::DiskRead => (1 << 10) as _,
+            Self::DiskWrite => (1 << 10) as _,
         }
     }
 
@@ -223,6 +262,8 @@ impl ProcessCategory {
             Self::NetOut => system
                 .process_net_traffic_out(pid)
                 .map(|v| (v >> 10) as f32),
+            Self::DiskRead => system.process_disk_read(pid).map(|v| v / 1024.),
+            Self::DiskWrite => system.process_disk_write(pid).map(|v| v / 1024.),
         }
     }
 }

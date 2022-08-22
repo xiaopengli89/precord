@@ -1,4 +1,4 @@
-use crate::opt::{Category, Opts, ProcessCategory, SystemCategory};
+use crate::opt::{Opts, ProcessCategory, SystemCategory};
 use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
 use crate::utils::{extend_path, Command, CommandPrompt};
 use clap::Parser;
@@ -29,26 +29,9 @@ fn main() {
     let proc_category: Vec<_> = opts
         .category
         .iter()
-        .filter_map(|&c| match c {
-            Category::CPU => Some(ProcessCategory::CPU),
-            Category::Mem => Some(ProcessCategory::Mem),
-            Category::GPU => Some(ProcessCategory::GPU),
-            Category::FPS => Some(ProcessCategory::FPS),
-            Category::NetIn => Some(ProcessCategory::NetIn),
-            Category::NetOut => Some(ProcessCategory::NetOut),
-            _ => None,
-        })
+        .filter_map(|&c| c.to_process())
         .collect();
-    let sys_category: Vec<_> = opts
-        .category
-        .iter()
-        .flat_map(|&c| match c {
-            Category::SysCPUFreq => Some(SystemCategory::CPUFreq),
-            Category::SysCPUTemp => Some(SystemCategory::CPUTemp),
-            Category::SysGPU => Some(SystemCategory::GPU),
-            _ => None,
-        })
-        .collect();
+    let sys_category: Vec<_> = opts.category.iter().flat_map(|&c| c.to_system()).collect();
 
     let mut timestamps = vec![];
     let mut cpu_frequency_max: f32 = 1000.0;
@@ -260,7 +243,7 @@ fn main() {
             }
         }
 
-        system.update();
+        system.update(last_record_time);
 
         if i < 0 {
             continue;
