@@ -10,7 +10,7 @@ use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
 use std::time::Instant;
-use std::{process, ptr, thread};
+use std::{mem, process, ptr, thread};
 use IOKit_sys::*;
 
 #[derive(Debug, Default, Deserialize)]
@@ -616,4 +616,46 @@ fn csr_allow_unrestricted_dtrace() -> bool {
         }
     }
     config & CSR_ALLOW_UNRESTRICTED_DTRACE == CSR_ALLOW_UNRESTRICTED_DTRACE
+}
+
+const PROC_PIDLISTFDS: libc::c_int = 1;
+
+#[repr(C)]
+struct proc_fd_info {
+    pub proc_fd: i32,
+    pub proc_fdtype: u32,
+}
+
+pub fn proc_fds(pid: Pid) -> Option<u32> {
+    unsafe {
+        let mut buf: Vec<u8> = Vec::with_capacity(64 * mem::size_of::<proc_fd_info>());
+
+        let mut actual_buf_size = libc::proc_pidinfo(
+            pid,
+            PROC_PIDLISTFDS,
+            0,
+            buf.as_mut_ptr() as _,
+            buf.capacity() as _,
+        );
+        if actual_buf_size < 0 {
+            return None;
+        }
+
+        if actual_buf_size as usize > buf.capacity() {
+            buf.reserve(actual_buf_size as usize);
+
+            actual_buf_size = libc::proc_pidinfo(
+                pid,
+                PROC_PIDLISTFDS,
+                0,
+                buf.as_mut_ptr() as _,
+                buf.capacity() as _,
+            );
+            if actual_buf_size < 0 {
+                return None;
+            }
+        }
+
+        Some(actual_buf_size as u32 / mem::size_of::<proc_fd_info>() as u32)
+    }
 }

@@ -231,6 +231,19 @@ impl System {
         }
     }
 
+    pub fn process_kobject(&self, pid: Pid) -> Option<u32> {
+        #[cfg(target_os = "macos")]
+        {
+            platform::macos::proc_fds(pid)
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // TODO
+            None
+        }
+    }
+
     pub fn process_disk_read(&self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
