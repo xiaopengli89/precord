@@ -18,22 +18,22 @@ use std::thread;
 use std::time::Instant;
 use std::{mem, process};
 use winapi::shared::basetsd::SIZE_T;
-use winapi::shared::minwindef::{DWORD, FALSE};
+use winapi::shared::minwindef;
 use winapi::shared::ntdef::{NT_SUCCESS, ULONGLONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::*;
-use winapi::um::processthreadsapi::{GetExitCodeProcess, OpenProcess};
+use winapi::um::processthreadsapi;
 use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, STATUS_PENDING};
 use windows::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
 
 // https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
 // 0x800007D2 (PDH_MORE_DATA)
-const PDH_MORE_DATA: DWORD = 0x800007D2;
+const PDH_MORE_DATA: minwindef::DWORD = 0x800007D2;
 // 0x800007D5 (PDH_NO_DATA)
-const PDH_NO_DATA: DWORD = 0x800007D5;
+const PDH_NO_DATA: minwindef::DWORD = 0x800007D5;
 // 0xC0000BBA (PDH_CSTATUS_INVALID_DATA)
-const PDH_CSTATUS_INVALID_DATA: DWORD = 0xC0000BBA;
+const PDH_CSTATUS_INVALID_DATA: minwindef::DWORD = 0xC0000BBA;
 
 #[allow(dead_code)]
 pub struct Powershell {
@@ -223,7 +223,7 @@ impl Pdh {
     pub fn update(&mut self) {
         unsafe {
             let r = PdhCollectQueryData(self.query);
-            self.update_success = r as DWORD == ERROR_SUCCESS;
+            self.update_success = r as minwindef::DWORD == ERROR_SUCCESS;
         }
     }
 
@@ -254,11 +254,11 @@ impl Pdh {
                 ptr::null_mut(),
             );
 
-            if r as DWORD == PDH_NO_DATA {
+            if r as minwindef::DWORD == PDH_NO_DATA {
                 return Some(0.0);
             }
 
-            if r as DWORD != PDH_MORE_DATA {
+            if r as minwindef::DWORD != PDH_MORE_DATA {
                 return None;
             }
 
@@ -275,11 +275,11 @@ impl Pdh {
                 buffer.as_mut_ptr(),
             );
 
-            if r as DWORD == PDH_NO_DATA {
+            if r as minwindef::DWORD == PDH_NO_DATA {
                 return Some(0.0);
             }
 
-            if r as DWORD != ERROR_SUCCESS {
+            if r as minwindef::DWORD != ERROR_SUCCESS {
                 return None;
             }
 
@@ -575,7 +575,9 @@ impl VmCounter {
 
         for pid in pids {
             let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-            let handle = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
+            let handle = unsafe {
+                processthreadsapi::OpenProcess(options, minwindef::FALSE, pid as minwindef::DWORD)
+            };
             if handle.is_null() {
                 let err = unsafe {
                     if GetLastError() == ERROR_ACCESS_DENIED {
@@ -625,6 +627,26 @@ impl VmCounter {
             })
             .flatten()
     }
+
+    pub fn process_handles(&mut self, pid: Pid) -> Option<u32> {
+        let p = self
+            .process_counters
+            .iter_mut()
+            .find(|p| p.pid == pid && p.valid)?;
+        if !is_proc_running(p.handle) {
+            p.valid = false;
+            return None;
+        }
+        unsafe {
+            let mut count = 0;
+            let r = processthreadsapi::GetProcessHandleCount(p.handle, &mut count);
+            if r == minwindef::TRUE {
+                Some(count)
+            } else {
+                None
+            }
+        }
+    }
 }
 
 struct ProcessVmCounter {
@@ -645,8 +667,8 @@ impl Drop for ProcessVmCounter {
 // Source from sysinfo
 fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
-    let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
-    !(ret == FALSE || exit_code != STATUS_PENDING)
+    let ret = unsafe { processthreadsapi::GetExitCodeProcess(handle, &mut exit_code) };
+    !(ret == minwindef::FALSE || exit_code != STATUS_PENDING)
 }
 
 thread_local! {

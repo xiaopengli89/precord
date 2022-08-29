@@ -231,7 +231,7 @@ impl System {
         }
     }
 
-    pub fn process_kobject(&self, pid: Pid) -> Option<u32> {
+    pub fn process_kobject(&mut self, pid: Pid) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {
             platform::macos::proc_fds(pid)
@@ -239,8 +239,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            // TODO
-            None
+            self.vm_counter.as_mut()?.process_handles(pid)
         }
     }
 
