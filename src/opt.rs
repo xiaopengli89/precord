@@ -159,6 +159,8 @@ pub enum Category {
     DiskRead,
     #[clap(name = "disk_write")]
     DiskWrite,
+    #[clap(name = "kobject")]
+    KObject,
     #[clap(name = "sys_cpu_freq")]
     SysCPUFreq,
     #[clap(name = "sys_cpu_temp")]
@@ -178,6 +180,7 @@ impl Category {
             Category::NetOut => Some(ProcessCategory::NetOut),
             Category::DiskRead => Some(ProcessCategory::DiskRead),
             Category::DiskWrite => Some(ProcessCategory::DiskWrite),
+            Category::KObject => Some(ProcessCategory::KObject),
             _ => None,
         }
     }
@@ -210,6 +213,8 @@ pub enum ProcessCategory {
     DiskRead,
     #[serde(rename = "disk_write")]
     DiskWrite,
+    #[serde(rename = "kobject")]
+    KObject,
 }
 
 impl ProcessCategory {
@@ -223,6 +228,7 @@ impl ProcessCategory {
             Self::NetOut => "KBps",
             Self::DiskRead => "KBps",
             Self::DiskWrite => "KBps",
+            Self::KObject => "",
         }
     }
 
@@ -236,6 +242,7 @@ impl ProcessCategory {
             Self::NetOut => Color::DarkMagenta,
             Self::DiskRead => Color::AnsiValue(143),
             Self::DiskWrite => Color::AnsiValue(136),
+            Self::KObject => Color::AnsiValue(215),
         }
     }
 
@@ -249,6 +256,7 @@ impl ProcessCategory {
             Self::NetOut => (1 << 10) as _,
             Self::DiskRead => (1 << 10) as _,
             Self::DiskWrite => (1 << 10) as _,
+            Self::KObject => 100.,
         }
     }
 
@@ -264,6 +272,7 @@ impl ProcessCategory {
                 .map(|v| (v >> 10) as f32),
             Self::DiskRead => system.process_disk_read(pid).map(|v| v / 1024.),
             Self::DiskWrite => system.process_disk_write(pid).map(|v| v / 1024.),
+            Self::KObject => system.process_kobject(pid).map(|v| v as _),
         }
     }
 }
