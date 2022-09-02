@@ -34,7 +34,7 @@ pub struct CommandPrompt {
 
 impl CommandPrompt {
     pub fn new() -> Self {
-        terminal::enable_raw_mode().unwrap();
+        let _ = terminal::enable_raw_mode();
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || loop {
@@ -136,7 +136,7 @@ impl CommandPrompt {
 
 impl Drop for CommandPrompt {
     fn drop(&mut self) {
-        terminal::disable_raw_mode().unwrap();
+        let _ = terminal::disable_raw_mode();
     }
 }
 
