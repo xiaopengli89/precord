@@ -6,9 +6,9 @@ use crossterm::style::{Color, Stylize};
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fmt::Write;
-use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::{fs, thread};
 
 mod consumer_csv;
 mod consumer_html;
@@ -171,8 +171,10 @@ fn main() {
 
     let mut prompt = CommandPrompt::new();
 
-    if !utils::overwrite_detect(&outputs, &mut prompt) {
-        return;
+    if let Some(prompt) = &mut prompt {
+        if !utils::overwrite_detect(&outputs, prompt) {
+            return;
+        }
     }
 
     let terminal_colors = [
@@ -198,50 +200,58 @@ fn main() {
                 Some(delay)
             };
 
-            match prompt.command(delay) {
-                Command::Timeout => {
-                    last_record_time = Instant::now();
-                    break;
+            if let Some(prompt) = &mut prompt {
+                match prompt.command(delay) {
+                    Command::Timeout => {
+                        break;
+                    }
+                    Command::Continue => command_mode = false,
+                    Command::Write(p) => {
+                        let p = extend_path(&path_re, p);
+                        write_result(
+                            &proc_category,
+                            &sys_category,
+                            &timestamps,
+                            &processes,
+                            &cpu_info,
+                            cpu_frequency_max,
+                            &physical_cpu_info,
+                            cpu_temperature_max,
+                            &gpu_info,
+                            if !p.is_empty() { &p } else { &outputs },
+                        );
+                        command_mode = true;
+                    }
+                    Command::Quit => return,
+                    Command::WriteThenQuit(p) => {
+                        let p = extend_path(&path_re, p);
+                        write_result(
+                            &proc_category,
+                            &sys_category,
+                            &timestamps,
+                            &processes,
+                            &cpu_info,
+                            cpu_frequency_max,
+                            &physical_cpu_info,
+                            cpu_temperature_max,
+                            &gpu_info,
+                            if !p.is_empty() { &p } else { &outputs },
+                        );
+                        return;
+                    }
+                    Command::Yes | Command::No | Command::Empty | Command::Unknown => {
+                        command_mode = true
+                    }
                 }
-                Command::Continue => command_mode = false,
-                Command::Write(p) => {
-                    let p = extend_path(&path_re, p);
-                    write_result(
-                        &proc_category,
-                        &sys_category,
-                        &timestamps,
-                        &processes,
-                        &cpu_info,
-                        cpu_frequency_max,
-                        &physical_cpu_info,
-                        cpu_temperature_max,
-                        &gpu_info,
-                        if !p.is_empty() { &p } else { &outputs },
-                    );
-                    command_mode = true;
-                }
-                Command::Quit => return,
-                Command::WriteThenQuit(p) => {
-                    let p = extend_path(&path_re, p);
-                    write_result(
-                        &proc_category,
-                        &sys_category,
-                        &timestamps,
-                        &processes,
-                        &cpu_info,
-                        cpu_frequency_max,
-                        &physical_cpu_info,
-                        cpu_temperature_max,
-                        &gpu_info,
-                        if !p.is_empty() { &p } else { &outputs },
-                    );
-                    return;
-                }
-                Command::Yes | Command::No | Command::Empty | Command::Unknown => {
-                    command_mode = true
-                }
+            } else if let Some(delay) = delay {
+                thread::sleep(delay);
+                break;
+            } else {
+                unreachable!();
             }
         }
+
+        last_record_time = Instant::now();
 
         system.update(last_record_time);
 

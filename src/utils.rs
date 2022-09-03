@@ -33,8 +33,8 @@ pub struct CommandPrompt {
 }
 
 impl CommandPrompt {
-    pub fn new() -> Self {
-        let _ = terminal::enable_raw_mode();
+    pub fn new() -> Option<Self> {
+        terminal::enable_raw_mode().ok()?;
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || loop {
@@ -48,11 +48,11 @@ impl CommandPrompt {
             }
         });
 
-        Self {
+        Some(Self {
             current_command: String::new(),
             rx,
             stdout: io::stdout(),
-        }
+        })
     }
 
     pub fn command(&mut self, timeout: Option<Duration>) -> Command {
