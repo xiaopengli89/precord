@@ -378,15 +378,14 @@ impl EtwTrace {
                 let provider = Provider::new()
                     .by_guid(provider_guid.guid)
                     .add_callback(move |record: EventRecord, schema_locator| {
+                        // Issue: https://github.com/n4r1b/ferrisetw/issues/26
+                        let mut guard = handler.write().unwrap();
                         match schema_locator.event_schema(record) {
                             Ok(schema) => {
                                 if schema.provider_name() == provider_guid.name
                                     && provider_guid.present_event_id.contains(&schema.event_id())
                                 {
-                                    handler
-                                        .write()
-                                        .unwrap()
-                                        .add_present(index, schema.process_id());
+                                    guard.add_present(index, schema.process_id());
                                 }
                             }
                             Err(_) => {}
