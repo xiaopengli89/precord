@@ -10,23 +10,17 @@ pub struct ProcessInfo {
 }
 
 impl ProcessInfo {
-    pub fn new(system: &System, proc_category_len: usize, pid: Pid) -> Self {
-        let name = system
-            .process_name(pid)
-            .expect(&format!("No such process({})", pid))
-            .to_string();
-        let command = system
-            .process_command(pid)
-            .expect(&format!("No such process({})", pid))
-            .join(" ");
+    pub fn new(system: &System, proc_category_len: usize, pid: Pid) -> Option<Self> {
+        let name = system.process_name(pid)?.to_string();
+        let command = system.process_command(pid)?.join(" ");
 
-        Self {
+        Some(Self {
             pid,
             name,
             command,
             values: vec![vec![]; proc_category_len],
             valid: true,
-        }
+        })
     }
 
     pub fn avg_value(&self, idx: usize) -> f32 {

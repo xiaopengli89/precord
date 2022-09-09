@@ -402,6 +402,7 @@ impl EtwTrace {
             let provider = Provider::new()
                 .by_guid("7DD42A49-5329-4832-8DFD-43D979153A88") // Microsoft-Windows-Kernel-Network
                 .add_callback(move |record: EventRecord, schema_locator| {
+                    let mut guard = handler.write().unwrap();
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
                             if schema.provider_name() == "Microsoft-Windows-Kernel-Network" {
@@ -414,10 +415,7 @@ impl EtwTrace {
                                             TryParse::<u32>::try_parse(&mut parser, "size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
-                                                handler
-                                                    .write()
-                                                    .unwrap()
-                                                    .add_network(pid, bytes, true);
+                                                guard.add_network(pid, bytes, true);
                                             }
                                             _ => {}
                                         }
@@ -429,10 +427,7 @@ impl EtwTrace {
                                             TryParse::<u32>::try_parse(&mut parser, "size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
-                                                handler
-                                                    .write()
-                                                    .unwrap()
-                                                    .add_network(pid, bytes, false);
+                                                guard.add_network(pid, bytes, false);
                                             }
                                             _ => {}
                                         }

@@ -45,7 +45,9 @@ impl Opts {
                     continue;
                 }
 
-                processes.push(ProcessInfo::new(system, proc_category_len, pid));
+                if let Some(p) = ProcessInfo::new(system, proc_category_len, pid) {
+                    processes.push(p);
+                }
             }
         } else {
             if let Some(sysinfo_system) = system.sysinfo_system() {
@@ -55,15 +57,15 @@ impl Opts {
                         _ => {}
                     }
 
-                    let process = ProcessInfo::new(system, proc_category_len, pid);
-
-                    if self.process.contains(&pid) {
-                        processes.push(process);
-                    } else {
-                        for n in self.name.iter() {
-                            if process.name.contains(n) {
-                                processes.push(process);
-                                break;
+                    if let Some(process) = ProcessInfo::new(system, proc_category_len, pid) {
+                        if self.process.contains(&pid) {
+                            processes.push(process);
+                        } else {
+                            for n in self.name.iter() {
+                                if process.name.contains(n) {
+                                    processes.push(process);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -131,10 +133,14 @@ impl Opts {
 
                 if let Some(parent) = child.parent() {
                     if recurse_parent(parent) {
-                        children.push(ProcessInfo::new(system, proc_category_len, pid));
+                        if let Some(p) = ProcessInfo::new(system, proc_category_len, pid) {
+                            children.push(p);
+                        }
                     } else if let Some(rpid) = system.process_responsible(pid) {
                         if processes.iter().position(|p| p.pid == rpid).is_some() {
-                            children.push(ProcessInfo::new(system, proc_category_len, pid));
+                            if let Some(p) = ProcessInfo::new(system, proc_category_len, pid) {
+                                children.push(p);
+                            }
                         }
                     }
                 }
