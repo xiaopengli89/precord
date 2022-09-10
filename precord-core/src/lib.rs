@@ -3,7 +3,7 @@ pub use system::{Features, System};
 mod platform;
 mod system;
 
-pub type Pid = sysinfo::Pid;
+pub type Pid = i32;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

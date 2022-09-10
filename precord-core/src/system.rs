@@ -7,7 +7,7 @@ use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessExt, SystemExt};
+use sysinfo::{CpuRefreshKind, ProcessExt, ProcessRefreshKind, SystemExt};
 
 pub struct System {
     last_update: Instant,
@@ -61,7 +61,9 @@ impl System {
 
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
-            system.refresh_kind = system.refresh_kind.with_processes();
+            system.refresh_kind = system
+                .refresh_kind
+                .with_processes(ProcessRefreshKind::everything());
             use_sysinfo_system = true;
 
             #[cfg(target_os = "windows")]
@@ -70,7 +72,7 @@ impl System {
             }
         }
         if features.contains(Features::SMC) {
-            system.refresh_kind = system.refresh_kind.with_cpu();
+            system.refresh_kind = system.refresh_kind.with_cpu(CpuRefreshKind::everything());
             use_sysinfo_system = true;
         }
         if use_sysinfo_system {
@@ -204,7 +206,12 @@ impl System {
     }
 
     pub fn process_cpu_usage(&self, pid: Pid) -> Option<f32> {
-        Some(self.sysinfo_system.as_ref()?.process(pid)?.cpu_usage())
+        Some(
+            self.sysinfo_system
+                .as_ref()?
+                .process(pid.into())?
+                .cpu_usage(),
+        )
     }
 
     pub fn process_mem(&mut self, pid: Pid) -> Option<f32> {
@@ -249,7 +256,7 @@ impl System {
             let read_bytes = self
                 .sysinfo_system
                 .as_ref()?
-                .process(pid)?
+                .process(pid.into())?
                 .disk_usage()
                 .read_bytes;
             Some(read_bytes as f32 / self.last_duration.as_secs_f32())
@@ -268,7 +275,7 @@ impl System {
             let written_bytes = self
                 .sysinfo_system
                 .as_ref()?
-                .process(pid)?
+                .process(pid.into())?
                 .disk_usage()
                 .written_bytes;
             Some(written_bytes as f32 / self.last_duration.as_secs_f32())
@@ -282,11 +289,11 @@ impl System {
     }
 
     pub fn process_name(&self, pid: Pid) -> Option<&str> {
-        Some(self.sysinfo_system.as_ref()?.process(pid)?.name())
+        Some(self.sysinfo_system.as_ref()?.process(pid.into())?.name())
     }
 
     pub fn process_command(&self, pid: Pid) -> Option<&[String]> {
-        Some(self.sysinfo_system.as_ref()?.process(pid)?.cmd())
+        Some(self.sysinfo_system.as_ref()?.process(pid.into())?.cmd())
     }
 
     pub fn process_responsible(&self, pid: Pid) -> Option<Pid> {

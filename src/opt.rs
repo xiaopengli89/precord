@@ -6,7 +6,7 @@ use precord_core::System;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use sysinfo::{ProcessExt, ProcessStatus, SystemExt};
+use sysinfo::{PidExt, ProcessExt, ProcessStatus, SystemExt};
 
 #[derive(Parser, Debug)]
 #[clap(version, about)]
@@ -52,6 +52,7 @@ impl Opts {
         } else {
             if let Some(sysinfo_system) = system.sysinfo_system() {
                 for (&pid, p) in sysinfo_system.processes() {
+                    let pid = pid.as_u32() as Pid;
                     match p.status() {
                         ProcessStatus::Zombie => continue,
                         _ => {}
@@ -99,8 +100,9 @@ impl Opts {
                 let mut visited = HashSet::new();
                 visited.insert(parent);
 
-                while let Some(parent_process) = sysinfo_system.process(parent) {
+                while let Some(parent_process) = sysinfo_system.process(parent.into()) {
                     if let Some(parent2) = parent_process.parent() {
+                        let parent2 = parent2.as_u32() as Pid;
                         if visited.contains(&parent2) {
                             return false;
                         }
@@ -122,6 +124,7 @@ impl Opts {
 
         if let Some(sysinfo_system) = system.sysinfo_system() {
             for (&pid, child) in sysinfo_system.processes() {
+                let pid = pid.as_u32() as Pid;
                 match child.status() {
                     ProcessStatus::Zombie => continue,
                     _ => {}
@@ -132,6 +135,7 @@ impl Opts {
                 }
 
                 if let Some(parent) = child.parent() {
+                    let parent = parent.as_u32() as Pid;
                     if recurse_parent(parent) {
                         if let Some(p) = ProcessInfo::new(system, proc_category_len, pid) {
                             children.push(p);
