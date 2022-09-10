@@ -7,7 +7,7 @@ use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
-use sysinfo::{CpuRefreshKind, ProcessExt, ProcessRefreshKind, SystemExt};
+use sysinfo::{CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
 
 pub struct System {
     last_update: Instant,
@@ -209,7 +209,7 @@ impl System {
         Some(
             self.sysinfo_system
                 .as_ref()?
-                .process(pid.into())?
+                .process(sysinfo::Pid::from_u32(pid))?
                 .cpu_usage(),
         )
     }
@@ -220,7 +220,7 @@ impl System {
             let mut rusage_info_data: libc::rusage_info_v2 =
                 std::mem::MaybeUninit::uninit().assume_init();
             let r = libc::proc_pid_rusage(
-                pid,
+                pid as _,
                 libc::RUSAGE_INFO_V2,
                 std::mem::transmute(&mut rusage_info_data),
             );
@@ -256,7 +256,7 @@ impl System {
             let read_bytes = self
                 .sysinfo_system
                 .as_ref()?
-                .process(pid.into())?
+                .process(sysinfo::Pid::from_u32(pid))?
                 .disk_usage()
                 .read_bytes;
             Some(read_bytes as f32 / self.last_duration.as_secs_f32())
@@ -275,7 +275,7 @@ impl System {
             let written_bytes = self
                 .sysinfo_system
                 .as_ref()?
-                .process(pid.into())?
+                .process(sysinfo::Pid::from_u32(pid))?
                 .disk_usage()
                 .written_bytes;
             Some(written_bytes as f32 / self.last_duration.as_secs_f32())
@@ -289,21 +289,31 @@ impl System {
     }
 
     pub fn process_name(&self, pid: Pid) -> Option<&str> {
-        Some(self.sysinfo_system.as_ref()?.process(pid.into())?.name())
+        Some(
+            self.sysinfo_system
+                .as_ref()?
+                .process(sysinfo::Pid::from_u32(pid))?
+                .name(),
+        )
     }
 
     pub fn process_command(&self, pid: Pid) -> Option<&[String]> {
-        Some(self.sysinfo_system.as_ref()?.process(pid.into())?.cmd())
+        Some(
+            self.sysinfo_system
+                .as_ref()?
+                .process(sysinfo::Pid::from_u32(pid))?
+                .cmd(),
+        )
     }
 
     pub fn process_responsible(&self, pid: Pid) -> Option<Pid> {
         #[cfg(target_os = "macos")]
         {
-            let pid_responsible = (get_pid_responsible()?)(pid);
+            let pid_responsible = (get_pid_responsible()?)(pid as _);
             if pid_responsible < 0 {
                 None
             } else {
-                Some(pid_responsible)
+                Some(pid_responsible as _)
             }
         }
 
@@ -464,7 +474,7 @@ impl Display for Features {
             } else {
                 first = false;
             }
-            write!(f, "{}", "PROCESS")?;
+            write!(f, "PROCESS")?;
         }
         if self.contains(Features::GPU) {
             if !first {
@@ -472,7 +482,7 @@ impl Display for Features {
             } else {
                 first = false;
             }
-            write!(f, "{}", "GPU")?;
+            write!(f, "GPU")?;
         }
         if self.contains(Features::CPU_FREQUENCY) {
             if !first {
@@ -480,7 +490,7 @@ impl Display for Features {
             } else {
                 first = false;
             }
-            write!(f, "{}", "CPU_FREQUENCY")?;
+            write!(f, "CPU_FREQUENCY")?;
         }
         if self.contains(Features::FPS) {
             if !first {
@@ -488,7 +498,7 @@ impl Display for Features {
             } else {
                 first = false;
             }
-            write!(f, "{}", "FPS")?;
+            write!(f, "FPS")?;
         }
         if self.contains(Features::SMC) {
             if !first {
@@ -496,7 +506,7 @@ impl Display for Features {
             } else {
                 first = false;
             }
-            write!(f, "{}", "SMC")?;
+            write!(f, "SMC")?;
         }
 
         Ok(())

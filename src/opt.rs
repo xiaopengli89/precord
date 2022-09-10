@@ -52,7 +52,7 @@ impl Opts {
         } else {
             if let Some(sysinfo_system) = system.sysinfo_system() {
                 for (&pid, p) in sysinfo_system.processes() {
-                    let pid = pid.as_u32() as Pid;
+                    let pid = pid.as_u32();
                     match p.status() {
                         ProcessStatus::Zombie => continue,
                         _ => {}
@@ -100,9 +100,11 @@ impl Opts {
                 let mut visited = HashSet::new();
                 visited.insert(parent);
 
-                while let Some(parent_process) = sysinfo_system.process(parent.into()) {
+                while let Some(parent_process) =
+                    sysinfo_system.process(sysinfo::Pid::from_u32(parent))
+                {
                     if let Some(parent2) = parent_process.parent() {
-                        let parent2 = parent2.as_u32() as Pid;
+                        let parent2 = parent2.as_u32();
                         if visited.contains(&parent2) {
                             return false;
                         }
@@ -124,7 +126,7 @@ impl Opts {
 
         if let Some(sysinfo_system) = system.sysinfo_system() {
             for (&pid, child) in sysinfo_system.processes() {
-                let pid = pid.as_u32() as Pid;
+                let pid = pid.as_u32();
                 match child.status() {
                     ProcessStatus::Zombie => continue,
                     _ => {}
@@ -135,7 +137,7 @@ impl Opts {
                 }
 
                 if let Some(parent) = child.parent() {
-                    let parent = parent.as_u32() as Pid;
+                    let parent = parent.as_u32();
                     if recurse_parent(parent) {
                         if let Some(p) = ProcessInfo::new(system, proc_category_len, pid) {
                             children.push(p);

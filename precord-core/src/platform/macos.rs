@@ -65,7 +65,7 @@ impl CommandSource {
 
         // Frame rate
         if frame_rate && !pids.is_empty() {
-            let frame_rate = FrameRateRunner::new(tx.clone());
+            let frame_rate = FrameRateRunner::new(tx);
             thread::spawn(move || frame_rate.run(pids));
         };
 
@@ -149,8 +149,7 @@ impl CommandSource {
                 .processor
                 .clusters
                 .iter()
-                .map(|c| c.cpus.iter())
-                .flatten()
+                .flat_map(|c| c.cpus.iter())
                 .map(|c| c.freq_hz / 1_000_000.0)
                 .collect()
         } else {
@@ -159,10 +158,8 @@ impl CommandSource {
                 .processor
                 .packages
                 .iter()
-                .map(|p| p.cores.iter())
-                .flatten()
-                .map(|c| c.cpus.iter())
-                .flatten()
+                .flat_map(|p| p.cores.iter())
+                .flat_map(|c| c.cpus.iter())
                 .map(|c| c.freq_hz / 1_000_000.0)
                 .collect()
         }
@@ -631,7 +628,7 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
         let mut buf: Vec<u8> = Vec::with_capacity(64 * mem::size_of::<proc_fd_info>());
 
         let mut actual_buf_size = libc::proc_pidinfo(
-            pid,
+            pid as _,
             PROC_PIDLISTFDS,
             0,
             buf.as_mut_ptr() as _,
@@ -645,7 +642,7 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
             buf.reserve(actual_buf_size as usize);
 
             actual_buf_size = libc::proc_pidinfo(
-                pid,
+                pid as _,
                 PROC_PIDLISTFDS,
                 0,
                 buf.as_mut_ptr() as _,
