@@ -7,7 +7,7 @@ use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
-use sysinfo::{CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
+use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
 
 pub struct System {
     last_update: Instant,
@@ -71,7 +71,7 @@ impl System {
                 system.vm_counter = Some(VmCounter::new(pids.clone())?);
             }
         }
-        if features.contains(Features::SMC) {
+        if features.contains(Features::SMC) | features.contains(Features::CPU_FREQUENCY) {
             system.refresh_kind = system.refresh_kind.with_cpu(CpuRefreshKind::everything());
             use_sysinfo_system = true;
         }
@@ -236,6 +236,16 @@ impl System {
         {
             self.vm_counter.as_mut()?.process_mem(pid)
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            let mem = self
+                .sysinfo_system
+                .as_ref()?
+                .process(sysinfo::Pid::from_u32(pid))?
+                .memory();
+            Some((mem >> 10) as f32)
+        }
     }
 
     pub fn process_kobject(&mut self, pid: Pid) -> Option<u32> {
@@ -247,6 +257,11 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             self.vm_counter.as_mut()?.process_handles(pid)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
         }
     }
 
@@ -267,6 +282,11 @@ impl System {
             // TODO
             None
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
+        }
     }
 
     pub fn process_disk_write(&self, pid: Pid) -> Option<f32> {
@@ -284,6 +304,11 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             // TODO
+            None
+        }
+
+        #[cfg(target_os = "linux")]
+        {
             None
         }
     }
@@ -321,6 +346,11 @@ impl System {
         {
             None
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
+        }
     }
 
     pub fn cpus_frequency(&self) -> Result<Vec<f32>, Error> {
@@ -341,6 +371,18 @@ impl System {
                 .map(|p| p.processor_frequency * p.percent_processor_performance / 100.0)
                 .collect())
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            Ok(self
+                .sysinfo_system
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?
+                .cpus()
+                .into_iter()
+                .map(|cpu| cpu.frequency() as f32)
+                .collect())
+        }
     }
 
     #[allow(unused_variables)]
@@ -353,6 +395,11 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             self.pdh.as_mut().unwrap().poll_gpu_usage(Some(pid), calc)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
         }
     }
 
@@ -371,6 +418,11 @@ impl System {
         {
             self.etw_trace.as_mut().unwrap().fps(pid)
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            0.
+        }
     }
 
     pub fn process_net_traffic_in(&self, pid: Pid) -> Option<u32> {
@@ -382,6 +434,11 @@ impl System {
         {
             Some(self.etw_trace.as_ref()?.net_recv_per_sec(pid))
         }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
+        }
     }
 
     pub fn process_net_traffic_out(&self, pid: Pid) -> Option<u32> {
@@ -392,6 +449,11 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             Some(self.etw_trace.as_ref()?.net_send_per_sec(pid))
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
         }
     }
 
@@ -405,6 +467,11 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             self.pdh.as_mut().unwrap().poll_gpu_usage(None, calc)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
         }
     }
 
@@ -447,6 +514,11 @@ impl System {
                 .into_iter()
                 .map(|p| p.temperature - 273.15)
                 .collect())
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            Err(Error::UnsupportedFeatures(Features::SMC))
         }
     }
 }

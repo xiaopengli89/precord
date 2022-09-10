@@ -30,6 +30,8 @@ pub enum Error {
     AccessDenied,
     #[error("Etw error")]
     Etw,
+    #[error("Unsupported features: {0}")]
+    UnsupportedFeatures(Features),
 }
 
 #[derive(Copy, Clone)]
