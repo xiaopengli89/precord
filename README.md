@@ -92,39 +92,37 @@ fn main() {
 
 ## Supported Platforms
 
-|                      | macOS              | Windows            |
-|----------------------|--------------------|--------------------|
-| cpu                  | :white_check_mark: | :white_check_mark: |
-| mem                  | :white_check_mark: | :white_check_mark: |
-| gpu                  |                    | :white_check_mark: |
-| fps                  | :white_check_mark: | :white_check_mark: |
-| net_in/net_out       | :white_check_mark: | :white_check_mark: |
-| disk_read/disk_write | :white_check_mark: |                    |
-| kobject              | :white_check_mark: | :white_check_mark: |
-| sys_cpu_freq         | :white_check_mark: | :white_check_mark: |
-| sys_cpu_temp         | :white_check_mark: | :white_check_mark: |
-| sys_gpu              | :white_check_mark: | :white_check_mark: |
+|                      | macOS              | Windows            | Linux              |
+|----------------------|--------------------|--------------------|--------------------|
+| cpu                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| mem                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| gpu                  |                    | :white_check_mark: |                    |
+| fps                  | :white_check_mark: | :white_check_mark: |                    |
+| net_in/net_out       | :white_check_mark: | :white_check_mark: |                    |
+| disk_read/disk_write | :white_check_mark: |                    |                    |
+| kobject              | :white_check_mark: | :white_check_mark: |                    |
+| sys_cpu_freq         | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| sys_cpu_temp         | :white_check_mark: | :white_check_mark: |                    |
+| sys_gpu              | :white_check_mark: | :white_check_mark: |                    |
 
 ## Privileges
 
-|                                                    | macOS                          | Windows       |
-|----------------------------------------------------|--------------------------------|---------------|
-| cpu                                                |                                |               |
-| mem                                                |                                |               |
-| gpu                                                |                                |               |
-| fps                                                | Administrator + get-task-allow | Administrator |
-| net_in/net_out                                     |                                | Administrator |
-| disk_read/disk_write                               |                                |               |
-| kobject                                            |                                |               |
-| sys_cpu_freq                                       | Administrator                  |               |
-| sys_cpu_temp                                       |                                |               |
-| sys_gpu                                            |                                |               |
-| system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator                  | Administrator |
+|                                                    | macOS                          | Windows       | Linux |
+|----------------------------------------------------|--------------------------------|---------------|-------|
+| cpu                                                |                                |               |       |
+| mem                                                |                                |               |       |
+| gpu                                                |                                |               |       |
+| fps                                                | Administrator + get-task-allow | Administrator |       |
+| net_in/net_out                                     |                                | Administrator |       |
+| disk_read/disk_write                               |                                |               |       |
+| kobject                                            |                                |               |       |
+| sys_cpu_freq                                       | Administrator                  |               |       |
+| sys_cpu_temp                                       |                                |               |       |
+| sys_gpu                                            |                                |               |       |
+| system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator                  | Administrator |       |
 
 
 ## TODO
-
-- [ ] Support Linux platform
 
 ## Related projects
 
