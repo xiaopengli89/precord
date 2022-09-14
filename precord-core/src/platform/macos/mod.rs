@@ -6,12 +6,19 @@ use core_foundation::string::CFString;
 use serde::Deserialize;
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader, Cursor};
+use std::mem::MaybeUninit;
 use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
 use std::time::Instant;
 use std::{mem, process, ptr, thread};
 use IOKit_sys::*;
+
+#[allow(dead_code)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
+mod sysctl;
 
 #[derive(Debug, Default, Deserialize)]
 struct PowerMetricsResult {
@@ -445,9 +452,12 @@ impl FrameRateRunner {
 
     fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
         let pids: Vec<_> = if csr_allow_unrestricted_dtrace() {
-            pids.into_iter().collect()
+            pids.into_iter()
+                .filter(|&pid| unsafe { !proc_is_translated(pid) })
+                .collect()
         } else {
             pids.into_iter()
+                .filter(|&pid| unsafe { !proc_is_translated(pid) })
                 .filter(|&pid| match get_entitlements_for_pid(pid) {
                     Some(entitlements) => entitlements.get_task_allow,
                     None => true,
@@ -654,5 +664,31 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
         }
 
         Some(actual_buf_size as u32 / mem::size_of::<proc_fd_info>() as u32)
+    }
+}
+
+// https://opensource.apple.com/source/dtrace/dtrace-370.40.1/lib/libproc/libproc.c.auto.html
+unsafe fn proc_is_translated(pid: Pid) -> bool {
+    let mut mib = [
+        libc::CTL_KERN,
+        libc::KERN_PROC,
+        libc::KERN_PROC_PID,
+        pid as libc::c_int,
+    ];
+    let mut info: sysctl::kinfo_proc = MaybeUninit::uninit().assume_init();
+    let mut size = mem::size_of::<sysctl::kinfo_proc>();
+    let r = libc::sysctl(
+        mib.as_mut_ptr(),
+        mib.len() as _,
+        &mut info as *mut _ as *mut c_void,
+        &mut size,
+        ptr::null_mut(),
+        0,
+    );
+
+    if r == 0 && size >= mem::size_of::<sysctl::kinfo_proc>() {
+        info.kp_proc.p_flag as u32 & sysctl::P_TRANSLATED == sysctl::P_TRANSLATED
+    } else {
+        false
     }
 }
