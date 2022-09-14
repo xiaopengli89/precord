@@ -4,6 +4,7 @@ use ferrisetw::parser::{Parser, TryParse};
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
 use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX};
+use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -335,7 +336,7 @@ pub struct EtwTrace {
 
 impl EtwTrace {
     pub fn new(present: bool, tcp_ip: bool) -> Result<Self, Error> {
-        let mut trace = UserTrace::new().named("precord".to_string());
+        let mut trace = UserTrace::new().named(format!("precord-{}", rand_string(10)));
         let handler = Arc::new(RwLock::new(EtwTraceHandler::default()));
 
         if present {
@@ -379,12 +380,12 @@ impl EtwTrace {
                     .by_guid(provider_guid.guid)
                     .add_callback(move |record: EventRecord, schema_locator| {
                         // Issue: https://github.com/n4r1b/ferrisetw/issues/26
-                        let mut guard = handler.write().unwrap();
                         match schema_locator.event_schema(record) {
                             Ok(schema) => {
                                 if schema.provider_name() == provider_guid.name
                                     && provider_guid.present_event_id.contains(&schema.event_id())
                                 {
+                                    let mut guard = handler.write().unwrap();
                                     guard.add_present(index, schema.process_id());
                                 }
                             }
@@ -402,7 +403,6 @@ impl EtwTrace {
             let provider = Provider::new()
                 .by_guid("7DD42A49-5329-4832-8DFD-43D979153A88") // Microsoft-Windows-Kernel-Network
                 .add_callback(move |record: EventRecord, schema_locator| {
-                    let mut guard = handler.write().unwrap();
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
                             if schema.provider_name() == "Microsoft-Windows-Kernel-Network" {
@@ -415,6 +415,7 @@ impl EtwTrace {
                                             TryParse::<u32>::try_parse(&mut parser, "size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
+                                                let mut guard = handler.write().unwrap();
                                                 guard.add_network(pid, bytes, true);
                                             }
                                             _ => {}
@@ -427,6 +428,7 @@ impl EtwTrace {
                                             TryParse::<u32>::try_parse(&mut parser, "size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
+                                                let mut guard = handler.write().unwrap();
                                                 guard.add_network(pid, bytes, false);
                                             }
                                             _ => {}
@@ -677,4 +679,12 @@ pub fn get_com_lib() -> Option<wmi::COMLibrary> {
         }
         *com_ref
     })
+}
+
+fn rand_string(length: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect()
 }
