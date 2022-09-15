@@ -37,14 +37,16 @@ impl CommandPrompt {
         terminal::enable_raw_mode().ok()?;
         let (tx, rx) = mpsc::channel();
 
-        thread::spawn(move || loop {
-            match event::read().unwrap() {
-                Event::Key(key_event) => {
-                    if tx.send(key_event).is_err() {
-                        break;
+        thread::spawn(move || {
+            while let Ok(event) = event::read() {
+                match event {
+                    Event::Key(key_event) => {
+                        if tx.send(key_event).is_err() {
+                            break;
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         });
 
@@ -59,8 +61,7 @@ impl CommandPrompt {
         let key_event = if let Some(timeout) = timeout {
             match self.rx.recv_timeout(timeout) {
                 Ok(key_event) => key_event,
-                Err(RecvTimeoutError::Timeout) => return Command::Timeout,
-                Err(RecvTimeoutError::Disconnected) => panic!("Command prompt is disconnected"),
+                Err(_) => return Command::Timeout,
             }
         } else {
             KeyEvent {
