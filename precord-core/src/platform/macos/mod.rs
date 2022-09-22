@@ -37,7 +37,7 @@ pub struct Task {
 
 pub struct CommandSource {
     last_update: Instant,
-    last_result: PowerMetricsResult,
+    power_metrics_result: PowerMetricsResult,
     process_command_result: Vec<ProcessCommandResult>,
     process_command_rx: Receiver<ProcessCommandResult>,
 }
@@ -78,13 +78,13 @@ impl CommandSource {
 
         Self {
             last_update: Instant::now(),
-            last_result: Default::default(),
+            power_metrics_result: Default::default(),
             process_command_result,
             process_command_rx: rx,
         }
     }
 
-    pub fn update_cpu_frequency(&mut self) {
+    pub fn update_power_metrics_data(&mut self) {
         let o = Command::new("powermetrics")
             .args([
                 "--samplers",
@@ -105,7 +105,7 @@ impl CommandSource {
             }
         }
 
-        self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
+        self.power_metrics_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
     pub fn update(&mut self) {
@@ -134,25 +134,10 @@ impl CommandSource {
         self.last_update = now;
     }
 
-    #[deprecated]
-    #[allow(dead_code)]
-    fn gpu_usage(&self, pid: Option<Pid>) -> Option<f32> {
-        let pid = if let Some(pid) = pid {
-            pid
-        } else {
-            unimplemented!()
-        };
-        self.last_result
-            .tasks
-            .iter()
-            .find(|task| task.pid == pid)
-            .map(|task| task.gputime_ms_per_s / 10.0)
-    }
-
     pub fn cpu_frequency(&self) -> Vec<f32> {
-        if !self.last_result.processor.clusters.is_empty() {
+        if !self.power_metrics_result.processor.clusters.is_empty() {
             // Apple Silicon
-            self.last_result
+            self.power_metrics_result
                 .processor
                 .clusters
                 .iter()
@@ -161,7 +146,7 @@ impl CommandSource {
                 .collect()
         } else {
             // Intel
-            self.last_result
+            self.power_metrics_result
                 .processor
                 .packages
                 .iter()
@@ -300,24 +285,6 @@ impl IOKitRegistry {
                 CFRelease(io_acc as _);
             }
         }
-    }
-
-    #[deprecated]
-    #[allow(dead_code)]
-    fn poll_from_command(&mut self) {
-        let o = Command::new("ioreg")
-            .args(["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator", "-a"])
-            .output()
-            .unwrap();
-
-        match o.status.code() {
-            Some(0) => {}
-            _ => {
-                panic!("Error: {}", String::from_utf8_lossy(&o.stderr));
-            }
-        }
-
-        self.last_result = plist::from_bytes(o.stdout.as_slice()).unwrap();
     }
 
     pub fn sys_gpu_usage(&self) -> f32 {

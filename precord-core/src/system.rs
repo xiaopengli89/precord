@@ -177,7 +177,7 @@ impl System {
         #[cfg(target_os = "macos")]
         if let Some(command_source) = &mut self.command_source {
             if self.features.contains(Features::CPU_FREQUENCY) {
-                command_source.update_cpu_frequency();
+                command_source.update_power_metrics_data();
             }
             if self.features.contains(Features::NET_TRAFFIC) | self.features.contains(Features::FPS)
             {
