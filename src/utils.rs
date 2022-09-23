@@ -5,7 +5,7 @@ use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
 use regex::Regex;
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 use std::{io, thread};
 

@@ -19,6 +19,7 @@ use IOKit_sys::*;
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
 mod sysctl;
+mod top;
 
 #[derive(Debug, Default, Deserialize)]
 struct PowerMetricsResult {
@@ -47,6 +48,7 @@ impl CommandSource {
         pids: T,
         net_traffic: bool,
         frame_rate: bool,
+        top: bool,
     ) -> Self {
         let pids: Vec<_> = pids.into_iter().collect();
 
@@ -72,9 +74,16 @@ impl CommandSource {
 
         // Frame rate
         if frame_rate && !pids.is_empty() {
-            let frame_rate = FrameRateRunner::new(tx);
+            let frame_rate = FrameRateRunner::new(tx.clone());
+            let pids = pids.clone();
             thread::spawn(move || frame_rate.run(pids));
         };
+
+        // Top
+        if top && !pids.is_empty() {
+            let top_runner = top::TopRunner::new(tx);
+            thread::spawn(move || top_runner.run(pids));
+        }
 
         Self {
             last_update: Instant::now(),
@@ -118,6 +127,7 @@ impl CommandSource {
                 p.bytes_in += p_result.bytes_in;
                 p.bytes_out += p_result.bytes_out;
                 p.frame += p_result.frame;
+                p.mach_ports = p_result.mach_ports;
             }
         }
         let now = Instant::now();
@@ -176,6 +186,13 @@ impl CommandSource {
             .iter()
             .find(|p| p.pid == pid)
             .map(|p| p.frame_per_sec)
+    }
+
+    pub fn process_mach_ports(&self, pid: Pid) -> Option<u32> {
+        self.process_command_result
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| p.mach_ports)
     }
 }
 
@@ -312,7 +329,7 @@ struct PerformanceStatistics {
 }
 
 #[derive(Default)]
-struct ProcessCommandResult {
+pub struct ProcessCommandResult {
     pid: Pid,
     bytes_in: u32,
     bytes_in_per_sec: u32,
@@ -320,6 +337,7 @@ struct ProcessCommandResult {
     bytes_out_per_sec: u32,
     frame: u32,
     frame_per_sec: f32,
+    mach_ports: u32,
 }
 
 struct NetTopRunner {
@@ -601,36 +619,28 @@ struct proc_fd_info {
 }
 
 pub fn proc_fds(pid: Pid) -> Option<u32> {
-    unsafe {
-        let mut buf: Vec<u8> = Vec::with_capacity(64 * mem::size_of::<proc_fd_info>());
+    let mut buf: Vec<u8> = Vec::with_capacity(64 * mem::size_of::<proc_fd_info>());
 
-        let mut actual_buf_size = libc::proc_pidinfo(
-            pid as _,
-            PROC_PIDLISTFDS,
-            0,
-            buf.as_mut_ptr() as _,
-            buf.capacity() as _,
-        );
-        if actual_buf_size < 0 {
-            return None;
-        }
-
-        if actual_buf_size as usize > buf.capacity() {
-            buf.reserve(actual_buf_size as usize);
-
-            actual_buf_size = libc::proc_pidinfo(
+    loop {
+        let mut actual_buf_size = unsafe {
+            libc::proc_pidinfo(
                 pid as _,
                 PROC_PIDLISTFDS,
                 0,
                 buf.as_mut_ptr() as _,
                 buf.capacity() as _,
-            );
-            if actual_buf_size < 0 {
-                return None;
-            }
+            )
+        };
+        if actual_buf_size < 0 {
+            return None;
         }
 
-        Some(actual_buf_size as u32 / mem::size_of::<proc_fd_info>() as u32)
+        if actual_buf_size as usize >= buf.capacity() {
+            buf.reserve(buf.capacity() * 2);
+            continue;
+        }
+
+        break Some(actual_buf_size as u32 / mem::size_of::<proc_fd_info>() as u32);
     }
 }
 

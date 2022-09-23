@@ -99,6 +99,7 @@ impl System {
                     pids.clone(),
                     features.contains(Features::NET_TRAFFIC),
                     features.contains(Features::FPS),
+                    features.contains(Features::K_OBJECT),
                 ));
             }
             #[cfg(target_os = "windows")]
@@ -117,6 +118,7 @@ impl System {
                         pids.clone(),
                         features.contains(Features::NET_TRAFFIC),
                         features.contains(Features::FPS),
+                        features.contains(Features::K_OBJECT),
                     )
                 }));
             }
@@ -149,9 +151,10 @@ impl System {
             {
                 system.command_source = Some(system.command_source.unwrap_or_else(|| {
                     CommandSource::new(
-                        pids,
+                        pids.clone(),
                         features.contains(Features::NET_TRAFFIC),
                         features.contains(Features::FPS),
+                        features.contains(Features::K_OBJECT),
                     )
                 }));
             }
@@ -160,6 +163,20 @@ impl System {
                 if system.etw_trace.is_none() {
                     system.etw_trace = Some(EtwTrace::new(false, true)?);
                 }
+            }
+        }
+
+        if features.contains(Features::K_OBJECT) {
+            #[cfg(target_os = "macos")]
+            {
+                system.command_source = Some(system.command_source.unwrap_or_else(|| {
+                    CommandSource::new(
+                        pids,
+                        features.contains(Features::NET_TRAFFIC),
+                        features.contains(Features::FPS),
+                        features.contains(Features::K_OBJECT),
+                    )
+                }));
             }
         }
 
@@ -179,7 +196,9 @@ impl System {
             if self.features.contains(Features::CPU_FREQUENCY) {
                 command_source.update_power_metrics_data();
             }
-            if self.features.contains(Features::NET_TRAFFIC) | self.features.contains(Features::FPS)
+            if self.features.contains(Features::NET_TRAFFIC)
+                | self.features.contains(Features::FPS)
+                | self.features.contains(Features::K_OBJECT)
             {
                 command_source.update();
             }
@@ -251,7 +270,14 @@ impl System {
     pub fn process_kobject(&mut self, pid: Pid) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {
-            platform::macos::proc_fds(pid)
+            let mach_ports = self
+                .command_source
+                .as_ref()
+                .map(|c| c.process_mach_ports(pid))
+                .flatten()
+                .unwrap_or_default();
+            let fds = platform::macos::proc_fds(pid).unwrap_or_default();
+            Some(mach_ports + fds)
         }
 
         #[cfg(target_os = "windows")]
@@ -532,6 +558,7 @@ bitflags! {
         const FPS =             1 << 3;
         const SMC =             1 << 4;
         const NET_TRAFFIC =     1 << 5;
+        const K_OBJECT =        1 << 6;
     }
 }
 
