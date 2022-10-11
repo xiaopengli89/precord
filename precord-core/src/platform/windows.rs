@@ -3,7 +3,7 @@ use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::parser::{Parser, TryParse};
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
-use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessVmCounters, VM_COUNTERS_EX};
+use ntapi::ntpsapi;
 use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
@@ -12,29 +12,17 @@ use std::collections::HashMap;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
 use std::mem::MaybeUninit;
+use std::os::windows::io::BorrowedHandle;
+use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
 use std::ptr;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Instant;
 use std::{mem, process};
-use winapi::shared::basetsd::SIZE_T;
-use winapi::shared::minwindef;
-use winapi::shared::ntdef::{NT_SUCCESS, ULONGLONG};
-use winapi::shared::winerror::ERROR_SUCCESS;
-use winapi::um::handleapi::CloseHandle;
-use winapi::um::pdh::*;
-use winapi::um::processthreadsapi;
-use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, STATUS_PENDING};
-use windows::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
-
-// https://docs.microsoft.com/en-us/windows/win32/perfctrs/pdh-error-codes
-// 0x800007D2 (PDH_MORE_DATA)
-const PDH_MORE_DATA: minwindef::DWORD = 0x800007D2;
-// 0x800007D5 (PDH_NO_DATA)
-const PDH_NO_DATA: minwindef::DWORD = 0x800007D5;
-// 0xC0000BBA (PDH_CSTATUS_INVALID_DATA)
-const PDH_CSTATUS_INVALID_DATA: minwindef::DWORD = 0xC0000BBA;
+use windows::core::HSTRING;
+use windows::Win32::Foundation;
+use windows::Win32::System::{Performance, Threading};
 
 #[allow(dead_code)]
 pub struct Powershell {
@@ -132,7 +120,7 @@ pub struct ThermalZoneInformation {
 
 struct ProcessCounter {
     pid: Pid,
-    counter: PDH_HCOUNTER,
+    counter: isize,
 }
 
 #[allow(non_camel_case_types)]
@@ -140,52 +128,63 @@ struct ProcessCounter {
 #[allow(dead_code)]
 #[repr(C)]
 struct VM_COUNTERS_EX2 {
-    CountersEx: VM_COUNTERS_EX,
-    PrivateWorkingSetSize: SIZE_T,
-    SharedCommitUsage: ULONGLONG,
+    CountersEx: ntpsapi::VM_COUNTERS_EX,
+    PrivateWorkingSetSize: usize,
+    SharedCommitUsage: u64,
 }
 
 pub struct Pdh {
     update_success: bool,
-    query: PDH_HQUERY,
+    query: PdhHandle,
     process_gpu_counters: Vec<ProcessCounter>,
-    total_gpu_counter: PDH_HCOUNTER,
+    total_gpu_counter: isize,
     pid_re: Regex,
     read_buffer: HashMap<Pid, f32>,
+}
+
+struct PdhHandle(isize);
+
+impl Drop for PdhHandle {
+    fn drop(&mut self) {
+        unsafe {
+            let _r = Performance::PdhCloseQuery(self.0);
+            debug_assert_eq!(Foundation::WIN32_ERROR(_r as _), Foundation::ERROR_SUCCESS);
+        }
+    }
 }
 
 impl Pdh {
     pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
         unsafe {
-            let mut query = MaybeUninit::uninit().assume_init();
-            let mut r = PdhOpenQueryW(ptr::null(), 0, &mut query);
-            if r != ERROR_SUCCESS as PDH_STATUS {
+            let mut query = 0;
+            let mut r =
+                Foundation::WIN32_ERROR(Performance::PdhOpenQueryW(None, 0, &mut query) as _);
+            if r != Foundation::ERROR_SUCCESS {
                 return Err(Error::Pdh(r));
             }
 
             let mut pdh = Self {
                 update_success: true,
-                query,
+                query: PdhHandle(query),
                 process_gpu_counters: vec![],
-                total_gpu_counter: MaybeUninit::uninit().assume_init(),
+                total_gpu_counter: 0,
                 pid_re: Regex::new(r"^pid_([0-9]+)_").unwrap(),
                 read_buffer: Default::default(),
             };
 
             for pid in pids {
-                let mut process_gpu_counter: PDH_HCOUNTER = MaybeUninit::uninit().assume_init();
-                r = PdhAddCounterW(
-                    query,
-                    widestring::U16CString::from_str(format!(
+                let mut process_gpu_counter = 0;
+
+                r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
+                    pdh.query.0,
+                    &HSTRING::from(format!(
                         "\\GPU Engine(pid_{}*)\\Utilization Percentage",
                         pid
-                    ))
-                    .unwrap()
-                    .as_ptr(),
+                    )),
                     0,
                     &mut process_gpu_counter,
-                );
-                if r != ERROR_SUCCESS as PDH_STATUS {
+                ) as _);
+                if r != Foundation::ERROR_SUCCESS {
                     return Err(Error::Pdh(r));
                 }
 
@@ -195,20 +194,18 @@ impl Pdh {
                 });
             }
 
-            r = PdhAddCounterW(
-                query,
-                widestring::U16CString::from_str("\\GPU Engine(*)\\Utilization Percentage")
-                    .unwrap()
-                    .as_ptr(),
+            r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
+                pdh.query.0,
+                &HSTRING::from("\\GPU Engine(*)\\Utilization Percentage"),
                 0,
                 &mut pdh.total_gpu_counter,
-            );
-            if r != ERROR_SUCCESS as PDH_STATUS {
+            ) as _);
+            if r != Foundation::ERROR_SUCCESS {
                 return Err(Error::Pdh(r));
             }
 
-            r = PdhCollectQueryData(query);
-            if r != ERROR_SUCCESS as PDH_STATUS {
+            r = Foundation::WIN32_ERROR(Performance::PdhCollectQueryData(pdh.query.0) as _);
+            if r != Foundation::ERROR_SUCCESS {
                 return Err(Error::Pdh(r));
             }
 
@@ -223,8 +220,8 @@ impl Pdh {
 
     pub fn update(&mut self) {
         unsafe {
-            let r = PdhCollectQueryData(self.query);
-            self.update_success = r as minwindef::DWORD == ERROR_SUCCESS;
+            let r = Foundation::WIN32_ERROR(Performance::PdhCollectQueryData(self.query.0) as _);
+            self.update_success = r == Foundation::ERROR_SUCCESS;
         }
     }
 
@@ -247,51 +244,55 @@ impl Pdh {
         let mut item_count = 0;
 
         unsafe {
-            let mut r = PdhGetFormattedCounterArrayW(
+            let mut r = Performance::PdhGetFormattedCounterArrayW(
                 counter,
-                PDH_FMT_DOUBLE,
+                Performance::PDH_FMT_DOUBLE,
                 &mut buffer_size,
                 &mut item_count,
-                ptr::null_mut(),
+                None,
             );
 
-            if r as minwindef::DWORD == PDH_NO_DATA {
+            if r == Performance::PDH_NO_DATA {
                 return Some(0.0);
             }
 
-            if r as minwindef::DWORD != PDH_MORE_DATA {
+            if r != Performance::PDH_MORE_DATA {
                 return None;
             }
 
-            let mut buffer: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
-                buffer_size as usize / mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>() + 1,
+            let mut buffer: Vec<Performance::PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(
+                buffer_size as usize / mem::size_of::<Performance::PDH_FMT_COUNTERVALUE_ITEM_W>()
+                    + 1,
             );
             buffer.set_len(item_count as _);
 
-            r = PdhGetFormattedCounterArrayW(
+            r = Performance::PdhGetFormattedCounterArrayW(
                 counter,
-                PDH_FMT_DOUBLE,
+                Performance::PDH_FMT_DOUBLE,
                 &mut buffer_size,
                 &mut item_count,
-                buffer.as_mut_ptr(),
+                Some(buffer.as_mut_ptr()),
             );
 
-            if r as minwindef::DWORD == PDH_NO_DATA {
+            if r == Performance::PDH_NO_DATA {
                 return Some(0.0);
             }
 
-            if r as minwindef::DWORD != ERROR_SUCCESS {
+            if Foundation::WIN32_ERROR(r as _) != Foundation::ERROR_SUCCESS {
                 return None;
             }
 
             self.read_buffer.clear();
 
             for i in 0..item_count {
-                let name =
-                    widestring::U16CStr::from_ptr_str(buffer[i as usize].szName).to_string_lossy();
+                let name = match buffer[i as usize].szName.to_string() {
+                    Ok(name) => name,
+                    Err(_) => continue,
+                };
+
                 if let Some(pid) = self.extract_pid(&name) {
                     let pid_sum = self.read_buffer.entry(pid).or_default();
-                    let value = (*buffer[i as usize].FmtValue.u.doubleValue()) as f32;
+                    let value = buffer[i as usize].FmtValue.Anonymous.doubleValue as f32;
 
                     match calc {
                         GpuCalculation::Max => {
@@ -309,15 +310,6 @@ impl Pdh {
             self.read_buffer.remove(&pid)
         } else {
             Some(self.read_buffer.drain().map(|(_, v)| v).sum())
-        }
-    }
-}
-
-impl Drop for Pdh {
-    fn drop(&mut self) {
-        unsafe {
-            let _r = PdhCloseQuery(self.query);
-            debug_assert_eq!(_r, ERROR_SUCCESS as _);
         }
     }
 }
@@ -568,29 +560,29 @@ impl VmCounter {
         let mut vm_counter = Self {
             process_counters: vec![],
         };
-
-        for pid in pids {
-            let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-            let handle = unsafe {
-                processthreadsapi::OpenProcess(options, minwindef::FALSE, pid as minwindef::DWORD)
-            };
-            if handle.is_null() {
-                let err = unsafe {
-                    if GetLastError() == ERROR_ACCESS_DENIED {
-                        Error::AccessDenied
-                    } else {
-                        Error::ProcessHandle
+        unsafe {
+            for pid in pids {
+                let options = Threading::PROCESS_QUERY_INFORMATION | Threading::PROCESS_VM_READ;
+                let r = Threading::OpenProcess(options, false, pid);
+                match r {
+                    Ok(handle) => {
+                        vm_counter.process_counters.push(ProcessVmCounter {
+                            pid,
+                            handle: OwnedHandle::from_raw_handle(handle.0 as _),
+                            valid: true,
+                            mem: 0.0,
+                        });
                     }
-                };
+                    Err(_) => {
+                        let err = if Foundation::GetLastError() == Foundation::ERROR_ACCESS_DENIED {
+                            Error::AccessDenied
+                        } else {
+                            Error::ProcessHandle
+                        };
 
-                return Err(err);
-            } else {
-                vm_counter.process_counters.push(ProcessVmCounter {
-                    pid,
-                    handle,
-                    valid: true,
-                    mem: 0.0,
-                });
+                        return Err(err);
+                    }
+                }
             }
         }
 
@@ -602,16 +594,16 @@ impl VmCounter {
             .iter_mut()
             .find(|p| p.pid == pid && p.valid)
             .map(|p| unsafe {
-                if is_proc_running(p.handle) {
+                if is_proc_running(p.handle.as_handle()) {
                     let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
-                    let r = NtQueryInformationProcess(
-                        p.handle,
-                        ProcessVmCounters,
+                    let r = Threading::NtQueryInformationProcess(
+                        windows_raw_handle(p.handle.as_raw_handle()),
+                        Threading::PROCESSINFOCLASS(ntpsapi::ProcessVmCounters as _),
                         mem::transmute(&mut info),
                         mem::size_of::<VM_COUNTERS_EX2>() as _,
                         ptr::null_mut(),
                     );
-                    if NT_SUCCESS(r) {
+                    if r.is_ok() {
                         Some((info.PrivateWorkingSetSize >> 10) as f32)
                     } else {
                         None
@@ -629,14 +621,17 @@ impl VmCounter {
             .process_counters
             .iter_mut()
             .find(|p| p.pid == pid && p.valid)?;
-        if !is_proc_running(p.handle) {
+        if !is_proc_running(p.handle.as_handle()) {
             p.valid = false;
             return None;
         }
         unsafe {
             let mut count = 0;
-            let r = processthreadsapi::GetProcessHandleCount(p.handle, &mut count);
-            if r == minwindef::TRUE {
+            let r = Threading::GetProcessHandleCount(
+                windows_raw_handle(p.handle.as_raw_handle()),
+                &mut count,
+            );
+            if r.as_bool() {
                 Some(count)
             } else {
                 None
@@ -647,24 +642,18 @@ impl VmCounter {
 
 struct ProcessVmCounter {
     pid: Pid,
-    handle: HANDLE,
+    handle: OwnedHandle,
     valid: bool,
     mem: f32,
 }
 
-impl Drop for ProcessVmCounter {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = CloseHandle(self.handle);
-        }
-    }
-}
-
 // Source from sysinfo
-fn is_proc_running(handle: HANDLE) -> bool {
+fn is_proc_running(handle: BorrowedHandle) -> bool {
     let mut exit_code = 0;
-    let ret = unsafe { processthreadsapi::GetExitCodeProcess(handle, &mut exit_code) };
-    !(ret == minwindef::FALSE || exit_code != STATUS_PENDING)
+    let ret = unsafe {
+        Threading::GetExitCodeProcess(windows_raw_handle(handle.as_raw_handle()), &mut exit_code)
+    };
+    !(!ret.as_bool() || Foundation::NTSTATUS(exit_code as _) != Foundation::STATUS_PENDING)
 }
 
 thread_local! {
@@ -687,4 +676,8 @@ fn rand_string(length: usize) -> String {
         .take(length)
         .map(char::from)
         .collect()
+}
+
+unsafe fn windows_raw_handle(handle: RawHandle) -> Foundation::HANDLE {
+    mem::transmute(handle)
 }

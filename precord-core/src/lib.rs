@@ -1,4 +1,5 @@
 pub use system::{Features, System};
+use windows::Win32::Foundation;
 
 mod platform;
 mod system;
@@ -21,8 +22,8 @@ pub enum Error {
     #[error("Can't get com library")]
     ComLib,
     #[cfg(target_os = "windows")]
-    #[error("PDH_STATUS({0})")]
-    Pdh(winapi::um::pdh::PDH_STATUS),
+    #[error("PDH_STATUS({})", 0.0)]
+    Pdh(Foundation::WIN32_ERROR),
     #[cfg(target_os = "windows")]
     #[error("Can't open process handle")]
     ProcessHandle,
