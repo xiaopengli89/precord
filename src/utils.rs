@@ -230,75 +230,61 @@ pub fn adjust_privileges() {
 
 #[cfg(target_os = "windows")]
 mod platform_windows {
-    use std::ffi::OsStr;
-    use std::mem::MaybeUninit;
-    use std::os::windows::ffi::OsStrExt;
-    use std::{mem, ptr};
-    use winapi::shared::minwindef::{FALSE, TRUE};
-    use winapi::um::handleapi::CloseHandle;
-    use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcessToken};
-    use winapi::um::securitybaseapi::AdjustTokenPrivileges;
-    use winapi::um::winbase::LookupPrivilegeValueW;
-    use winapi::um::winnt::{
-        HANDLE, LUID, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES,
-        TOKEN_PRIVILEGES,
-    };
-    use windows::Win32::Foundation::{GetLastError, ERROR_NOT_ALL_ASSIGNED};
-
-    struct HandleWrapper(HANDLE);
-
-    impl Drop for HandleWrapper {
-        fn drop(&mut self) {
-            unsafe {
-                let _ = CloseHandle(self.0);
-            }
-        }
-    }
+    use std::mem::{self, MaybeUninit};
+    use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
+    use windows::core::HSTRING;
+    use windows::Win32::System::{SystemServices, Threading};
+    use windows::Win32::{Foundation, Security};
 
     pub fn adjust_privileges() {
         unsafe {
-            let current_handle = HandleWrapper(GetCurrentProcess());
-            let mut token_handle: HANDLE = MaybeUninit::uninit().assume_init();
-            let r = OpenProcessToken(current_handle.0, TOKEN_ADJUST_PRIVILEGES, &mut token_handle);
-            if r != TRUE {
+            let mut token_handle: Foundation::HANDLE = MaybeUninit::uninit().assume_init();
+            let r = Threading::OpenProcessToken(
+                Threading::GetCurrentProcess(),
+                Security::TOKEN_ADJUST_PRIVILEGES,
+                &mut token_handle,
+            );
+            if !r.as_bool() {
                 eprintln!("OpenProcessToken failed");
                 return;
             }
-            let token_handle = HandleWrapper(token_handle);
+            let token_handle = OwnedHandle::from_raw_handle(token_handle.0 as _);
 
-            let mut luid: LUID = MaybeUninit::uninit().assume_init();
-            if LookupPrivilegeValueW(ptr::null(), to_wchar(SE_DEBUG_NAME).as_ptr(), &mut luid)
-                != TRUE
+            let mut luid: Foundation::LUID = MaybeUninit::uninit().assume_init();
+            if !Security::LookupPrivilegeValueW(
+                None,
+                &HSTRING::from(SystemServices::SE_DEBUG_NAME),
+                &mut luid,
+            )
+            .as_bool()
             {
                 eprintln!("LookupPrivilegeValueW failed");
                 return;
             }
 
-            let mut new_state: TOKEN_PRIVILEGES = MaybeUninit::uninit().assume_init();
+            let mut new_state: Security::TOKEN_PRIVILEGES = MaybeUninit::uninit().assume_init();
             new_state.PrivilegeCount = 1;
             new_state.Privileges[0].Luid = luid;
-            new_state.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            new_state.Privileges[0].Attributes = Security::SE_PRIVILEGE_ENABLED;
 
-            if AdjustTokenPrivileges(
-                token_handle.0,
-                FALSE,
-                &mut new_state,
-                mem::size_of::<TOKEN_PRIVILEGES>() as _,
-                ptr::null_mut(),
-                ptr::null_mut(),
-            ) != TRUE
-                || GetLastError() == ERROR_NOT_ALL_ASSIGNED
+            if !Security::AdjustTokenPrivileges(
+                windows_raw_handle(token_handle.as_raw_handle()),
+                false,
+                Some(&mut new_state),
+                mem::size_of::<Security::TOKEN_PRIVILEGES>() as _,
+                None,
+                None,
+            )
+            .as_bool()
+                || Foundation::GetLastError() == Foundation::ERROR_NOT_ALL_ASSIGNED
             {
                 eprintln!("AdjustTokenPrivileges failed");
             }
         }
     }
 
-    fn to_wchar(str: &str) -> Vec<u16> {
-        OsStr::new(str)
-            .encode_wide()
-            .chain(Some(0).into_iter())
-            .collect()
+    unsafe fn windows_raw_handle(handle: RawHandle) -> Foundation::HANDLE {
+        mem::transmute(handle)
     }
 }
 
