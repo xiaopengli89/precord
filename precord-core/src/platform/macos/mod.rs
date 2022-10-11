@@ -622,7 +622,7 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
     let mut buf: Vec<u8> = Vec::with_capacity(64 * mem::size_of::<proc_fd_info>());
 
     loop {
-        let mut actual_buf_size = unsafe {
+        let actual_buf_size = unsafe {
             libc::proc_pidinfo(
                 pid as _,
                 PROC_PIDLISTFDS,

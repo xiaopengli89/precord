@@ -52,7 +52,7 @@ fn main() {
     {
         features.insert(Features::NET_TRAFFIC);
     }
-    if proc_category.contains(&ProcessCategory::KObject) {
+    if proc_category.contains(&ProcessCategory::Kobject) {
         features.insert(Features::K_OBJECT);
     }
     if sys_category.contains(&SystemCategory::CPUFreq) {

@@ -1,6 +1,6 @@
 use crate::types::ProcessInfo;
 use crate::Pid;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use crossterm::style::Color;
 use precord_core::System;
 use serde::Serialize;
@@ -9,29 +9,29 @@ use std::path::PathBuf;
 use sysinfo::{PidExt, ProcessExt, ProcessStatus, SystemExt};
 
 #[derive(Parser, Debug)]
-#[clap(version, about)]
+#[command(version, about)]
 pub struct Opts {
-    #[clap(short, long, multiple_values = true)]
+    #[arg(short, long)]
     process: Vec<Pid>,
-    #[clap(long, multiple_values = true)]
+    #[arg(long)]
     name: Vec<String>,
     /// Specify the output file, e.g., -o result.{svg,html,json,csv}
-    #[clap(short, long, multiple_values = true, parse(from_os_str))]
+    #[arg(short, long, value_parser)]
     pub output: Vec<PathBuf>,
-    #[clap(short, long, default_value_t = 1)]
+    #[arg(short, long, default_value_t = 1)]
     pub interval: u64,
-    #[clap(short = 'n')]
+    #[arg(short = 'n')]
     pub count: Option<usize>,
     /// Recording time limit, e.g., --time 1h30m59s
-    #[clap(long, parse(try_from_str))]
+    #[arg(long, value_parser)]
     pub time: Option<humantime::Duration>,
-    #[clap(short, long, multiple_values = true, arg_enum, default_value = "cpu")]
+    #[arg(short, long, value_enum, default_value = "cpu")]
     pub category: Vec<Category>,
-    #[clap(short, long)]
+    #[arg(short, long)]
     recurse_children: bool,
-    #[clap(long, default_value_t = 0)]
+    #[arg(long, default_value_t = 0)]
     pub skip: usize,
-    #[clap(long, arg_enum, default_value = "max")]
+    #[arg(long, value_enum, default_value = "max")]
     pub gpu_calc: GpuCalculation,
 }
 
@@ -157,27 +157,20 @@ impl Opts {
     }
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone)]
+#[derive(ValueEnum, Debug, Copy, Clone)]
+#[clap(rename_all = "snake_case")]
 pub enum Category {
     CPU,
     Mem,
     GPU,
     FPS,
-    #[clap(name = "net_in")]
     NetIn,
-    #[clap(name = "net_out")]
     NetOut,
-    #[clap(name = "disk_read")]
     DiskRead,
-    #[clap(name = "disk_write")]
     DiskWrite,
-    #[clap(name = "kobject")]
-    KObject,
-    #[clap(name = "sys_cpu_freq")]
+    Kobject,
     SysCPUFreq,
-    #[clap(name = "sys_cpu_temp")]
     SysCPUTemp,
-    #[clap(name = "sys_gpu")]
     SysGPU,
 }
 
@@ -192,7 +185,7 @@ impl Category {
             Category::NetOut => Some(ProcessCategory::NetOut),
             Category::DiskRead => Some(ProcessCategory::DiskRead),
             Category::DiskWrite => Some(ProcessCategory::DiskWrite),
-            Category::KObject => Some(ProcessCategory::KObject),
+            Category::Kobject => Some(ProcessCategory::Kobject),
             _ => None,
         }
     }
@@ -208,25 +201,17 @@ impl Category {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessCategory {
-    #[serde(rename = "cpu")]
     CPU,
-    #[serde(rename = "mem")]
     Mem,
-    #[serde(rename = "gpu")]
     GPU,
-    #[serde(rename = "fps")]
     FPS,
-    #[serde(rename = "net_in")]
     NetIn,
-    #[serde(rename = "net_out")]
     NetOut,
-    #[serde(rename = "disk_read")]
     DiskRead,
-    #[serde(rename = "disk_write")]
     DiskWrite,
-    #[serde(rename = "kobject")]
-    KObject,
+    Kobject,
 }
 
 impl ProcessCategory {
@@ -240,7 +225,7 @@ impl ProcessCategory {
             Self::NetOut => "KBps",
             Self::DiskRead => "KBps",
             Self::DiskWrite => "KBps",
-            Self::KObject => "",
+            Self::Kobject => "",
         }
     }
 
@@ -254,7 +239,7 @@ impl ProcessCategory {
             Self::NetOut => Color::DarkMagenta,
             Self::DiskRead => Color::AnsiValue(143),
             Self::DiskWrite => Color::AnsiValue(136),
-            Self::KObject => Color::AnsiValue(215),
+            Self::Kobject => Color::AnsiValue(215),
         }
     }
 
@@ -268,7 +253,7 @@ impl ProcessCategory {
             Self::NetOut => (1 << 10) as _,
             Self::DiskRead => (1 << 10) as _,
             Self::DiskWrite => (1 << 10) as _,
-            Self::KObject => 100.,
+            Self::Kobject => 100.,
         }
     }
 
@@ -284,7 +269,7 @@ impl ProcessCategory {
                 .map(|v| (v >> 10) as f32),
             Self::DiskRead => system.process_disk_read(pid).map(|v| v / 1024.),
             Self::DiskWrite => system.process_disk_write(pid).map(|v| v / 1024.),
-            Self::KObject => system.process_kobject(pid).map(|v| v as _),
+            Self::Kobject => system.process_kobject(pid).map(|v| v as _),
         }
     }
 }
@@ -296,7 +281,7 @@ pub enum SystemCategory {
     GPU,
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone)]
+#[derive(ValueEnum, Debug, Copy, Clone)]
 pub enum GpuCalculation {
     Max,
     Sum,
