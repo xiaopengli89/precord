@@ -420,7 +420,32 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_usage(Some(pid), calc)
+            self.pdh.as_mut().unwrap().poll_gpu_usage(
+                platform::windows::GpuCounterType::Utilization,
+                Some(pid),
+                calc,
+            )
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
+        }
+    }
+
+    pub fn process_vram(&mut self, pid: Pid, calc: GpuCalculation) -> Option<f32> {
+        #[cfg(target_os = "macos")]
+        {
+            None
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            self.pdh.as_mut().unwrap().poll_gpu_usage(
+                platform::windows::GpuCounterType::VRam,
+                Some(pid),
+                calc,
+            )
         }
 
         #[cfg(target_os = "linux")]
@@ -492,7 +517,11 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.pdh.as_mut().unwrap().poll_gpu_usage(None, calc)
+            self.pdh.as_mut().unwrap().poll_gpu_usage(
+                platform::windows::GpuCounterType::Utilization,
+                None,
+                calc,
+            )
         }
 
         #[cfg(target_os = "linux")]

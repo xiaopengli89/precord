@@ -40,7 +40,9 @@ fn main() {
 
     let mut features = Features::PROCESS;
 
-    if proc_category.contains(&ProcessCategory::GPU) || sys_category.contains(&SystemCategory::GPU)
+    if proc_category.contains(&ProcessCategory::GPU)
+        || proc_category.contains(&ProcessCategory::Vram)
+        || sys_category.contains(&SystemCategory::GPU)
     {
         features.insert(Features::GPU);
     }

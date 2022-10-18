@@ -137,6 +137,7 @@ pub struct Pdh {
     update_success: bool,
     query: PdhHandle,
     total_gpu_counter: isize,
+    vram_counter: isize,
     pid_re: Regex,
     read_buffer: HashMap<Pid, f32>,
 }
@@ -166,6 +167,7 @@ impl Pdh {
                 update_success: true,
                 query: PdhHandle(query),
                 total_gpu_counter: 0,
+                vram_counter: 0,
                 pid_re: Regex::new(r"^pid_([0-9]+)_").unwrap(),
                 read_buffer: Default::default(),
             };
@@ -175,6 +177,17 @@ impl Pdh {
                 &HSTRING::from("\\GPU Engine(*)\\Utilization Percentage"),
                 0,
                 &mut pdh.total_gpu_counter,
+            ) as _);
+            if r != Foundation::ERROR_SUCCESS {
+                return Err(Error::Pdh(r));
+            }
+
+            // vram counter
+            r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
+                pdh.query.0,
+                &HSTRING::from("\\GPU Process Memory(*)\\Local Usage"),
+                0,
+                &mut pdh.vram_counter,
             ) as _);
             if r != Foundation::ERROR_SUCCESS {
                 return Err(Error::Pdh(r));
@@ -201,12 +214,20 @@ impl Pdh {
         }
     }
 
-    pub fn poll_gpu_usage(&mut self, pid: Option<Pid>, calc: GpuCalculation) -> Option<f32> {
+    pub fn poll_gpu_usage(
+        &mut self,
+        ty: GpuCounterType,
+        pid: Option<Pid>,
+        calc: GpuCalculation,
+    ) -> Option<f32> {
         if !self.update_success {
             return None;
         }
 
-        let counter = self.total_gpu_counter;
+        let counter = match ty {
+            GpuCounterType::Utilization => self.total_gpu_counter,
+            GpuCounterType::VRam => self.vram_counter,
+        };
 
         let mut buffer_size = 0;
         let mut item_count = 0;
@@ -280,6 +301,11 @@ impl Pdh {
             Some(self.read_buffer.drain().map(|(_, v)| v).sum())
         }
     }
+}
+
+pub enum GpuCounterType {
+    Utilization,
+    VRam,
 }
 
 struct EtwProvider {
