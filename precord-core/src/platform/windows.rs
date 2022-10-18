@@ -136,7 +136,6 @@ struct VM_COUNTERS_EX2 {
 pub struct Pdh {
     update_success: bool,
     query: PdhHandle,
-    process_gpu_counters: Vec<ProcessCounter>,
     total_gpu_counter: isize,
     pid_re: Regex,
     read_buffer: HashMap<Pid, f32>,
@@ -166,33 +165,10 @@ impl Pdh {
             let mut pdh = Self {
                 update_success: true,
                 query: PdhHandle(query),
-                process_gpu_counters: vec![],
                 total_gpu_counter: 0,
                 pid_re: Regex::new(r"^pid_([0-9]+)_").unwrap(),
                 read_buffer: Default::default(),
             };
-
-            for pid in pids {
-                let mut process_gpu_counter = 0;
-
-                r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
-                    pdh.query.0,
-                    &HSTRING::from(format!(
-                        "\\GPU Engine(pid_{}*)\\Utilization Percentage",
-                        pid
-                    )),
-                    0,
-                    &mut process_gpu_counter,
-                ) as _);
-                if r != Foundation::ERROR_SUCCESS {
-                    return Err(Error::Pdh(r));
-                }
-
-                pdh.process_gpu_counters.push(ProcessCounter {
-                    pid,
-                    counter: process_gpu_counter,
-                });
-            }
 
             r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
                 pdh.query.0,
@@ -230,15 +206,7 @@ impl Pdh {
             return None;
         }
 
-        let counter = if let Some(pid) = pid {
-            if let Some(counter) = self.process_gpu_counters.iter().find(|p| p.pid == pid) {
-                counter.counter
-            } else {
-                return None;
-            }
-        } else {
-            self.total_gpu_counter
-        };
+        let counter = self.total_gpu_counter;
 
         let mut buffer_size = 0;
         let mut item_count = 0;
