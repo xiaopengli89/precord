@@ -268,7 +268,9 @@ impl ProcessCategory {
             Self::CPU => system.process_cpu_usage(pid),
             Self::Mem => system.process_mem(pid).map(|v| v / 1024.),
             Self::GPU => system.process_gpu_usage(pid, gpu_calc.into()),
-            Self::Vram => system.process_vram(pid, gpu_calc.into()),
+            Self::Vram => system
+                .process_vram(pid, gpu_calc.into())
+                .map(|v| v / (1 << 20) as f32),
             Self::FPS => Some(system.process_fps(pid)),
             Self::NetIn => system.process_net_traffic_in(pid).map(|v| (v >> 10) as f32),
             Self::NetOut => system
