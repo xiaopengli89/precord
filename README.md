@@ -32,6 +32,7 @@ precord -h
   - `cpu` - CPU usage of process
   - `mem` - Memory usage of process
   - `gpu` - GPU usage of process
+  - `vram` - VRAM usage of process
   - `fps` - Frame rate of process
   - `net_in/net_out` - Network recv/send of process
   - `disk_read/disk_write` - Disk read/write of process
@@ -97,6 +98,7 @@ fn main() {
 | cpu                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | mem                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | gpu                  |                    | :white_check_mark: |                    |
+| vram                 |                    | :white_check_mark: |                    |
 | fps                  | :white_check_mark: | :white_check_mark: |                    |
 | net_in/net_out       | :white_check_mark: | :white_check_mark: |                    |
 | disk_read/disk_write | :white_check_mark: |                    |                    |
@@ -112,6 +114,7 @@ fn main() {
 | cpu                                                |                                |               |       |
 | mem                                                |                                |               |       |
 | gpu                                                |                                |               |       |
+| vram                                               |                                |               |       |
 | fps                                                | Administrator + get-task-allow | Administrator |       |
 | net_in/net_out                                     |                                | Administrator |       |
 | disk_read/disk_write                               |                                |               |       |
