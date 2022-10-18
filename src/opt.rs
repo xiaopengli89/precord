@@ -11,12 +11,12 @@ use sysinfo::{PidExt, ProcessExt, ProcessStatus, SystemExt};
 #[derive(Parser, Debug)]
 #[command(version, about)]
 pub struct Opts {
-    #[arg(short, long)]
+    #[arg(short, long, num_args(..))]
     process: Vec<Pid>,
-    #[arg(long)]
+    #[arg(long, num_args(..))]
     name: Vec<String>,
     /// Specify the output file, e.g., -o result.{svg,html,json,csv}
-    #[arg(short, long, value_parser)]
+    #[arg(short, long, value_parser, num_args(..))]
     pub output: Vec<PathBuf>,
     #[arg(short, long, default_value_t = 1)]
     pub interval: u64,
@@ -25,7 +25,7 @@ pub struct Opts {
     /// Recording time limit, e.g., --time 1h30m59s
     #[arg(long, value_parser)]
     pub time: Option<humantime::Duration>,
-    #[arg(short, long, value_enum, default_value = "cpu")]
+    #[arg(short, long, value_enum, default_value = "cpu", num_args(..))]
     pub category: Vec<Category>,
     #[arg(short, long)]
     recurse_children: bool,
