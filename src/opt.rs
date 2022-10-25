@@ -266,7 +266,7 @@ impl ProcessCategory {
     pub fn sample(&self, system: &mut System, gpu_calc: GpuCalculation, pid: Pid) -> Option<f32> {
         match self {
             Self::CPU => system.process_cpu_usage(pid),
-            Self::Mem => system.process_mem(pid).map(|v| v / 1024.),
+            Self::Mem => system.process_mem(pid).map(|v| (v >> 20) as f32),
             Self::GPU => system.process_gpu_usage(pid, gpu_calc.into()),
             Self::Vram => system
                 .process_vram(pid, gpu_calc.into())

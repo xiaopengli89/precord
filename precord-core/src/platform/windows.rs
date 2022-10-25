@@ -564,7 +564,8 @@ impl VmCounter {
                             pid,
                             handle: OwnedHandle::from_raw_handle(handle.0 as _),
                             valid: true,
-                            mem: 0.0,
+                            mem: 0,
+                            virtual_mem: 0,
                         });
                     }
                     Err(_) => {
@@ -583,12 +584,14 @@ impl VmCounter {
         Ok(vm_counter)
     }
 
-    pub fn process_mem(&mut self, pid: Pid) -> Option<f32> {
-        self.process_counters
-            .iter_mut()
-            .find(|p| p.pid == pid && p.valid)
-            .map(|p| unsafe {
-                if is_proc_running(p.handle.as_handle()) {
+    pub fn update(&mut self) {
+        for p in self.process_counters.iter_mut() {
+            if !p.valid {
+                continue;
+            }
+
+            if is_proc_running(p.handle.as_handle()) {
+                unsafe {
                     let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
                     let r = Threading::NtQueryInformationProcess(
                         windows_raw_handle(p.handle.as_raw_handle()),
@@ -598,16 +601,28 @@ impl VmCounter {
                         ptr::null_mut(),
                     );
                     if r.is_ok() {
-                        Some((info.PrivateWorkingSetSize >> 10) as f32)
-                    } else {
-                        None
+                        p.mem = info.PrivateWorkingSetSize;
+                        p.virtual_mem = info.CountersEx.PrivateUsage;
                     }
-                } else {
-                    p.valid = false;
-                    None
                 }
-            })
-            .flatten()
+            } else {
+                p.valid = false;
+            }
+        }
+    }
+
+    pub fn process_mem(&mut self, pid: Pid) -> Option<usize> {
+        self.process_counters
+            .iter_mut()
+            .find(|p| p.pid == pid && p.valid)
+            .map(|p| p.mem)
+    }
+
+    pub fn process_virtual_mem(&mut self, pid: Pid) -> Option<usize> {
+        self.process_counters
+            .iter_mut()
+            .find(|p| p.pid == pid && p.valid)
+            .map(|p| p.virtual_mem)
     }
 
     pub fn process_handles(&mut self, pid: Pid) -> Option<u32> {
@@ -638,7 +653,8 @@ struct ProcessVmCounter {
     pid: Pid,
     handle: OwnedHandle,
     valid: bool,
-    mem: f32,
+    mem: usize,
+    virtual_mem: usize,
 }
 
 // Source from sysinfo

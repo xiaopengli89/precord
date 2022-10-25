@@ -210,13 +210,16 @@ impl System {
         }
 
         #[cfg(target_os = "windows")]
-        if let Some(pdh) = &mut self.pdh {
-            pdh.update();
-        }
-
-        #[cfg(target_os = "windows")]
-        if let Some(etw) = &mut self.etw_trace {
-            etw.update();
+        {
+            if let Some(pdh) = &mut self.pdh {
+                pdh.update();
+            }
+            if let Some(etw) = &mut self.etw_trace {
+                etw.update();
+            }
+            if let Some(vm_counter) = &mut self.vm_counter {
+                vm_counter.update();
+            }
         }
     }
 
@@ -233,7 +236,7 @@ impl System {
         )
     }
 
-    pub fn process_mem(&mut self, pid: Pid) -> Option<f32> {
+    pub fn process_mem(&mut self, pid: Pid) -> Option<usize> {
         #[cfg(target_os = "macos")]
         unsafe {
             let mut rusage_info_data: libc::rusage_info_v2 =
@@ -244,8 +247,7 @@ impl System {
                 std::mem::transmute(&mut rusage_info_data),
             );
             if r == libc::KERN_SUCCESS {
-                let mem = (rusage_info_data.ri_phys_footprint >> 10) as f32;
-                Some(mem)
+                Some(rusage_info_data.ri_phys_footprint)
             } else {
                 None
             }
@@ -263,7 +265,24 @@ impl System {
                 .as_ref()?
                 .process(sysinfo::Pid::from_u32(pid))?
                 .memory();
-            Some((mem >> 10) as f32)
+            Some(mem)
+        }
+    }
+
+    pub fn process_virtual_mem(&mut self, pid: Pid) -> Option<usize> {
+        #[cfg(target_os = "macos")]
+        {
+            None
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            self.vm_counter.as_mut()?.process_virtual_mem(pid)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            None
         }
     }
 
