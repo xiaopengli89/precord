@@ -247,7 +247,7 @@ impl System {
                 std::mem::transmute(&mut rusage_info_data),
             );
             if r == libc::KERN_SUCCESS {
-                Some(rusage_info_data.ri_phys_footprint)
+                Some(rusage_info_data.ri_phys_footprint as usize)
             } else {
                 None
             }
