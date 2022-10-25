@@ -265,7 +265,7 @@ impl System {
                 .as_ref()?
                 .process(sysinfo::Pid::from_u32(pid))?
                 .memory();
-            Some(mem)
+            Some(mem as usize)
         }
     }
 
