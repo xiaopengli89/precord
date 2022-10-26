@@ -178,11 +178,11 @@ pub enum Category {
 impl Category {
     pub fn to_process(self) -> Option<ProcessCategory> {
         match self {
-            Category::CPU => Some(ProcessCategory::CPU),
+            Category::CPU => Some(ProcessCategory::Cpu),
             Category::Mem => Some(ProcessCategory::Mem),
-            Category::GPU => Some(ProcessCategory::GPU),
+            Category::GPU => Some(ProcessCategory::Gpu),
             Category::Vram => Some(ProcessCategory::Vram),
-            Category::FPS => Some(ProcessCategory::FPS),
+            Category::FPS => Some(ProcessCategory::Fps),
             Category::NetIn => Some(ProcessCategory::NetIn),
             Category::NetOut => Some(ProcessCategory::NetOut),
             Category::DiskRead => Some(ProcessCategory::DiskRead),
@@ -205,11 +205,11 @@ impl Category {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ProcessCategory {
-    CPU,
+    Cpu,
     Mem,
-    GPU,
+    Gpu,
     Vram,
-    FPS,
+    Fps,
     NetIn,
     NetOut,
     DiskRead,
@@ -220,11 +220,11 @@ pub enum ProcessCategory {
 impl ProcessCategory {
     pub fn unit(&self) -> &'static str {
         match self {
-            Self::CPU => "%",
+            Self::Cpu => "%",
             Self::Mem => "M",
-            Self::GPU => "%",
+            Self::Gpu => "%",
             Self::Vram => "M",
-            Self::FPS => "",
+            Self::Fps => "",
             Self::NetIn => "KBps",
             Self::NetOut => "KBps",
             Self::DiskRead => "KBps",
@@ -235,11 +235,11 @@ impl ProcessCategory {
 
     pub fn color(&self) -> Color {
         match self {
-            Self::CPU => Color::DarkGreen,
+            Self::Cpu => Color::DarkGreen,
             Self::Mem => Color::DarkCyan,
-            Self::GPU => Color::AnsiValue(208),
+            Self::Gpu => Color::AnsiValue(208),
             Self::Vram => Color::AnsiValue(64),
-            Self::FPS => Color::DarkYellow,
+            Self::Fps => Color::DarkYellow,
             Self::NetIn => Color::DarkBlue,
             Self::NetOut => Color::DarkMagenta,
             Self::DiskRead => Color::AnsiValue(143),
@@ -250,11 +250,11 @@ impl ProcessCategory {
 
     pub fn lower_bound(&self) -> f32 {
         match self {
-            Self::CPU => 100.,
+            Self::Cpu => 100.,
             Self::Mem => 10.,
-            Self::GPU => 100.,
+            Self::Gpu => 100.,
             Self::Vram => 10.,
-            Self::FPS => 60.,
+            Self::Fps => 60.,
             Self::NetIn => (1 << 10) as _,
             Self::NetOut => (1 << 10) as _,
             Self::DiskRead => (1 << 10) as _,
@@ -265,13 +265,13 @@ impl ProcessCategory {
 
     pub fn sample(&self, system: &mut System, gpu_calc: GpuCalculation, pid: Pid) -> Option<f32> {
         match self {
-            Self::CPU => system.process_cpu_usage(pid),
+            Self::Cpu => system.process_cpu_usage(pid),
             Self::Mem => system.process_mem(pid).map(|v| (v >> 20) as f32),
-            Self::GPU => system.process_gpu_usage(pid, gpu_calc.into()),
+            Self::Gpu => system.process_gpu_usage(pid, gpu_calc.into()),
             Self::Vram => system
                 .process_vram(pid, gpu_calc.into())
                 .map(|v| v / (1 << 20) as f32),
-            Self::FPS => Some(system.process_fps(pid)),
+            Self::Fps => Some(system.process_fps(pid)),
             Self::NetIn => system.process_net_traffic_in(pid).map(|v| (v >> 10) as f32),
             Self::NetOut => system
                 .process_net_traffic_out(pid)
