@@ -49,7 +49,7 @@ precord -h
   - `.csv`
 - `-i / --interval` - Interval for recording
 - `-n` - Count for recording
-- `--time` - Time limit for recording , e.g., `--time 1h30m59s`
+- `--time` - Time limit for recording, e.g., `--time 1h30m59s`
 - `-r / --recurse-children` - Flag to recurse child processes
 - `--skip` - Number of skip records
 - `--gpu-calc` - Gpu calculation, possible values:
@@ -61,6 +61,7 @@ Type `:` during recording will enter the command mode, and press `Esc` will back
 - `w` - Write(Save) output
 - `q` - Exit
 - `wq` - Combination of `w` and `q` 
+- `time` - modify time limit for recording
 
 ## precord-core
 
