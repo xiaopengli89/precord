@@ -460,10 +460,22 @@ impl FrameRateRunner {
         let mut methods = vec![];
         for pid in pids {
             methods.push(format!("objc{}:CAMetalLayer:-nextDrawable:entry", pid));
-            methods.push(format!(
-                "pid{}:QuartzCore:CA??Render??Surface??finalize():entry",
-                pid
-            ));
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                methods.push(format!(
+                    "pid{}:SkyLight:WS??Displays??SLCADisplay??present_update*:entry",
+                    pid
+                ));
+            }
+
+            #[cfg(target_arch = "x86_64")]
+            {
+                methods.push(format!(
+                    "pid{}:SkyLight:WS??Displays??CDDisplay??present_update*:entry",
+                    pid
+                ));
+            }
         }
         let mut methods = methods.join(",");
         methods.push_str("{trace(pid)}");
@@ -503,7 +515,7 @@ impl FrameRateRunner {
                 continue;
             }
 
-            let pid: Pid = data[3].parse().unwrap();
+            let pid: Pid = data.last().unwrap().parse().unwrap();
 
             if let Err(_) = self.tx.send(ProcessCommandResult {
                 pid,
