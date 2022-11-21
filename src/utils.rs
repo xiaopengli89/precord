@@ -147,6 +147,7 @@ pub enum Command {
     Quit,
     Write(Vec<PathBuf>),
     WriteThenQuit(Vec<PathBuf>),
+    Time(chrono::Duration),
     Yes,
     No,
     Empty,
@@ -187,6 +188,18 @@ impl From<&str> for Command {
                     }
                 }
                 Self::WriteThenQuit(ps)
+            }
+            "time" => {
+                if let Some(d) = tokens
+                    .next()
+                    .and_then(|d| d.parse::<humantime::Duration>().ok())
+                    .and_then(|d| chrono::Duration::from_std(*d).ok())
+                {
+                    Self::Time(d)
+                } else {
+                    eprintln!("Invalid time\r");
+                    Self::Unknown
+                }
             }
             "y" | "yes" => Self::Yes,
             "n" | "no" => Self::No,

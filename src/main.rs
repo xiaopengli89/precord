@@ -244,6 +244,9 @@ fn main() {
                         );
                         return;
                     }
+                    Command::Time(d) => {
+                        end_time = Some(chrono::Local::now() + d);
+                    }
                     Command::Yes | Command::No | Command::Empty | Command::Unknown => {
                         command_mode = true
                     }
