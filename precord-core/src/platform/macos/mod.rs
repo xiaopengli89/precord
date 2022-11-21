@@ -6,7 +6,6 @@ use core_foundation::string::CFString;
 use serde::Deserialize;
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader, Cursor};
-use std::mem::MaybeUninit;
 use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
@@ -664,7 +663,7 @@ unsafe fn proc_is_translated(pid: Pid) -> bool {
         libc::KERN_PROC_PID,
         pid as libc::c_int,
     ];
-    let mut info: sysctl::kinfo_proc = MaybeUninit::uninit().assume_init();
+    let mut info: sysctl::kinfo_proc = mem::zeroed();
     let mut size = mem::size_of::<sysctl::kinfo_proc>();
     let r = libc::sysctl(
         mib.as_mut_ptr(),

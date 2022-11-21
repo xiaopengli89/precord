@@ -6,6 +6,7 @@ use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformat
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
+use std::mem;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
 
@@ -239,12 +240,11 @@ impl System {
     pub fn process_mem(&mut self, pid: Pid) -> Option<usize> {
         #[cfg(target_os = "macos")]
         unsafe {
-            let mut rusage_info_data: libc::rusage_info_v2 =
-                std::mem::MaybeUninit::uninit().assume_init();
+            let mut rusage_info_data: libc::rusage_info_v2 = mem::zeroed();
             let r = libc::proc_pid_rusage(
                 pid as _,
                 libc::RUSAGE_INFO_V2,
-                std::mem::transmute(&mut rusage_info_data),
+                mem::transmute(&mut rusage_info_data),
             );
             if r == libc::KERN_SUCCESS {
                 Some(rusage_info_data.ri_phys_footprint as usize)
