@@ -46,3 +46,8 @@ features = [
     "Win32_UI_Shell",
     "Win32_System_SystemServices",
 ]
+
+[profile.release]
+panic = "abort"
+lto = true
+strip = true
