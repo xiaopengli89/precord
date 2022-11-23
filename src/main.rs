@@ -246,6 +246,7 @@ fn main() {
                     }
                     Command::Time(d) => {
                         end_time = Some(chrono::Local::now() + d);
+                        opts.count = None;
                     }
                     Command::Yes | Command::No | Command::Empty | Command::Unknown => {
                         command_mode = true
