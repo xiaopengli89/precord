@@ -475,6 +475,8 @@ impl FrameRateRunner {
                     pid
                 ));
             }
+
+            methods.push(format!("objc{}:CAContext:-contextId:entry", pid));
         }
         let mut methods = methods.join(",");
         methods.push_str("{trace(pid)}");
