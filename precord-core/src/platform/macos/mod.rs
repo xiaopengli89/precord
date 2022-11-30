@@ -30,7 +30,8 @@ struct PowerMetricsResult {
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct Task {
-    pid: Pid,
+    // Maybe negative
+    pid: i32,
     #[serde(default)]
     gputime_ms_per_s: f32,
 }
