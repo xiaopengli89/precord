@@ -177,7 +177,7 @@ fn main() {
     let mut prompt = CommandPrompt::new();
 
     if let Some(prompt) = &mut prompt {
-        if !utils::overwrite_detect(&outputs, prompt) {
+        if !opts.force_overwrite && !utils::overwrite_detect(&outputs, prompt) {
             return;
         }
     }
@@ -272,6 +272,21 @@ fn main() {
             end_time = opts
                 .time
                 .map(|d| chrono::Local::now() + chrono::Duration::from_std(*d).unwrap());
+        } else if let Some(auto_save) = opts.auto_save {
+            if i as u64 % auto_save == 0 {
+                write_result(
+                    &proc_category,
+                    &sys_category,
+                    &timestamps,
+                    &processes,
+                    &cpu_info,
+                    cpu_frequency_max,
+                    &physical_cpu_info,
+                    cpu_temperature_max,
+                    &gpu_info,
+                    &outputs,
+                );
+            }
         }
 
         // Process

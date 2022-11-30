@@ -33,6 +33,12 @@ pub struct Opts {
     pub skip: usize,
     #[arg(long, value_enum, default_value = "max")]
     pub gpu_calc: GpuCalculation,
+    /// Force overwrite
+    #[arg(short)]
+    pub force_overwrite: bool,
+    /// Interval of auto saving
+    #[arg(long)]
+    pub auto_save: Option<u64>,
 }
 
 impl Opts {
