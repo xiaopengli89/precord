@@ -33,9 +33,9 @@ pub struct Opts {
     pub skip: usize,
     #[arg(long, value_enum, default_value = "max")]
     pub gpu_calc: GpuCalculation,
-    /// Force overwrite
-    #[arg(short)]
-    pub force_overwrite: bool,
+    /// Interactive mode
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+    pub interactive: bool,
     /// Interval of auto saving
     #[arg(long)]
     pub auto_save: Option<u64>,

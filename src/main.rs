@@ -174,10 +174,14 @@ fn main() {
         }
     };
 
-    let mut prompt = CommandPrompt::new();
+    let mut prompt = None;
+
+    if opts.interactive {
+        prompt = CommandPrompt::new();
+    }
 
     if let Some(prompt) = &mut prompt {
-        if !opts.force_overwrite && !utils::overwrite_detect(&outputs, prompt) {
+        if !utils::overwrite_detect(&outputs, prompt) {
             return;
         }
     }
