@@ -32,44 +32,25 @@ impl ProcessInfo {
     }
 }
 
-pub struct CpuInfo {
-    pub freq: Vec<f32>,
+#[derive(Default, Clone)]
+pub struct SystemMetrics {
+    pub rows: Vec<Vec<f32>>,
 }
 
-impl CpuInfo {
-    pub fn freq_avg(&self) -> f32 {
-        if self.freq.is_empty() {
-            0.0
+impl SystemMetrics {
+    pub fn row_avg(&self, index: usize) -> Option<f32> {
+        let row = self.rows.get(index)?;
+        if row.is_empty() {
+            None
         } else {
-            self.freq.iter().sum::<f32>() / (self.freq.len() as f32)
+            Some(row.iter().sum::<f32>() / (row.len() as f32))
         }
     }
-}
 
-pub struct PhysicalCpuInfo {
-    pub temp: Vec<f32>,
-}
-
-impl PhysicalCpuInfo {
-    pub fn temp_avg(&self) -> f32 {
-        if self.temp.is_empty() {
-            0.0
-        } else {
-            self.temp.iter().sum::<f32>() / (self.temp.len() as f32)
-        }
-    }
-}
-
-pub struct GpuInfo {
-    pub usage: Vec<f32>,
-}
-
-impl GpuInfo {
-    pub fn usage_avg(&self) -> f32 {
-        if self.usage.is_empty() {
-            0.0
-        } else {
-            self.usage.iter().sum::<f32>() / (self.usage.len() as f32)
-        }
+    pub fn max(&self) -> Option<f32> {
+        self.rows
+            .iter()
+            .flat_map(|v| v.iter().copied())
+            .max_by(f32::total_cmp)
     }
 }

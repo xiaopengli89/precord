@@ -1,6 +1,5 @@
 use crate::opt::{ProcessCategory, SystemCategory};
-use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo};
+use crate::types::{ProcessInfo, SystemMetrics};
 use std::path::Path;
 
 pub fn consume<P: AsRef<Path>>(
@@ -9,9 +8,7 @@ pub fn consume<P: AsRef<Path>>(
     sys_categories: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
-    cpu_info: &[CpuInfo],
-    physical_cpu_info: &[PhysicalCpuInfo],
-    gpu_info: &[GpuInfo],
+    system_metrics: &[SystemMetrics],
 ) {
     let mut wtr = csv::WriterBuilder::new()
         .flexible(true)
@@ -42,66 +39,27 @@ pub fn consume<P: AsRef<Path>>(
     }
 
     // System
-    for &c in sys_categories {
-        match c {
-            SystemCategory::CPUFreq => {
-                // Title
-                wtr.write_field("CPUs Frequency").unwrap();
-                for i in 0..cpu_info.len() {
-                    wtr.write_field(format!("CPU{}", i)).unwrap();
-                }
-                wtr.write_record(None::<&[u8]>).unwrap();
+    for (i, &c) in sys_categories.into_iter().enumerate() {
+        let metrics = &system_metrics[i];
 
-                // Data
-                for (i, t) in timestamps.into_iter().enumerate() {
-                    // Timestamp
-                    wtr.write_field(t.to_string()).unwrap();
-                    // Process data
-                    for c in cpu_info {
-                        wtr.write_field(format!("{:.2}", c.freq[i])).unwrap();
-                    }
-                    wtr.write_record(None::<&[u8]>).unwrap();
-                }
-            }
-            SystemCategory::CPUTemp => {
-                // Title
-                wtr.write_field("CPUs Temperature").unwrap();
-                for i in 0..physical_cpu_info.len() {
-                    wtr.write_field(format!("CPU{}", i)).unwrap();
-                }
-                wtr.write_record(None::<&[u8]>).unwrap();
-
-                // Data
-                for (i, t) in timestamps.into_iter().enumerate() {
-                    // Timestamp
-                    wtr.write_field(t.to_string()).unwrap();
-                    // Process data
-                    for c in physical_cpu_info {
-                        wtr.write_field(format!("{:.2}", c.temp[i])).unwrap();
-                    }
-                    wtr.write_record(None::<&[u8]>).unwrap();
-                }
-            }
-            SystemCategory::GPU => {
-                // Title
-                wtr.write_field("System GPU Usage").unwrap();
-                for _ in 0..gpu_info.len() {
-                    wtr.write_field(format!("GPU")).unwrap();
-                }
-                wtr.write_record(None::<&[u8]>).unwrap();
-
-                // Data
-                for (i, t) in timestamps.into_iter().enumerate() {
-                    // Timestamp
-                    wtr.write_field(t.to_string()).unwrap();
-                    // Process data
-                    for c in gpu_info {
-                        wtr.write_field(format!("{:.2}", c.usage[i])).unwrap();
-                    }
-                    wtr.write_record(None::<&[u8]>).unwrap();
-                }
-            }
+        // Title
+        wtr.write_field(format!("System {:?}", c)).unwrap();
+        for i in 0..metrics.rows.len() {
+            wtr.write_field(format!("{:?}{}", c, i)).unwrap();
         }
+        wtr.write_record(None::<&[u8]>).unwrap();
+
+        // Data
+        for (i, t) in timestamps.into_iter().enumerate() {
+            // Timestamp
+            wtr.write_field(t.to_string()).unwrap();
+            // Process data
+            for row in metrics.rows.iter() {
+                wtr.write_field(format!("{:.2}", row[i])).unwrap();
+            }
+            wtr.write_record(None::<&[u8]>).unwrap();
+        }
+
         wtr.write_record([" "]).unwrap();
     }
 }

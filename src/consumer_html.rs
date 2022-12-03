@@ -1,6 +1,5 @@
 use crate::opt::{ProcessCategory, SystemCategory};
-use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo};
+use crate::types::{ProcessInfo, SystemMetrics};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
@@ -19,11 +18,7 @@ pub fn consume<P: AsRef<Path>>(
     sys_category: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
-    cpu_info: &[CpuInfo],
-    cpu_frequency_max: f32,
-    physical_cpu_info: &[PhysicalCpuInfo],
-    cpu_temperature_max: f32,
-    gpu_info: &[GpuInfo],
+    system_metrics: &[SystemMetrics],
 ) {
     if timestamps.is_empty() {
         return;
@@ -154,107 +149,37 @@ pub fn consume<P: AsRef<Path>>(
         tooltips.push(tooltip);
     }
 
-    for &sys_c in sys_category {
-        let max_value;
-        let category_title;
-        let unit;
+    for (i, &sys_c) in sys_category.into_iter().enumerate() {
+        let metrics = &system_metrics[i];
+        let max_value = metrics.max().unwrap_or(0.).max(sys_c.lower_bound());
+        let category_title = format!("System {:?}", sys_c);
+        let unit = sys_c.unit();
         let mut legend_c = vec![];
         let tooltip = HashMap::new();
 
-        match sys_c {
-            SystemCategory::CPUFreq => {
-                max_value = cpu_frequency_max;
-                category_title = "CPUs Frequency(MHz)";
-                unit = "MHz";
-
-                for (si, info) in cpu_info.into_iter().enumerate() {
-                    let avg = info.freq_avg();
-                    let data: Vec<_> = info
-                        .freq
-                        .iter()
-                        .copied()
-                        .zip(timestamps.into_iter())
-                        .map(|(v, t)| json!([t, v]))
-                        .collect();
-                    let name = format!("CPU{} / AVG({:.2}{})", si, avg, unit);
-                    series.push(json!({
-                        "name": &name,
-                        "type": "line",
-                        "showSymbol": false,
-                        "xAxisIndex": grids.len(),
-                        "yAxisIndex": grids.len(),
-                        "data": data,
-                        "markLine": {
-                            "data": [{"type": "average"}],
-                        },
-                    }));
-                    legend_c.push(json!({
-                        "name": &name,
-                    }));
-                }
-            }
-            SystemCategory::CPUTemp => {
-                max_value = cpu_temperature_max;
-                category_title = "CPUs Temperature(°C)";
-                unit = "°C";
-
-                for (si, info) in physical_cpu_info.into_iter().enumerate() {
-                    let avg = info.temp_avg();
-                    let data: Vec<_> = info
-                        .temp
-                        .iter()
-                        .copied()
-                        .zip(timestamps.into_iter())
-                        .map(|(v, t)| json!([t, v]))
-                        .collect();
-                    let name = format!("CPU{} / AVG({:.2}{})", si, avg, unit);
-                    series.push(json!({
-                        "name": &name,
-                        "type": "line",
-                        "showSymbol": false,
-                        "xAxisIndex": grids.len(),
-                        "yAxisIndex": grids.len(),
-                        "data": data,
-                        "markLine": {
-                            "data": [{"type": "average"}],
-                        },
-                    }));
-                    legend_c.push(json!({
-                        "name": &name,
-                    }));
-                }
-            }
-            SystemCategory::GPU => {
-                max_value = 100.0;
-                category_title = "GPUs Usage(%)";
-                unit = "%";
-
-                for (si, info) in gpu_info.into_iter().enumerate() {
-                    let avg = info.usage_avg();
-                    let data: Vec<_> = info
-                        .usage
-                        .iter()
-                        .copied()
-                        .zip(timestamps.into_iter())
-                        .map(|(v, t)| json!([t, v]))
-                        .collect();
-                    let name = format!("GPU{} / AVG({:.2}{})", si, avg, unit);
-                    series.push(json!({
-                        "name": &name,
-                        "type": "line",
-                        "showSymbol": false,
-                        "xAxisIndex": grids.len(),
-                        "yAxisIndex": grids.len(),
-                        "data": data,
-                        "markLine": {
-                            "data": [{"type": "average"}],
-                        },
-                    }));
-                    legend_c.push(json!({
-                        "name": &name,
-                    }));
-                }
-            }
+        for (si, row) in metrics.rows.iter().enumerate() {
+            let avg = metrics.row_avg(si).unwrap_or(0.0);
+            let data: Vec<_> = row
+                .iter()
+                .copied()
+                .zip(timestamps.into_iter())
+                .map(|(v, t)| json!([t, v]))
+                .collect();
+            let name = format!("{:?}{} / AVG({:.2}{})", sys_c, si, avg, unit);
+            series.push(json!({
+                "name": &name,
+                "type": "line",
+                "showSymbol": false,
+                "xAxisIndex": grids.len(),
+                "yAxisIndex": grids.len(),
+                "data": data,
+                "markLine": {
+                    "data": [{"type": "average"}],
+                },
+            }));
+            legend_c.push(json!({
+                "name": &name,
+            }));
         }
 
         x_axis.push(json!({

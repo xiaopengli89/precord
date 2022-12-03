@@ -1,7 +1,8 @@
 use crate::opt::{ProcessCategory, SystemCategory};
-use crate::types::ProcessInfo;
-use crate::{CpuInfo, GpuInfo, PhysicalCpuInfo, Pid};
+use crate::types::{ProcessInfo, SystemMetrics};
+use crate::Pid;
 use serde::Serialize;
+use serde_with::with_prefix;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
@@ -12,9 +13,7 @@ pub fn consume<P: AsRef<Path>>(
     sys_categories: &[SystemCategory],
     timestamps: &[chrono::DateTime<chrono::Local>],
     processes: &[ProcessInfo],
-    cpu_info: &[CpuInfo],
-    physical_cpu_info: &[PhysicalCpuInfo],
-    gpu_info: &[GpuInfo],
+    system_metrics: &[SystemMetrics],
 ) {
     let file = File::create(path).unwrap();
 
@@ -44,51 +43,24 @@ pub fn consume<P: AsRef<Path>>(
     }
 
     // System
-    for &c in sys_categories {
-        match c {
-            SystemCategory::CPUFreq => {
-                for info in cpu_info {
-                    json_output.sys_cpu_freq.push(SystemRecord {
-                        records: timestamps
-                            .iter()
-                            .enumerate()
-                            .map(|(i, t)| Record {
-                                timestamp: t.to_rfc3339(),
-                                value: info.freq[i],
-                            })
-                            .collect(),
-                    });
-                }
-            }
-            SystemCategory::CPUTemp => {
-                for info in physical_cpu_info {
-                    json_output.sys_cpu_temp.push(SystemRecord {
-                        records: timestamps
-                            .iter()
-                            .enumerate()
-                            .map(|(i, t)| Record {
-                                timestamp: t.to_rfc3339(),
-                                value: info.temp[i],
-                            })
-                            .collect(),
-                    });
-                }
-            }
-            SystemCategory::GPU => {
-                for info in gpu_info {
-                    json_output.sys_gpu.push(SystemRecord {
-                        records: timestamps
-                            .iter()
-                            .enumerate()
-                            .map(|(i, t)| Record {
-                                timestamp: t.to_rfc3339(),
-                                value: info.usage[i],
-                            })
-                            .collect(),
-                    });
-                }
-            }
-        }
+    for (i, &c) in sys_categories.into_iter().enumerate() {
+        let metrics = &system_metrics[i];
+        let target: Vec<_> = metrics
+            .rows
+            .iter()
+            .map(|row| SystemRecord {
+                records: timestamps
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| Record {
+                        timestamp: t.to_rfc3339(),
+                        value: row[i],
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        json_output.sys_records.insert(c, target);
     }
 
     serde_json::to_writer(&file, &json_output).unwrap();
@@ -114,11 +86,12 @@ struct SystemRecord {
     records: Vec<Record>,
 }
 
+with_prefix!(prefix_sys "sys_");
+
 #[derive(Default, Serialize)]
 struct JsonOutput {
     #[serde(flatten)]
     process_records: HashMap<ProcessCategory, Vec<ProcessRecord>>,
-    sys_cpu_freq: Vec<SystemRecord>,
-    sys_cpu_temp: Vec<SystemRecord>,
-    sys_gpu: Vec<SystemRecord>,
+    #[serde(flatten, with = "prefix_sys")]
+    sys_records: HashMap<SystemCategory, Vec<SystemRecord>>,
 }

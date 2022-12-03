@@ -200,9 +200,9 @@ impl Category {
 
     pub fn to_system(self) -> Option<SystemCategory> {
         match self {
-            Category::SysCPUFreq => Some(SystemCategory::CPUFreq),
-            Category::SysCPUTemp => Some(SystemCategory::CPUTemp),
-            Category::SysGPU => Some(SystemCategory::GPU),
+            Category::SysCPUFreq => Some(SystemCategory::CpuFreq),
+            Category::SysCPUTemp => Some(SystemCategory::CpuTemp),
+            Category::SysGPU => Some(SystemCategory::Gpu),
             _ => None,
         }
     }
@@ -289,11 +289,48 @@ impl ProcessCategory {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum SystemCategory {
-    CPUFreq,
-    CPUTemp,
-    GPU,
+    CpuFreq,
+    CpuTemp,
+    Gpu,
+}
+
+impl SystemCategory {
+    pub fn unit(&self) -> &'static str {
+        match self {
+            Self::CpuFreq => "MHz",
+            Self::CpuTemp => "°C",
+            Self::Gpu => "%",
+        }
+    }
+
+    pub fn color(&self) -> Color {
+        match self {
+            Self::CpuFreq => Color::DarkGreen,
+            Self::CpuTemp => Color::DarkCyan,
+            Self::Gpu => Color::AnsiValue(208),
+        }
+    }
+
+    pub fn lower_bound(&self) -> f32 {
+        match self {
+            Self::CpuFreq => 1000.,
+            Self::CpuTemp => 100.,
+            Self::Gpu => 100.,
+        }
+    }
+
+    pub fn sample(&self, system: &mut System, gpu_calc: GpuCalculation) -> Vec<f32> {
+        match self {
+            Self::CpuFreq => system.cpus_frequency().unwrap(),
+            Self::CpuTemp => system.cpus_temperature().unwrap(),
+            Self::Gpu => {
+                vec![system.system_gpu_usage(gpu_calc.into()).unwrap_or(0.0)]
+            }
+        }
+    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone)]

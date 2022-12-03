@@ -1,8 +1,8 @@
 use crate::opt::{Opts, ProcessCategory, SystemCategory};
-use crate::types::{CpuInfo, GpuInfo, PhysicalCpuInfo, ProcessInfo};
+use crate::types::{ProcessInfo, SystemMetrics};
 use crate::utils::{extend_path, Command, CommandPrompt};
 use clap::Parser;
-use crossterm::style::{Color, Stylize};
+use crossterm::style::Stylize;
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fmt::Write;
@@ -34,15 +34,12 @@ fn main() {
     let sys_category: Vec<_> = opts.category.iter().flat_map(|&c| c.to_system()).collect();
 
     let mut timestamps = vec![];
-    let mut cpu_frequency_max: f32 = 1000.0;
-    let mut cpu_temperature_max: f32 = 100.0;
-    let mut physical_cpu_info: Vec<PhysicalCpuInfo> = vec![];
 
     let mut features = Features::PROCESS;
 
     if proc_category.contains(&ProcessCategory::Gpu)
         || proc_category.contains(&ProcessCategory::Vram)
-        || sys_category.contains(&SystemCategory::GPU)
+        || sys_category.contains(&SystemCategory::Gpu)
     {
         features.insert(Features::GPU);
     }
@@ -57,10 +54,10 @@ fn main() {
     if proc_category.contains(&ProcessCategory::Kobject) {
         features.insert(Features::K_OBJECT);
     }
-    if sys_category.contains(&SystemCategory::CPUFreq) {
+    if sys_category.contains(&SystemCategory::CpuFreq) {
         features.insert(Features::CPU_FREQUENCY);
     }
-    if sys_category.contains(&SystemCategory::CPUTemp) {
+    if sys_category.contains(&SystemCategory::CpuTemp) {
         features.insert(Features::SMC);
     }
 
@@ -92,8 +89,7 @@ fn main() {
     }
     let mut system = system.unwrap();
 
-    let mut cpu_info: Vec<CpuInfo> = vec![];
-    let mut gpu_info: Vec<GpuInfo> = vec![];
+    let mut system_metrics = vec![SystemMetrics::default(); sys_category.len()];
 
     let mut last_record_time = Instant::now();
 
@@ -103,11 +99,7 @@ fn main() {
                         sys_categories: &[SystemCategory],
                         timestamps: &[chrono::DateTime<chrono::Local>],
                         processes: &[ProcessInfo],
-                        cpu_info: &[CpuInfo],
-                        cpu_frequency_max: f32,
-                        physical_cpu_info: &[PhysicalCpuInfo],
-                        cpu_temperature_max: f32,
-                        gpu_info: &[GpuInfo],
+                        system_metrics: &[SystemMetrics],
                         o: &[PathBuf]| {
         for output in o.into_iter() {
             if let Some(parent) = output.parent() {
@@ -125,9 +117,7 @@ fn main() {
                         sys_categories,
                         timestamps,
                         processes,
-                        cpu_info,
-                        physical_cpu_info,
-                        gpu_info,
+                        system_metrics,
                     );
                 } else if ext == "svg" {
                     println!("Write to {}\r", output.display());
@@ -137,11 +127,7 @@ fn main() {
                         sys_categories,
                         timestamps,
                         processes,
-                        cpu_info,
-                        cpu_frequency_max,
-                        physical_cpu_info,
-                        cpu_temperature_max,
-                        gpu_info,
+                        system_metrics,
                     );
                 } else if ext == "json" {
                     println!("Write to {}\r", output.display());
@@ -151,9 +137,7 @@ fn main() {
                         sys_categories,
                         timestamps,
                         processes,
-                        cpu_info,
-                        physical_cpu_info,
-                        gpu_info,
+                        system_metrics,
                     );
                 } else if ext == "html" {
                     println!("Write to {}\r", output.display());
@@ -163,11 +147,7 @@ fn main() {
                         sys_categories,
                         timestamps,
                         processes,
-                        cpu_info,
-                        cpu_frequency_max,
-                        physical_cpu_info,
-                        cpu_temperature_max,
-                        gpu_info,
+                        system_metrics,
                     );
                 }
             }
@@ -186,14 +166,6 @@ fn main() {
         }
     }
 
-    let terminal_colors = [
-        Color::DarkGreen,
-        Color::DarkCyan,
-        Color::AnsiValue(208),
-        Color::DarkYellow,
-        Color::DarkBlue,
-        Color::DarkMagenta,
-    ];
     let mut end_time = None;
 
     for i in -(opts.skip as isize).. {
@@ -222,11 +194,7 @@ fn main() {
                             &sys_category,
                             &timestamps,
                             &processes,
-                            &cpu_info,
-                            cpu_frequency_max,
-                            &physical_cpu_info,
-                            cpu_temperature_max,
-                            &gpu_info,
+                            &system_metrics,
                             if !p.is_empty() { &p } else { &outputs },
                         );
                         command_mode = true;
@@ -239,11 +207,7 @@ fn main() {
                             &sys_category,
                             &timestamps,
                             &processes,
-                            &cpu_info,
-                            cpu_frequency_max,
-                            &physical_cpu_info,
-                            cpu_temperature_max,
-                            &gpu_info,
+                            &system_metrics,
                             if !p.is_empty() { &p } else { &outputs },
                         );
                         return;
@@ -283,11 +247,7 @@ fn main() {
                     &sys_category,
                     &timestamps,
                     &processes,
-                    &cpu_info,
-                    cpu_frequency_max,
-                    &physical_cpu_info,
-                    cpu_temperature_max,
-                    &gpu_info,
+                    &system_metrics,
                     &outputs,
                 );
             }
@@ -319,81 +279,24 @@ fn main() {
 
         // System
         for (idx, &c) in sys_category.iter().enumerate() {
-            let color = terminal_colors[idx];
-            match c {
-                SystemCategory::CPUFreq => {
-                    let cpus_frequency = system.cpus_frequency().unwrap();
+            let rows = c.sample(&mut system, opts.gpu_calc);
 
-                    println!(
-                        "CPUs Frequency: [{}]\r",
-                        cpus_frequency
-                            .iter()
-                            .map(|f| format!("{}MHz", f).with(color).to_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    );
+            println!(
+                "{:?}: [{}]\r",
+                c,
+                rows.iter()
+                    .map(|f| format!("{}{}", f, c.unit()).with(c.color()).to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            );
 
-                    if cpu_info.is_empty() {
-                        cpu_info = cpus_frequency
-                            .into_iter()
-                            .map(|f| {
-                                cpu_frequency_max = cpu_frequency_max.max(f);
-                                CpuInfo { freq: vec![f] }
-                            })
-                            .collect();
-                    } else {
-                        for (sum, f) in cpu_info.iter_mut().zip(cpus_frequency.into_iter()) {
-                            cpu_frequency_max = cpu_frequency_max.max(f);
-                            sum.freq.push(f);
-                        }
-                    }
-                }
-                SystemCategory::CPUTemp => {
-                    let cpus_temperature = system.cpus_temperature().unwrap();
+            let mut metrics = &mut system_metrics[idx];
 
-                    println!(
-                        "CPUs Temperature: [{}]\r",
-                        cpus_temperature
-                            .iter()
-                            .map(|f| format!("{}°C", f).with(color).to_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    );
-
-                    if physical_cpu_info.is_empty() {
-                        physical_cpu_info = cpus_temperature
-                            .into_iter()
-                            .map(|f| {
-                                cpu_temperature_max = cpu_temperature_max.max(f);
-                                PhysicalCpuInfo { temp: vec![f] }
-                            })
-                            .collect();
-                    } else {
-                        for (sum, f) in physical_cpu_info
-                            .iter_mut()
-                            .zip(cpus_temperature.into_iter())
-                        {
-                            cpu_temperature_max = cpu_temperature_max.max(f);
-                            sum.temp.push(f);
-                        }
-                    }
-                }
-                SystemCategory::GPU => {
-                    let sys_gpu_usage =
-                        system.system_gpu_usage(opts.gpu_calc.into()).unwrap_or(0.0);
-
-                    println!(
-                        "System GPU Usage: {}\r",
-                        format!("{}%", sys_gpu_usage).with(color)
-                    );
-
-                    if gpu_info.is_empty() {
-                        gpu_info.push(GpuInfo {
-                            usage: vec![sys_gpu_usage],
-                        });
-                    } else {
-                        gpu_info[0].usage.push(sys_gpu_usage);
-                    }
+            if metrics.rows.is_empty() {
+                metrics.rows = rows.into_iter().map(|row| vec![row]).collect();
+            } else {
+                for (row, v) in metrics.rows.iter_mut().zip(rows.into_iter()) {
+                    row.push(v);
                 }
             }
         }
@@ -433,11 +336,7 @@ fn main() {
         &sys_category,
         &timestamps,
         &processes,
-        &cpu_info,
-        cpu_frequency_max,
-        &physical_cpu_info,
-        cpu_temperature_max,
-        &gpu_info,
+        &system_metrics,
         &outputs,
     );
 }
