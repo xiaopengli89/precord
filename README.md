@@ -37,6 +37,7 @@ precord -h
   - `net_in/net_out` - Network recv/send of process
   - `disk_read/disk_write` - Disk read/write of process
   - `kobject` - Kernel object count of process
+  - `sys_cpu` - CPU usage of system
   - `sys_cpu_freq` - CPU frequency of system
   - `sys_cpu_temp` - CPU temperature of system
   - `sys_gpu` - GPU usage of system
@@ -104,6 +105,7 @@ fn main() {
 | net_in/net_out       | :white_check_mark: | :white_check_mark: |                    |
 | disk_read/disk_write | :white_check_mark: |                    |                    |
 | kobject              | :white_check_mark: | :white_check_mark: |                    |
+| sys_cpu              | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | sys_cpu_freq         | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | sys_cpu_temp         | :white_check_mark: | :white_check_mark: |                    |
 | sys_gpu              | :white_check_mark: | :white_check_mark: |                    |
@@ -120,6 +122,7 @@ fn main() {
 | net_in/net_out                                     |                                | Administrator |       |
 | disk_read/disk_write                               |                                |               |       |
 | kobject                                            |                                |               |       |
+| sys_cpu                                            |                                |               |       |
 | sys_cpu_freq                                       | Administrator                  |               |       |
 | sys_cpu_temp                                       |                                |               |       |
 | sys_gpu                                            |                                |               |       |
