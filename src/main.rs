@@ -1,6 +1,6 @@
 use crate::opt::{Opts, ProcessCategory, SystemCategory};
 use crate::types::{ProcessInfo, SystemMetrics};
-use crate::utils::{extend_path, Command, CommandPrompt};
+use crate::utils::{check_permission, extend_path, Command, CommandPrompt};
 use clap::Parser;
 use crossterm::style::Stylize;
 use precord_core::{Error, Features, Pid, System};
@@ -94,6 +94,10 @@ fn main() {
     let mut last_record_time = Instant::now();
 
     let outputs = extend_path(&path_re, opts.output);
+    if !check_permission(&outputs) {
+        println!("Permission denied");
+        return;
+    }
 
     let write_result = |proc_categories: &[ProcessCategory],
                         sys_categories: &[SystemCategory],
@@ -189,28 +193,39 @@ fn main() {
                     Command::Continue => command_mode = false,
                     Command::Write(p) => {
                         let p = extend_path(&path_re, p);
-                        write_result(
-                            &proc_category,
-                            &sys_category,
-                            &timestamps,
-                            &processes,
-                            &system_metrics,
-                            if !p.is_empty() { &p } else { &outputs },
-                        );
+                        let p = if !p.is_empty() { &p } else { &outputs };
+                        if check_permission(p) {
+                            write_result(
+                                &proc_category,
+                                &sys_category,
+                                &timestamps,
+                                &processes,
+                                &system_metrics,
+                                p,
+                            );
+                        } else {
+                            println!("Permission denied\r");
+                        }
                         command_mode = true;
                     }
                     Command::Quit => return,
                     Command::WriteThenQuit(p) => {
                         let p = extend_path(&path_re, p);
-                        write_result(
-                            &proc_category,
-                            &sys_category,
-                            &timestamps,
-                            &processes,
-                            &system_metrics,
-                            if !p.is_empty() { &p } else { &outputs },
-                        );
-                        return;
+                        let p = if !p.is_empty() { &p } else { &outputs };
+                        if check_permission(p) {
+                            write_result(
+                                &proc_category,
+                                &sys_category,
+                                &timestamps,
+                                &processes,
+                                &system_metrics,
+                                p,
+                            );
+                            return;
+                        } else {
+                            println!("Permission denied\r");
+                            command_mode = true;
+                        }
                     }
                     Command::Time(d) => {
                         end_time = Some(chrono::Local::now() + d);

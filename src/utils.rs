@@ -4,6 +4,7 @@ use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
 use regex::Regex;
+use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
@@ -234,6 +235,17 @@ pub fn extend_path(path_re: &Regex, ps: Vec<PathBuf>) -> Vec<PathBuf> {
         })
         .flatten()
         .collect()
+}
+
+pub fn check_permission(ps: &[PathBuf]) -> bool {
+    let mut opt = OpenOptions::new();
+    opt.write(true);
+    for p in ps {
+        if p.exists() && opt.open(p).is_err() {
+            return false;
+        }
+    }
+    true
 }
 
 pub fn adjust_privileges() {
