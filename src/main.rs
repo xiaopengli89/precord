@@ -285,7 +285,7 @@ fn main() {
                 "{:?}: [{}]\r",
                 c,
                 rows.iter()
-                    .map(|f| format!("{}{}", f, c.unit()).with(c.color()).to_string())
+                    .map(|f| format!("{:.2}{}", f, c.unit()).with(c.color()).to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
             );

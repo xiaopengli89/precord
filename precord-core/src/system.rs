@@ -43,7 +43,7 @@ impl System {
             last_duration: Duration::ZERO,
             features,
             sysinfo_system: None,
-            refresh_kind: sysinfo::RefreshKind::default(),
+            refresh_kind: sysinfo::RefreshKind::default().with_cpu(CpuRefreshKind::everything()),
             #[cfg(target_os = "macos")]
             command_source: None,
             #[cfg(target_os = "macos")]
@@ -73,7 +73,6 @@ impl System {
             }
         }
         if features.contains(Features::SMC) | features.contains(Features::CPU_FREQUENCY) {
-            system.refresh_kind = system.refresh_kind.with_cpu(CpuRefreshKind::everything());
             use_sysinfo_system = true;
         }
         if use_sysinfo_system {
@@ -525,6 +524,18 @@ impl System {
         {
             None
         }
+    }
+
+    pub fn system_cpu_usage(&self) -> Result<Vec<f32>, Error> {
+        let sysinfo_system = self
+            .sysinfo_system
+            .as_ref()
+            .ok_or(Error::FeatureMissing(Features::PROCESS))?;
+        Ok(sysinfo_system
+            .cpus()
+            .into_iter()
+            .map(|cpu| cpu.cpu_usage())
+            .collect())
     }
 
     #[allow(unused_variables)]
