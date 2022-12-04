@@ -1,4 +1,5 @@
 use std::ffi::c_uint;
+use std::mem;
 
 const IA32_TEMPERATURE_TARGET: c_uint = 0x1a2;
 const IA32_PACKAGE_THERM_STATUS: c_uint = 0x1b1;
@@ -18,7 +19,10 @@ impl WinRing0 {
         unsafe {
             let lib = libloading::Library::new(dll_name)?;
             let rdmsr: libloading::Symbol<Rdmsr> = lib.get(b"Rdmsr")?;
-            Ok(Self { rdmsr, lib })
+            Ok(Self {
+                rdmsr: mem::transmute(rdmsr),
+                lib,
+            })
         }
     }
 }

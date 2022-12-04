@@ -2,11 +2,10 @@ use crate::platform;
 #[cfg(target_os = "macos")]
 use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 #[cfg(target_os = "windows")]
-use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, ThermalZoneInformation, VmCounter};
+use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
-use std::mem;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
 

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod winring0;
 
 use crate::{Error, GpuCalculation, Pid};
@@ -11,8 +12,7 @@ use regex::Regex;
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::BufReader;
-use std::io::{BufRead, Write};
+use std::mem;
 use std::mem::MaybeUninit;
 use std::os::windows::io::BorrowedHandle;
 use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
@@ -21,7 +21,6 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Instant;
-use std::{mem, process};
 use windows::core::HSTRING;
 use windows::Win32::Foundation;
 use windows::Win32::System::{Performance, Threading};
@@ -37,11 +36,6 @@ pub struct ProcessorInfo {
 #[serde(rename_all = "PascalCase")]
 pub struct ThermalZoneInformation {
     pub temperature: f32,
-}
-
-struct ProcessCounter {
-    pid: Pid,
-    counter: isize,
 }
 
 #[allow(non_camel_case_types)]
