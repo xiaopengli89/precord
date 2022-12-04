@@ -6,6 +6,7 @@ use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::fmt::{self, Display, Formatter};
+use std::mem;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
 
