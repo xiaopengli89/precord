@@ -998,15 +998,6 @@ dependencies = [
 
 [[package]]
 name = "ntapi"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28774a7fd2fbb4f0babd8237ce554b73af68021b5f695a3cebd6c59bac0980f"
-dependencies = [
- "winapi",
-]
-
-[[package]]
-name = "ntapi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc51db7b362b205941f71232e56c625156eb9a929f8cf74a428fd5bc094a4afc"
@@ -1311,7 +1302,7 @@ dependencies = [
  "ferrisetw",
  "libc",
  "libloading",
- "ntapi 0.4.0",
+ "ntapi",
  "plist",
  "rand",
  "regex",
@@ -1712,14 +1703,14 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.26.2"
+version = "0.26.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ae2421f3e16b3afd4aa692d23b83d0ba42ee9b0081d5deeb7d21428d7195fb1"
+checksum = "29ddf41e393a9133c81d5f0974195366bd57082deac6e0eb02ed39b8341c2bb6"
 dependencies = [
  "cfg-if",
  "core-foundation-sys",
  "libc",
- "ntapi 0.3.7",
+ "ntapi",
  "once_cell",
  "rayon",
  "winapi",
