@@ -1,2 +1,0 @@
-$values = (Get-Counter "\GPU Engine({}*engtype_{})\Utilization Percentage").CounterSamples.CookedValue | % {{"$_"}};
-(,$values) + "EOF"
