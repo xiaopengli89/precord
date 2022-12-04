@@ -1,3 +1,5 @@
+mod winring0;
+
 use crate::{Error, GpuCalculation, Pid};
 use ferrisetw::native::etw_types::EventRecord;
 use ferrisetw::parser::{Parser, TryParse};

@@ -331,8 +331,8 @@ impl SystemCategory {
     pub fn sample(&self, system: &mut System, gpu_calc: GpuCalculation) -> Vec<f32> {
         match self {
             Self::Cpu => system.system_cpu_usage().unwrap(),
-            Self::CpuFreq => system.cpus_frequency().unwrap(),
-            Self::CpuTemp => system.cpus_temperature().unwrap(),
+            Self::CpuFreq => system.system_cpu_frequency().unwrap(),
+            Self::CpuTemp => system.system_cpu_temperature().unwrap(),
             Self::Gpu => {
                 vec![system.system_gpu_usage(gpu_calc.into()).unwrap_or(0.0)]
             }

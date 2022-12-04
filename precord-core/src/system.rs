@@ -397,7 +397,7 @@ impl System {
         }
     }
 
-    pub fn cpus_frequency(&self) -> Result<Vec<f32>, Error> {
+    pub fn system_cpu_frequency(&self) -> Result<Vec<f32>, Error> {
         #[cfg(target_os = "macos")]
         {
             Ok(self
@@ -560,7 +560,7 @@ impl System {
         }
     }
 
-    pub fn cpus_temperature(&mut self) -> Result<Vec<f32>, Error> {
+    pub fn system_cpu_temperature(&mut self) -> Result<Vec<f32>, Error> {
         #[cfg(target_os = "macos")]
         {
             let sysinfo_system = self
@@ -588,17 +588,7 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            let wmi_conn = self
-                .wmi_conn
-                .as_ref()
-                .ok_or(Error::FeatureMissing(Features::SMC))?;
-            let thermal_zone_info: Vec<ThermalZoneInformation> = wmi_conn.raw_query(
-                "Select Temperature From Win32_PerfFormattedData_Counters_ThermalZoneInformation",
-            )?;
-            Ok(thermal_zone_info
-                .into_iter()
-                .map(|p| p.temperature - 273.15)
-                .collect())
+            Err(Error::UnsupportedFeatures(Features::SMC))
         }
 
         #[cfg(target_os = "linux")]
