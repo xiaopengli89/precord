@@ -563,24 +563,24 @@ impl System {
     pub fn system_cpu_temperature(&mut self) -> Result<Vec<f32>, Error> {
         #[cfg(target_os = "macos")]
         {
-            let sysinfo_system = self
-                .sysinfo_system
-                .as_ref()
-                .ok_or(Error::FeatureMissing(Features::SMC))?;
             let smc = self
                 .smc
                 .as_ref()
                 .ok_or(Error::FeatureMissing(Features::SMC))?;
             let mut cpus_temp = vec![];
 
-            for i in 0..sysinfo_system
-                .physical_core_count()
-                .ok_or(Error::PhysicalCoreCount)?
-                + 1
-            {
-                match smc.cpu_temperature(i as _) {
-                    Ok(t) => cpus_temp.push(t as f32),
-                    Err(_) => {}
+            // From https://github.com/exelban/stats
+            for i in [
+                // Intel
+                "TC0C", "TC1C", "TC2C", "TC3C", "TC4C", "TC5C", "TC6C", "TC7C", "TC8C", "TC9C",
+                // Apple Silicon
+                "Tp09", "Tp0T", "Tp01", "Tp05", "Tp0D", "Tp0H", "Tp0L", "Tp0P", "Tp0X", "Tp0b",
+                // M2
+                "Tp0j", "Tp0r", "Tp0f", "Tp0n",
+            ] {
+                match smc.temperature(i.into()) {
+                    Ok(t) if t > 0. => cpus_temp.push(t as f32),
+                    _ => {}
                 }
             }
 
