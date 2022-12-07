@@ -276,7 +276,7 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.vm_counter.as_mut()?.process_virtual_mem(pid)
+            self.vm_counter.as_mut()?.process_alloc(pid)
         }
 
         #[cfg(target_os = "linux")]

@@ -479,7 +479,7 @@ impl VmCounter {
                             handle: OwnedHandle::from_raw_handle(handle.0 as _),
                             valid: true,
                             mem: 0,
-                            virtual_mem: 0,
+                            alloc: 0,
                         });
                     }
                     Err(_) => {
@@ -516,7 +516,7 @@ impl VmCounter {
                     );
                     if r.is_ok() {
                         p.mem = info.PrivateWorkingSetSize;
-                        p.virtual_mem = info.CountersEx.PrivateUsage;
+                        p.alloc = info.CountersEx.PrivateUsage;
                     }
                 }
             } else {
@@ -532,11 +532,11 @@ impl VmCounter {
             .map(|p| p.mem)
     }
 
-    pub fn process_virtual_mem(&mut self, pid: Pid) -> Option<usize> {
+    pub fn process_alloc(&mut self, pid: Pid) -> Option<usize> {
         self.process_counters
             .iter_mut()
             .find(|p| p.pid == pid && p.valid)
-            .map(|p| p.virtual_mem)
+            .map(|p| p.alloc)
     }
 
     pub fn process_handles(&mut self, pid: Pid) -> Option<u32> {
@@ -568,7 +568,7 @@ struct ProcessVmCounter {
     handle: OwnedHandle,
     valid: bool,
     mem: usize,
-    virtual_mem: usize,
+    alloc: usize,
 }
 
 // Source from sysinfo
