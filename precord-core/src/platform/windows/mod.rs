@@ -13,7 +13,6 @@ use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
-use std::mem::MaybeUninit;
 use std::os::windows::io::BorrowedHandle;
 use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
 use std::ptr;
@@ -507,7 +506,7 @@ impl VmCounter {
 
             if is_proc_running(p.handle.as_handle()) {
                 unsafe {
-                    let mut info: VM_COUNTERS_EX2 = MaybeUninit::uninit().assume_init();
+                    let mut info: VM_COUNTERS_EX2 = mem::zeroed();
                     let r = Threading::NtQueryInformationProcess(
                         windows_raw_handle(p.handle.as_raw_handle()),
                         Threading::PROCESSINFOCLASS(ntpsapi::ProcessVmCounters as _),

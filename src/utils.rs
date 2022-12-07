@@ -257,7 +257,6 @@ pub fn adjust_privileges() {
 mod platform_windows {
     use std::mem::{self, MaybeUninit};
     use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
-    use windows::core::HSTRING;
     use windows::Win32::System::{SystemServices, Threading};
     use windows::Win32::{Foundation, Security};
 
@@ -276,12 +275,8 @@ mod platform_windows {
             let token_handle = OwnedHandle::from_raw_handle(token_handle.0 as _);
 
             let mut luid: Foundation::LUID = MaybeUninit::uninit().assume_init();
-            if !Security::LookupPrivilegeValueW(
-                None,
-                &HSTRING::from(SystemServices::SE_DEBUG_NAME),
-                &mut luid,
-            )
-            .as_bool()
+            if !Security::LookupPrivilegeValueW(None, SystemServices::SE_DEBUG_NAME, &mut luid)
+                .as_bool()
             {
                 eprintln!("LookupPrivilegeValueW failed");
                 return;
