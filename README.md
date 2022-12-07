@@ -31,6 +31,7 @@ precord -h
 - `-c / --category` - categories for recording, possible values:
   - `cpu` - CPU usage of process
   - `mem` - Memory usage of process
+  - `alloc` - Allocation of process
   - `gpu` - GPU usage of process
   - `vram` - VRAM usage of process
   - `fps` - Frame rate of process
@@ -99,6 +100,7 @@ fn main() {
 |----------------------|--------------------|--------------------|--------------------|
 | cpu                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | mem                  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| alloc                |                    | :white_check_mark: |                    |
 | gpu                  |                    | :white_check_mark: |                    |
 | vram                 |                    | :white_check_mark: |                    |
 | fps                  | :white_check_mark: | :white_check_mark: |                    |
@@ -116,6 +118,7 @@ fn main() {
 |----------------------------------------------------|--------------------------------|---------------|-------|
 | cpu                                                |                                |               |       |
 | mem                                                |                                |               |       |
+| alloc                                              |                                |               |       |
 | gpu                                                |                                |               |       |
 | vram                                               |                                |               |       |
 | fps                                                | Administrator + get-task-allow | Administrator |       |
