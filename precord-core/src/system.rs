@@ -268,7 +268,7 @@ impl System {
         }
     }
 
-    pub fn process_virtual_mem(&mut self, pid: Pid) -> Option<usize> {
+    pub fn process_alloc(&mut self, pid: Pid) -> Option<usize> {
         #[cfg(target_os = "macos")]
         {
             None

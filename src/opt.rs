@@ -168,6 +168,7 @@ impl Opts {
 pub enum Category {
     CPU,
     Mem,
+    Alloc,
     GPU,
     Vram,
     FPS,
@@ -187,6 +188,7 @@ impl Category {
         match self {
             Category::CPU => Some(ProcessCategory::Cpu),
             Category::Mem => Some(ProcessCategory::Mem),
+            Category::Alloc => Some(ProcessCategory::Alloc),
             Category::GPU => Some(ProcessCategory::Gpu),
             Category::Vram => Some(ProcessCategory::Vram),
             Category::FPS => Some(ProcessCategory::Fps),
@@ -215,6 +217,7 @@ impl Category {
 pub enum ProcessCategory {
     Cpu,
     Mem,
+    Alloc,
     Gpu,
     Vram,
     Fps,
@@ -230,6 +233,7 @@ impl ProcessCategory {
         match self {
             Self::Cpu => "%",
             Self::Mem => "M",
+            Self::Alloc => "M",
             Self::Gpu => "%",
             Self::Vram => "M",
             Self::Fps => "",
@@ -245,6 +249,7 @@ impl ProcessCategory {
         match self {
             Self::Cpu => Color::DarkGreen,
             Self::Mem => Color::DarkCyan,
+            Self::Alloc => Color::AnsiValue(125),
             Self::Gpu => Color::AnsiValue(208),
             Self::Vram => Color::AnsiValue(64),
             Self::Fps => Color::DarkYellow,
@@ -260,6 +265,7 @@ impl ProcessCategory {
         match self {
             Self::Cpu => 100.,
             Self::Mem => 10.,
+            Self::Alloc => 10.,
             Self::Gpu => 100.,
             Self::Vram => 10.,
             Self::Fps => 60.,
@@ -275,6 +281,7 @@ impl ProcessCategory {
         match self {
             Self::Cpu => system.process_cpu_usage(pid),
             Self::Mem => system.process_mem(pid).map(|v| (v >> 10) as f32 / 1024.),
+            Self::Alloc => system.process_alloc(pid).map(|v| (v >> 10) as f32 / 1024.),
             Self::Gpu => system.process_gpu_usage(pid, gpu_calc.into()),
             Self::Vram => system
                 .process_vram(pid, gpu_calc.into())
