@@ -1706,9 +1706,9 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "smc"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2bfc98679d63f2476a7846067a12366e593e9fb970d61966020768b8f326893"
+checksum = "35c96717841966422faf1523f941f455e883f06c8ba89cd00822988921ec5f87"
 dependencies = [
  "four-char-code",
  "lazy_static",
