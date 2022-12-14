@@ -1,10 +1,11 @@
 use crate::types::ProcessInfo;
 use crate::Pid;
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use crossterm::style::Color;
-use precord_core::System;
+use precord_core::{platform, Features, System};
 use serde::Serialize;
 use std::collections::HashSet;
+use std::iter;
 use std::path::PathBuf;
 use sysinfo::{PidExt, ProcessExt, ProcessStatus, SystemExt};
 
@@ -39,6 +40,8 @@ pub struct Opts {
     /// Interval of auto saving
     #[arg(long)]
     pub auto_save: Option<u64>,
+    #[command(subcommand)]
+    pub action: Option<Action>,
 }
 
 impl Opts {
@@ -160,6 +163,39 @@ impl Opts {
         }
 
         children
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Action {
+    ThreadList { pid: Pid },
+}
+
+impl Action {
+    pub fn exec(&self) {
+        match self {
+            Self::ThreadList { pid } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let system = System::new(Features::PROCESS, iter::once(*pid)).unwrap();
+                    let name = system.process_name(*pid).unwrap();
+
+                    let mut threads = platform::macos::threads_info(*pid);
+                    threads.sort_by(|a, b| a.cpu_usage().total_cmp(&b.cpu_usage()));
+
+                    println!("{}({})", name, pid);
+
+                    let mut it = threads.into_iter().peekable();
+                    while let Some(thread) = it.next() {
+                        if it.peek().is_some() {
+                            println!("  ├──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
+                        } else {
+                            println!("  └──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

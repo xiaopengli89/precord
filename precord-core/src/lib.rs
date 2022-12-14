@@ -1,6 +1,6 @@
 pub use system::{Features, System};
 
-mod platform;
+pub mod platform;
 mod system;
 
 pub type Pid = u32;

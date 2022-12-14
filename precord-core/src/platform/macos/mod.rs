@@ -3,6 +3,7 @@ use core_foundation::base::{kCFAllocatorDefault, CFRelease, ToVoid};
 use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictionaryRef};
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
+use mach2::{kern_return, mach_types, task, traps};
 use serde::Deserialize;
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader, Cursor};
@@ -19,6 +20,7 @@ use IOKit_sys::*;
 #[allow(non_upper_case_globals)]
 mod sysctl;
 mod top;
+mod types;
 
 #[derive(Debug, Default, Deserialize)]
 struct PowerMetricsResult {
@@ -681,5 +683,61 @@ unsafe fn proc_is_translated(pid: Pid) -> bool {
         info.kp_proc.p_flag as u32 & sysctl::P_TRANSLATED == sysctl::P_TRANSLATED
     } else {
         false
+    }
+}
+
+pub fn threads_info(pid: Pid) -> Vec<types::ThreadInfo> {
+    unsafe {
+        let mut task = 0;
+        let mut r = traps::task_for_pid(traps::mach_task_self(), pid as _, &mut task);
+        if r != kern_return::KERN_SUCCESS {
+            return vec![];
+        }
+        let task = types::MachPort::from_raw(task);
+
+        let mut threads_raw = ptr::null_mut();
+        let mut count = 0;
+        r = task::task_threads(task.as_raw(), &mut threads_raw, &mut count);
+        assert_eq!(r, kern_return::KERN_SUCCESS);
+
+        let mut threads = Vec::with_capacity(count as _);
+        for i in 0..count {
+            let threads_raw = threads_raw.add(i as _);
+            threads.push(types::ThreadInfo {
+                id_info: mem::zeroed(),
+                basic_info: mem::zeroed(),
+                port: types::MachPort::from_raw(*threads_raw),
+            });
+        }
+
+        r = libc::vm_deallocate(
+            traps::mach_task_self(),
+            threads_raw as _,
+            count as libc::vm_size_t
+                * mem::size_of::<mach_types::thread_act_t>() as libc::vm_size_t,
+        );
+        assert_eq!(r, kern_return::KERN_SUCCESS);
+
+        for thread in threads.iter_mut() {
+            let mut id_size = libc::THREAD_IDENTIFIER_INFO_COUNT;
+            r = libc::thread_info(
+                thread.port.as_raw(),
+                libc::THREAD_IDENTIFIER_INFO as _,
+                &mut thread.id_info as libc::thread_identifier_info_t as *mut _,
+                &mut id_size,
+            );
+            assert_eq!(r, kern_return::KERN_SUCCESS);
+
+            let mut basic_size = libc::THREAD_BASIC_INFO_COUNT;
+            r = libc::thread_info(
+                thread.port.as_raw(),
+                libc::THREAD_BASIC_INFO as _,
+                &mut thread.basic_info as libc::thread_basic_info_t as *mut _,
+                &mut basic_size,
+            );
+            assert_eq!(r, kern_return::KERN_SUCCESS);
+        }
+
+        threads
     }
 }

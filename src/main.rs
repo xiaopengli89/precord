@@ -22,6 +22,11 @@ fn main() {
     let path_re = Regex::new(r"^\{([\w,]+)}$").unwrap();
     let mut opts: Opts = Opts::parse();
 
+    if let Some(action) = opts.action {
+        action.exec();
+        return;
+    }
+
     if opts.count.is_none() && opts.time.is_none() {
         opts.count = Some(30);
     }
