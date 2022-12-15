@@ -1,6 +1,6 @@
 [package]
 name = "precord"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
 description = "Command line tool for recording process or system performance data"
@@ -35,7 +35,7 @@ version = "0.4.19"
 features = ["serde"]
 
 [dependencies.precord-core]
-version = "0.7.1"
+version = "0.7.2"
 path = "precord-core"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
