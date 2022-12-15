@@ -255,14 +255,14 @@ pub fn adjust_privileges() {
 
 #[cfg(target_os = "windows")]
 mod platform_windows {
-    use std::mem::{self, MaybeUninit};
+    use std::mem;
     use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
     use windows::Win32::System::{SystemServices, Threading};
     use windows::Win32::{Foundation, Security};
 
     pub fn adjust_privileges() {
         unsafe {
-            let mut token_handle: Foundation::HANDLE = MaybeUninit::uninit().assume_init();
+            let mut token_handle: Foundation::HANDLE = mem::zeroed();
             let r = Threading::OpenProcessToken(
                 Threading::GetCurrentProcess(),
                 Security::TOKEN_ADJUST_PRIVILEGES,
@@ -274,7 +274,7 @@ mod platform_windows {
             }
             let token_handle = OwnedHandle::from_raw_handle(token_handle.0 as _);
 
-            let mut luid: Foundation::LUID = MaybeUninit::uninit().assume_init();
+            let mut luid: Foundation::LUID = mem::zeroed();
             if !Security::LookupPrivilegeValueW(None, SystemServices::SE_DEBUG_NAME, &mut luid)
                 .as_bool()
             {
@@ -282,7 +282,7 @@ mod platform_windows {
                 return;
             }
 
-            let mut new_state: Security::TOKEN_PRIVILEGES = MaybeUninit::uninit().assume_init();
+            let mut new_state: Security::TOKEN_PRIVILEGES = mem::zeroed();
             new_state.PrivilegeCount = 1;
             new_state.Privileges[0].Luid = luid;
             new_state.Privileges[0].Attributes = Security::SE_PRIVILEGE_ENABLED;

@@ -172,30 +172,33 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn exec(&self) {
+    pub fn exec(&self) -> Result<(), precord_core::Error> {
         match self {
             Self::ThreadList { pid } => {
-                #[cfg(target_os = "macos")]
-                {
-                    let system = System::new(Features::PROCESS, iter::once(*pid)).unwrap();
-                    let name = system.process_name(*pid).unwrap();
+                let system = System::new(Features::PROCESS, iter::once(*pid)).unwrap();
+                let name = system.process_name(*pid).unwrap();
 
-                    let mut threads = platform::macos::threads_info(*pid);
-                    threads.sort_by(|a, b| a.cpu_usage().total_cmp(&b.cpu_usage()));
+                let mut threads = platform::threads_info(
+                    *pid,
+                    system.sysinfo_system().unwrap().cpus().len() as _,
+                )?;
 
-                    println!("{}({})", name, pid);
+                threads.sort_by(|a, b| a.cpu_usage().total_cmp(&b.cpu_usage()));
 
-                    let mut it = threads.into_iter().peekable();
-                    while let Some(thread) = it.next() {
-                        if it.peek().is_some() {
-                            println!("  ├──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
-                        } else {
-                            println!("  └──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
-                        }
+                println!("{}({})", name, pid);
+
+                let mut it = threads.into_iter().peekable();
+                while let Some(thread) = it.next() {
+                    if it.peek().is_some() {
+                        println!("  ├──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
+                    } else {
+                        println!("  └──Thread-{}: {:.2}%", thread.id(), thread.cpu_usage());
                     }
                 }
             }
         }
+
+        Ok(())
     }
 }
 

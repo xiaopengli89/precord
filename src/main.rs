@@ -23,7 +23,19 @@ fn main() {
     let mut opts: Opts = Opts::parse();
 
     if let Some(action) = opts.action {
-        action.exec();
+        for i in 0..2 {
+            match action.exec() {
+                Ok(_) => break,
+                Err(Error::AccessDenied) => {
+                    if i == 0 {
+                        utils::adjust_privileges();
+                    } else {
+                        panic!("{:?}", Error::AccessDenied);
+                    }
+                }
+                Err(err) => panic!("{:?}", err),
+            }
+        }
         return;
     }
 

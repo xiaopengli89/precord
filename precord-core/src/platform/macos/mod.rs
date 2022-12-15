@@ -1,4 +1,4 @@
-use crate::Pid;
+use crate::{Error, Pid};
 use core_foundation::base::{kCFAllocatorDefault, CFRelease, ToVoid};
 use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictionaryRef};
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
@@ -686,12 +686,12 @@ unsafe fn proc_is_translated(pid: Pid) -> bool {
     }
 }
 
-pub fn threads_info(pid: Pid) -> Vec<types::ThreadInfo> {
+pub fn threads_info(pid: Pid, _nb_cpus: u32) -> Result<Vec<types::ThreadInfo>, Error> {
     unsafe {
         let mut task = 0;
         let mut r = traps::task_for_pid(traps::mach_task_self(), pid as _, &mut task);
         if r != kern_return::KERN_SUCCESS {
-            return vec![];
+            return Ok(vec![]);
         }
         let task = types::MachPort::from_raw(task);
 
@@ -738,6 +738,6 @@ pub fn threads_info(pid: Pid) -> Vec<types::ThreadInfo> {
             assert_eq!(r, kern_return::KERN_SUCCESS);
         }
 
-        threads
+        Ok(threads)
     }
 }

@@ -42,4 +42,5 @@ features = [
     "Win32_Foundation",
     "Win32_System_Threading",
     "Win32_System_Performance",
+    "Win32_System_Diagnostics_ToolHelp",
 ]

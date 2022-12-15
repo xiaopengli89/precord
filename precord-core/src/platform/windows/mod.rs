@@ -1,3 +1,4 @@
+mod utils;
 #[allow(dead_code)]
 mod winring0;
 
@@ -20,6 +21,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Instant;
+pub use utils::threads_info;
 use windows::core::HSTRING;
 use windows::Win32::Foundation;
 use windows::Win32::System::{Performance, Threading};
