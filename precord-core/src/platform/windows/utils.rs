@@ -17,7 +17,7 @@ fn threads(pid: Pid) -> Vec<u32> {
             return vec![];
         };
 
-        let mut entry = mem::zeroed();
+        let mut entry: ToolHelp::THREADENTRY32 = mem::zeroed();
         entry.dwSize = mem::size_of::<ToolHelp::THREADENTRY32>() as _;
         if !ToolHelp::Thread32First(
             super::windows_raw_handle(snapshot.as_raw_handle()),
