@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, Pid};
 
 pub struct ThreadInfo;
 
