@@ -1,9 +1,9 @@
+#[cfg(target_os = "windows")]
+pub use self::windows::threads_info;
 #[cfg(target_os = "linux")]
 pub use linux::threads_info;
 #[cfg(target_os = "macos")]
 pub use macos::threads_info;
-#[cfg(target_os = "windows")]
-pub use windows::threads_info;
 
 #[cfg(target_os = "linux")]
 pub mod linux;

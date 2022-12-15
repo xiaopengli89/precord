@@ -1,5 +1,4 @@
 use crate::{Error, Pid};
-use ntapi::winapi::shared;
 use ntapi::winapi::um::winnt;
 use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::time::Duration;
@@ -19,6 +18,7 @@ fn threads(pid: Pid) -> Vec<u32> {
         };
 
         let mut entry = mem::zeroed();
+        entry.dwSize = mem::size_of::<ToolHelp::THREADENTRY32>() as _;
         if !ToolHelp::Thread32First(
             super::windows_raw_handle(snapshot.as_raw_handle()),
             &mut entry,
@@ -34,6 +34,7 @@ fn threads(pid: Pid) -> Vec<u32> {
             threads.push(entry.th32ThreadID);
         }
 
+        entry.dwSize = mem::size_of::<ToolHelp::THREADENTRY32>() as _;
         while ToolHelp::Thread32Next(
             super::windows_raw_handle(snapshot.as_raw_handle()),
             &mut entry,
@@ -43,6 +44,7 @@ fn threads(pid: Pid) -> Vec<u32> {
             if entry.th32OwnerProcessID == pid {
                 threads.push(entry.th32ThreadID);
             }
+            entry.dwSize = mem::size_of::<ToolHelp::THREADENTRY32>() as _;
         }
 
         threads
@@ -171,7 +173,7 @@ impl ThreadInfo {
     }
 }
 
-pub fn threads_info(pid: Pid, nb_cpus: u32) -> Result<Vec<types::ThreadInfo>, Error> {
+pub fn threads_info(pid: Pid, nb_cpus: u32) -> Result<Vec<ThreadInfo>, Error> {
     let mut threads_info = vec![];
     for tid in threads(pid) {
         threads_info.push(ThreadInfo::new(tid)?);
