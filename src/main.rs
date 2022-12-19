@@ -1,6 +1,5 @@
 use crate::opt::{Opts, ProcessCategory, SystemCategory};
 use crate::types::{ProcessInfo, SystemMetrics};
-use crate::utils::{check_permission, extend_path, Command, CommandPrompt};
 use clap::Parser;
 use crossterm::style::Stylize;
 use precord_core::{Error, Features, Pid, System};
@@ -110,8 +109,8 @@ fn main() {
 
     let mut last_record_time = Instant::now();
 
-    let outputs = extend_path(&path_re, opts.output);
-    if !check_permission(&outputs) {
+    let outputs = utils::extend_path(&path_re, opts.output);
+    if !utils::check_permission(&outputs) {
         println!("Permission denied");
         return;
     }
@@ -130,46 +129,54 @@ fn main() {
             }
 
             if let Some(ext) = output.extension() {
+                let swp_file = output.with_extension(utils::SWP_EXTENSION);
+                let mut valid = false;
+
                 if ext == "csv" {
-                    println!("Write to {}\r", output.display());
                     consumer_csv::consume(
-                        output,
+                        &swp_file,
                         proc_categories,
                         sys_categories,
                         timestamps,
                         processes,
                         system_metrics,
                     );
+                    valid = true;
                 } else if ext == "svg" {
-                    println!("Write to {}\r", output.display());
                     consumer_svg::consume(
-                        output,
+                        &swp_file,
                         proc_categories,
                         sys_categories,
                         timestamps,
                         processes,
                         system_metrics,
                     );
+                    valid = true;
                 } else if ext == "json" {
-                    println!("Write to {}\r", output.display());
                     consumer_json::consume(
-                        output,
+                        &swp_file,
                         proc_categories,
                         sys_categories,
                         timestamps,
                         processes,
                         system_metrics,
                     );
+                    valid = true;
                 } else if ext == "html" {
-                    println!("Write to {}\r", output.display());
                     consumer_html::consume(
-                        output,
+                        &swp_file,
                         proc_categories,
                         sys_categories,
                         timestamps,
                         processes,
                         system_metrics,
                     );
+                    valid = true;
+                }
+
+                if valid {
+                    fs::rename(swp_file, output).unwrap();
+                    println!("Write to {}\r", output.display());
                 }
             }
         }
@@ -178,7 +185,7 @@ fn main() {
     let mut prompt = None;
 
     if opts.interactive {
-        prompt = CommandPrompt::new();
+        prompt = utils::CommandPrompt::new();
     }
 
     if let Some(prompt) = &mut prompt {
@@ -204,14 +211,14 @@ fn main() {
 
             if let Some(prompt) = &mut prompt {
                 match prompt.command(delay) {
-                    Command::Timeout => {
+                    utils::Command::Timeout => {
                         break;
                     }
-                    Command::Continue => command_mode = false,
-                    Command::Write(p) => {
-                        let p = extend_path(&path_re, p);
+                    utils::Command::Continue => command_mode = false,
+                    utils::Command::Write(p) => {
+                        let p = utils::extend_path(&path_re, p);
                         let p = if !p.is_empty() { &p } else { &outputs };
-                        if check_permission(p) {
+                        if utils::check_permission(p) {
                             write_result(
                                 &proc_category,
                                 &sys_category,
@@ -225,11 +232,11 @@ fn main() {
                         }
                         command_mode = true;
                     }
-                    Command::Quit => return,
-                    Command::WriteThenQuit(p) => {
-                        let p = extend_path(&path_re, p);
+                    utils::Command::Quit => return,
+                    utils::Command::WriteThenQuit(p) => {
+                        let p = utils::extend_path(&path_re, p);
                         let p = if !p.is_empty() { &p } else { &outputs };
-                        if check_permission(p) {
+                        if utils::check_permission(p) {
                             write_result(
                                 &proc_category,
                                 &sys_category,
@@ -244,13 +251,14 @@ fn main() {
                             command_mode = true;
                         }
                     }
-                    Command::Time(d) => {
+                    utils::Command::Time(d) => {
                         end_time = Some(chrono::Local::now() + d);
                         opts.count = None;
                     }
-                    Command::Yes | Command::No | Command::Empty | Command::Unknown => {
-                        command_mode = true
-                    }
+                    utils::Command::Yes
+                    | utils::Command::No
+                    | utils::Command::Empty
+                    | utils::Command::Unknown => command_mode = true,
                 }
             } else if let Some(delay) = delay {
                 thread::sleep(delay);

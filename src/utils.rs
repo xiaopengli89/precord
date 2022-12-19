@@ -10,6 +10,8 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 use std::{io, thread};
 
+pub const SWP_EXTENSION: &str = "swp";
+
 #[allow(dead_code)]
 pub fn drain_filter_vec<T>(input: &mut Vec<T>, mut filter: impl FnMut(&mut T) -> bool) -> Vec<T> {
     let mut output = vec![];
@@ -241,6 +243,11 @@ pub fn check_permission(ps: &[PathBuf]) -> bool {
     let mut opt = OpenOptions::new();
     opt.write(true);
     for p in ps {
+        let swp_file = p.with_extension(SWP_EXTENSION);
+        if swp_file.exists() && opt.open(swp_file).is_err() {
+            return false;
+        }
+
         if p.exists() && opt.open(p).is_err() {
             return false;
         }
