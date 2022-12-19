@@ -65,6 +65,10 @@ Type `:` during recording will enter the command mode, and press `Esc` will back
 - `wq` - Combination of `w` and `q` 
 - `time` - modify time limit for recording
 
+### Sub Commands
+
+- `thread-list <PID>` - List threads and cpu usage
+
 ## precord-core
 
 A library for retrieving process and system performance data.
