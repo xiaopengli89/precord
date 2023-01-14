@@ -3,10 +3,10 @@ mod utils;
 mod winring0;
 
 use crate::{Error, GpuCalculation, Pid};
-use ferrisetw::native::etw_types::EventRecord;
-use ferrisetw::parser::{Parser, TryParse};
+use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
-use ferrisetw::trace::{TraceBaseTrait, TraceTrait, UserTrace};
+use ferrisetw::trace::UserTrace;
+use ferrisetw::{EventRecord, SchemaLocator};
 use ntapi::ntpsapi;
 use rand::Rng;
 use regex::Regex;
@@ -278,43 +278,40 @@ impl EtwTrace {
             .enumerate()
             {
                 let handler = handler.clone();
-                let provider = Provider::new()
-                    .by_guid(provider_guid.guid)
-                    .add_callback(move |record: EventRecord, schema_locator| {
+                let provider = Provider::by_guid(provider_guid.guid)
+                    .add_callback(move |record, schema_locator| {
                         // Issue: https://github.com/n4r1b/ferrisetw/issues/26
                         match schema_locator.event_schema(record) {
                             Ok(schema) => {
                                 if schema.provider_name() == provider_guid.name
-                                    && provider_guid.present_event_id.contains(&schema.event_id())
+                                    && provider_guid.present_event_id.contains(&record.event_id())
                                 {
                                     let mut guard = handler.write().unwrap();
-                                    guard.add_present(index, schema.process_id());
+                                    guard.add_present(index, record.process_id());
                                 }
                             }
                             Err(_) => {}
                         };
                     })
-                    .build()
-                    .unwrap();
+                    .build();
                 trace = trace.enable(provider);
             }
         }
 
         if tcp_ip {
             let handler = handler.clone();
-            let provider = Provider::new()
-                .by_guid("7DD42A49-5329-4832-8DFD-43D979153A88") // Microsoft-Windows-Kernel-Network
-                .add_callback(move |record: EventRecord, schema_locator| {
+            let provider = Provider::by_guid("7DD42A49-5329-4832-8DFD-43D979153A88") // Microsoft-Windows-Kernel-Network
+                .add_callback(move |record, schema_locator| {
                     match schema_locator.event_schema(record) {
                         Ok(schema) => {
                             if schema.provider_name() == "Microsoft-Windows-Kernel-Network" {
-                                match schema.event_id() {
+                                match record.event_id() {
                                     // https://github.com/repnz/etw-providers-docs/blob/master/Manifests-Win10-17134/Microsoft-Windows-Kernel-Network.xml
                                     10 | 26 | 42 | 58 => {
-                                        let mut parser = Parser::create(&schema);
+                                        let parser = Parser::create(record, &schema);
                                         match (
-                                            TryParse::<u32>::try_parse(&mut parser, "PID"),
-                                            TryParse::<u32>::try_parse(&mut parser, "size"),
+                                            parser.try_parse::<u32>("PID"),
+                                            parser.try_parse::<u32>("size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
                                                 let mut guard = handler.write().unwrap();
@@ -324,10 +321,10 @@ impl EtwTrace {
                                         }
                                     }
                                     11 | 27 | 43 | 59 => {
-                                        let mut parser = Parser::create(&schema);
+                                        let parser = Parser::create(record, &schema);
                                         match (
-                                            TryParse::<u32>::try_parse(&mut parser, "PID"),
-                                            TryParse::<u32>::try_parse(&mut parser, "size"),
+                                            parser.try_parse::<u32>("PID"),
+                                            parser.try_parse::<u32>("size"),
                                         ) {
                                             (Ok(pid), Ok(bytes)) => {
                                                 let mut guard = handler.write().unwrap();
@@ -343,8 +340,7 @@ impl EtwTrace {
                         Err(_) => {}
                     };
                 })
-                .build()
-                .unwrap();
+                .build();
             trace = trace.enable(provider);
         }
 
