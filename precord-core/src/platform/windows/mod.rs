@@ -6,7 +6,6 @@ use crate::{Error, GpuCalculation, Pid};
 use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::UserTrace;
-use ferrisetw::{EventRecord, SchemaLocator};
 use ntapi::ntpsapi;
 use rand::Rng;
 use regex::Regex;
@@ -17,9 +16,7 @@ use std::mem;
 use std::os::windows::io::BorrowedHandle;
 use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
 use std::ptr;
-use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::Instant;
 pub use utils::threads_info;
 use windows::core::HSTRING;
@@ -233,7 +230,7 @@ struct EtwProvider {
 pub struct EtwTrace {
     last_update: Instant,
     handler: Arc<RwLock<EtwTraceHandler>>,
-    _trace_guard: Receiver<()>,
+    _trace_guard: UserTrace,
 }
 
 impl EtwTrace {
@@ -344,27 +341,14 @@ impl EtwTrace {
             trace = trace.enable(provider);
         }
 
-        let (tx, rx) = mpsc::sync_channel(0);
-        thread::spawn(move || {
-            match trace.start() {
-                Ok(_trace) => {
-                    // Success signal
-                    let _ = tx.send(());
-                    // Block here
-                    let _ = tx.send(());
-                }
-                Err(_err) => {}
-            }
-        });
-
-        if rx.recv().is_err() {
+        let Ok(trace_guard) = trace.start_and_process() else {
             return Err(Error::Etw);
-        }
+        };
 
         Ok(Self {
             last_update: Instant::now(),
             handler,
-            _trace_guard: rx,
+            _trace_guard: trace_guard,
         })
     }
 
