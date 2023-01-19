@@ -84,7 +84,10 @@ impl System {
         if features.contains(Features::GPU) {
             #[cfg(target_os = "macos")]
             {
-                system.ioreg = Some(IOKitRegistry::new());
+                system.ioreg = Some(IOKitRegistry::new(
+                    features.contains(Features::GPU),
+                    features.contains(Features::POWER),
+                ));
             }
             #[cfg(target_os = "windows")]
             {
@@ -180,6 +183,18 @@ impl System {
             }
         }
 
+        if features.contains(Features::POWER) {
+            #[cfg(target_os = "macos")]
+            {
+                system.ioreg = Some(system.ioreg.unwrap_or_else(|| {
+                    IOKitRegistry::new(
+                        features.contains(Features::GPU),
+                        features.contains(Features::POWER),
+                    )
+                }));
+            }
+        }
+
         Ok(system)
     }
 
@@ -206,7 +221,7 @@ impl System {
 
         #[cfg(target_os = "macos")]
         if let Some(ioreg) = &mut self.ioreg {
-            ioreg.poll();
+            ioreg.update();
         }
 
         #[cfg(target_os = "windows")]
@@ -596,6 +611,26 @@ impl System {
             Err(Error::UnsupportedFeatures(Features::SMC))
         }
     }
+
+    pub fn system_power(&self) -> Result<u32, Error> {
+        #[cfg(target_os = "macos")]
+        {
+            Ok(self
+                .ioreg
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::POWER))?
+                .sys_power())
+        }
+        #[cfg(target_os = "windows")]
+        {
+            Err(Error::UnsupportedFeatures(Features::POWER))
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            Err(Error::UnsupportedFeatures(Features::POWER))
+        }
+    }
 }
 
 bitflags! {
@@ -608,6 +643,7 @@ bitflags! {
         const SMC =             1 << 4;
         const NET_TRAFFIC =     1 << 5;
         const K_OBJECT =        1 << 6;
+        const POWER =           1 << 7;
     }
 }
 

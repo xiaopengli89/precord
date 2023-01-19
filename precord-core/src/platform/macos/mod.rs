@@ -1,7 +1,7 @@
 use crate::{Error, Pid};
 use core_foundation::base::{kCFAllocatorDefault, CFRelease, ToVoid};
 use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictionaryRef};
-use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
+use core_foundation::number::{kCFNumberCharType, kCFNumberIntType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
 use mach2::{kern_return, mach_types, task, traps};
 use serde::Deserialize;
@@ -229,17 +229,96 @@ struct Core {
 }
 
 pub struct IOKitRegistry {
+    gpu: bool,
+    power: bool,
     last_result: Vec<IOKitResult>,
+    system_energy_consumed: u32,
 }
 
 impl IOKitRegistry {
-    pub fn new() -> Self {
+    pub fn new(gpu: bool, power: bool) -> Self {
         Self {
+            gpu,
+            power,
             last_result: vec![],
+            system_energy_consumed: 0,
         }
     }
 
-    pub fn poll(&mut self) {
+    pub fn update(&mut self) {
+        if self.gpu {
+            self.update_gpu();
+        }
+        if self.power {
+            self.update_power();
+        }
+    }
+
+    fn update_power(&mut self) {
+        unsafe {
+            let battery = IOServiceGetMatchingService(
+                kIOMasterPortDefault,
+                IOServiceMatching("AppleSmartBattery\0".as_ptr() as _),
+            );
+            if battery == 0 {
+                return;
+            }
+
+            let mut props: CFMutableDictionaryRef = ptr::null_mut();
+            if IORegistryEntryCreateCFProperties(
+                battery,
+                mem::transmute(&mut props),
+                mem::transmute(kCFAllocatorDefault),
+                0,
+            ) != kIOReturnSuccess
+            {
+                IOObjectRelease(battery);
+                return;
+            }
+
+            let mut power_telemetry_data: CFMutableDictionaryRef = ptr::null_mut();
+            if CFDictionaryGetValueIfPresent(
+                props,
+                CFString::new("PowerTelemetryData").to_void(),
+                mem::transmute(&mut power_telemetry_data),
+            ) == 0
+            {
+                CFRelease(props.to_void());
+                IOObjectRelease(battery);
+                return;
+            }
+
+            let mut system_energy_consumed: CFNumberRef = ptr::null_mut();
+            if CFDictionaryGetValueIfPresent(
+                power_telemetry_data,
+                CFString::new("SystemEnergyConsumed").to_void(),
+                mem::transmute(&mut system_energy_consumed),
+            ) == 0
+            {
+                CFRelease(props.to_void());
+                IOObjectRelease(battery);
+                return;
+            }
+
+            let mut system_energy_consumed_typed: u32 = 0;
+            if !CFNumberGetValue(
+                system_energy_consumed,
+                kCFNumberIntType,
+                mem::transmute(&mut system_energy_consumed_typed),
+            ) {
+                CFRelease(props.to_void());
+                IOObjectRelease(battery);
+                return;
+            }
+
+            self.system_energy_consumed = system_energy_consumed_typed;
+
+            CFRelease(props.to_void());
+            IOObjectRelease(battery);
+        }
+    }
+
+    fn update_gpu(&mut self) {
         self.last_result.clear();
 
         unsafe {
@@ -312,6 +391,10 @@ impl IOKitRegistry {
             max = max.max(r.performance_statistics.device_utilization);
         }
         max
+    }
+
+    pub fn sys_power(&self) -> u32 {
+        self.system_energy_consumed
     }
 }
 

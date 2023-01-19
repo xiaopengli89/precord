@@ -220,6 +220,7 @@ pub enum Category {
     SysCPUFreq,
     SysCPUTemp,
     SysGPU,
+    SysPower,
 }
 
 impl Category {
@@ -246,6 +247,7 @@ impl Category {
             Category::SysCPUFreq => Some(SystemCategory::CpuFreq),
             Category::SysCPUTemp => Some(SystemCategory::CpuTemp),
             Category::SysGPU => Some(SystemCategory::Gpu),
+            Category::SysPower => Some(SystemCategory::Power),
             _ => None,
         }
     }
@@ -344,6 +346,7 @@ pub enum SystemCategory {
     CpuFreq,
     CpuTemp,
     Gpu,
+    Power,
 }
 
 impl SystemCategory {
@@ -353,6 +356,7 @@ impl SystemCategory {
             Self::CpuFreq => "MHz",
             Self::CpuTemp => "°C",
             Self::Gpu => "%",
+            Self::Power => "W",
         }
     }
 
@@ -362,6 +366,7 @@ impl SystemCategory {
             Self::CpuFreq => Color::DarkCyan,
             Self::CpuTemp => Color::AnsiValue(208),
             Self::Gpu => Color::AnsiValue(64),
+            Self::Power => Color::AnsiValue(78),
         }
     }
 
@@ -371,6 +376,7 @@ impl SystemCategory {
             Self::CpuFreq => 1000.,
             Self::CpuTemp => 100.,
             Self::Gpu => 100.,
+            Self::Power => 50.,
         }
     }
 
@@ -382,6 +388,10 @@ impl SystemCategory {
             Self::Gpu => {
                 vec![system.system_gpu_usage(gpu_calc.into()).unwrap_or(0.0)]
             }
+            Self::Power => vec![system
+                .system_power()
+                .map(|power| power as f32 / 1000.)
+                .unwrap_or(0.)],
         }
     }
 }

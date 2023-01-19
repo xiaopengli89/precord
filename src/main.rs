@@ -76,6 +76,9 @@ fn main() {
     if sys_category.contains(&SystemCategory::CpuTemp) {
         features.insert(Features::SMC);
     }
+    if sys_category.contains(&SystemCategory::Power) {
+        features.insert(Features::POWER);
+    }
 
     let system = System::new(Features::PROCESS, []).unwrap();
 
