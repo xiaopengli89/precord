@@ -608,12 +608,12 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            Err(Error::UnsupportedFeatures(Features::POWER))
+            Err(Error::UnsupportedFeatures(Features::SMC))
         }
 
         #[cfg(target_os = "linux")]
         {
-            Err(Error::UnsupportedFeatures(Features::POWER))
+            Err(Error::UnsupportedFeatures(Features::SMC))
         }
     }
 }
