@@ -84,10 +84,7 @@ impl System {
         if features.contains(Features::GPU) {
             #[cfg(target_os = "macos")]
             {
-                system.ioreg = Some(IOKitRegistry::new(
-                    features.contains(Features::GPU),
-                    features.contains(Features::POWER),
-                ));
+                system.ioreg = Some(IOKitRegistry::new(features.contains(Features::GPU)));
             }
             #[cfg(target_os = "windows")]
             {
@@ -178,18 +175,6 @@ impl System {
                         features.contains(Features::NET_TRAFFIC),
                         features.contains(Features::FPS),
                         features.contains(Features::K_OBJECT),
-                    )
-                }));
-            }
-        }
-
-        if features.contains(Features::POWER) {
-            #[cfg(target_os = "macos")]
-            {
-                system.ioreg = Some(system.ioreg.unwrap_or_else(|| {
-                    IOKitRegistry::new(
-                        features.contains(Features::GPU),
-                        features.contains(Features::POWER),
                     )
                 }));
             }
@@ -612,14 +597,14 @@ impl System {
         }
     }
 
-    pub fn system_power(&self) -> Result<u32, Error> {
+    pub fn system_power(&self) -> Result<f32, Error> {
         #[cfg(target_os = "macos")]
         {
-            Ok(self
-                .ioreg
+            let smc = self
+                .smc
                 .as_ref()
-                .ok_or(Error::FeatureMissing(Features::POWER))?
-                .sys_power())
+                .ok_or(Error::FeatureMissing(Features::SMC))?;
+            Ok(smc.read_key::<f32>("PSTR".into())?)
         }
         #[cfg(target_os = "windows")]
         {
@@ -643,7 +628,6 @@ bitflags! {
         const SMC =             1 << 4;
         const NET_TRAFFIC =     1 << 5;
         const K_OBJECT =        1 << 6;
-        const POWER =           1 << 7;
     }
 }
 

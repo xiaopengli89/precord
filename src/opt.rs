@@ -388,10 +388,7 @@ impl SystemCategory {
             Self::Gpu => {
                 vec![system.system_gpu_usage(gpu_calc.into()).unwrap_or(0.0)]
             }
-            Self::Power => vec![system
-                .system_power()
-                .map(|power| power as f32 / 1000.)
-                .unwrap_or(0.)],
+            Self::Power => vec![system.system_power().unwrap_or(0.)],
         }
     }
 }

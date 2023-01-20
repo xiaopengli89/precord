@@ -73,11 +73,10 @@ fn main() {
     if sys_category.contains(&SystemCategory::CpuFreq) {
         features.insert(Features::CPU_FREQUENCY);
     }
-    if sys_category.contains(&SystemCategory::CpuTemp) {
+    if sys_category.contains(&SystemCategory::CpuTemp)
+        || sys_category.contains(&SystemCategory::Power)
+    {
         features.insert(Features::SMC);
-    }
-    if sys_category.contains(&SystemCategory::Power) {
-        features.insert(Features::POWER);
     }
 
     let system = System::new(Features::PROCESS, []).unwrap();
