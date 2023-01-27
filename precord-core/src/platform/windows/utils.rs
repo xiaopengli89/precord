@@ -198,5 +198,5 @@ pub fn system_power() -> Result<f32, Error> {
         state.Rate as i32
     };
 
-    Ok(-rate.min(0) as f32)
+    Ok(-rate.min(0) as f32 / 1000.)
 }
