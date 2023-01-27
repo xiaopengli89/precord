@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/precord.svg)](https://crates.io/crates/precord)
 [![docs.rs](https://docs.rs/precord/badge.svg)](https://docs.rs/precord)
-![Minimum rustc version](https://img.shields.io/badge/rustc-1.56+-green.svg)
+![Minimum rustc version](https://img.shields.io/badge/rustc-1.64+-green.svg)
 
 Command line tool for recording process or system performance data.
 
