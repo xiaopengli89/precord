@@ -28,7 +28,7 @@ pub enum Error {
     ProcessHandle,
     #[cfg(target_os = "windows")]
     #[error("WinError: {0}")]
-    WinError(windows::core::Error),
+    WinError(#[from] windows::core::Error),
     #[error("Access denied")]
     AccessDenied,
     #[error("Etw error")]

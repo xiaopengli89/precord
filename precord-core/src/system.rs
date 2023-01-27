@@ -608,7 +608,7 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            Err(Error::UnsupportedFeatures(Features::SMC))
+            platform::windows::system_power()
         }
 
         #[cfg(target_os = "linux")]
