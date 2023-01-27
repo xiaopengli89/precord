@@ -5,6 +5,7 @@ use std::time::Duration;
 use std::{mem, ptr, thread};
 use windows::Win32::Foundation;
 use windows::Win32::System::Diagnostics::ToolHelp;
+use windows::Win32::System::Power;
 use windows::Win32::System::Threading;
 
 fn threads(pid: Pid) -> Vec<u32> {
@@ -79,11 +80,8 @@ impl ThreadInfo {
             let mut g_fuser = mem::zeroed();
 
             Threading::GetThreadTimes(raw_handle, &mut ignore, &mut ignore, &mut fsys, &mut fuser)
-                .ok()
-                .map_err(Error::WinError)?;
-            Threading::GetSystemTimes(None, Some(&mut g_fsys), Some(&mut g_fuser))
-                .ok()
-                .map_err(Error::WinError)?;
+                .ok()?;
+            Threading::GetSystemTimes(None, Some(&mut g_fsys), Some(&mut g_fuser)).ok()?;
 
             let mut sys: winnt::ULARGE_INTEGER = mem::zeroed();
             ptr::copy(&fsys, &mut sys as *mut winnt::ULARGE_INTEGER as *mut _, 1);
@@ -185,4 +183,20 @@ pub fn threads_info(pid: Pid, nb_cpus: u32) -> Result<Vec<ThreadInfo>, Error> {
         t.refresh_cpu_usage(nb_cpus);
     }
     Ok(threads_info)
+}
+
+pub fn system_power() -> Result<f32, Error> {
+    let rate = unsafe {
+        let mut state: Power::SYSTEM_BATTERY_STATE = mem::zeroed();
+        Power::CallNtPowerInformation(
+            Power::SystemBatteryState,
+            None,
+            0,
+            Some((&mut state) as *mut Power::SYSTEM_BATTERY_STATE as _),
+            mem::size_of::<Power::SYSTEM_BATTERY_STATE>() as _,
+        )?;
+        state.Rate as i32
+    };
+
+    Ok(-rate.min(0) as f32)
 }
