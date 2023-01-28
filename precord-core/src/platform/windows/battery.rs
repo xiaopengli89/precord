@@ -13,7 +13,7 @@ pub struct Battery {
 }
 
 impl Battery {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Option<Self>, Error> {
         unsafe {
             let hdev = DeviceAndDriverInstallation::SetupDiGetClassDevsW(
                 Some(&DeviceAndDriverInstallation::GUID_DEVCLASS_BATTERY),
@@ -39,7 +39,7 @@ impl Battery {
             )
             .as_bool()
             {
-                return Err(Error::WinError(windows::core::Error::from_win32()));
+                return Ok(None);
             }
 
             let mut cb_required = 0;
@@ -125,11 +125,11 @@ impl Battery {
             let mut bws: Power::BATTERY_WAIT_STATUS = mem::zeroed();
             bws.BatteryTag = bqi.BatteryTag;
 
-            Ok(Self {
+            Ok(Some(Self {
                 handle: h_battery,
                 bws,
                 relative: bi.Capabilities & Power::BATTERY_CAPACITY_RELATIVE > 0,
-            })
+            }))
         }
     }
 

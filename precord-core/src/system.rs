@@ -148,7 +148,7 @@ impl System {
                     )?);
                 }
 
-                system.battery = Some(platform::windows::Battery::new()?);
+                system.battery = platform::windows::Battery::new()?;
             }
         }
 
@@ -617,7 +617,7 @@ impl System {
             let battery = self
                 .battery
                 .as_ref()
-                .ok_or(Error::FeatureMissing(Features::SMC))?;
+                .ok_or(Error::UnsupportedFeatures(Features::SMC))?;
             battery.rate()
         }
 
