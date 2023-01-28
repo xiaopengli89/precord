@@ -1,8 +1,10 @@
+mod battery;
 mod utils;
 #[allow(dead_code)]
 mod winring0;
 
 use crate::{Error, GpuCalculation, Pid};
+pub use battery::Battery;
 use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::UserTrace;
@@ -18,7 +20,7 @@ use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandl
 use std::ptr;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-pub use utils::{system_power, threads_info};
+pub use utils::threads_info;
 use windows::core::HSTRING;
 use windows::Win32::Foundation;
 use windows::Win32::System::{Performance, Threading};

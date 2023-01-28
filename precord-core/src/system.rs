@@ -30,6 +30,8 @@ pub struct System {
     etw_trace: Option<EtwTrace>,
     #[cfg(target_os = "windows")]
     vm_counter: Option<VmCounter>,
+    #[cfg(target_os = "windows")]
+    battery: Option<platform::windows::Battery>,
 }
 
 impl System {
@@ -58,6 +60,8 @@ impl System {
             etw_trace: None,
             #[cfg(target_os = "windows")]
             vm_counter: None,
+            #[cfg(target_os = "windows")]
+            battery: None,
         };
 
         let mut use_sysinfo_system = false;
@@ -143,6 +147,8 @@ impl System {
                         platform::windows::get_com_lib().ok_or(Error::ComLib)?,
                     )?);
                 }
+
+                system.battery = Some(platform::windows::Battery::new()?);
             }
         }
 
@@ -608,7 +614,11 @@ impl System {
         }
         #[cfg(target_os = "windows")]
         {
-            platform::windows::system_power()
+            let battery = self
+                .battery
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::SMC))?;
+            battery.rate()
         }
 
         #[cfg(target_os = "linux")]
