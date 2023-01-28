@@ -3,12 +3,9 @@ use ntapi::winapi::um::winnt;
 use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::time::Duration;
 use std::{mem, ptr, thread};
-use windows::core::PCWSTR;
-use windows::Win32::Devices::DeviceAndDriverInstallation;
 use windows::Win32::Foundation;
-use windows::Win32::Storage::FileSystem;
 use windows::Win32::System::Diagnostics::ToolHelp;
-use windows::Win32::System::{Memory, Power, Threading, IO};
+use windows::Win32::System::Threading;
 
 fn threads(pid: Pid) -> Vec<u32> {
     unsafe {
@@ -185,132 +182,4 @@ pub fn threads_info(pid: Pid, nb_cpus: u32) -> Result<Vec<ThreadInfo>, Error> {
         t.refresh_cpu_usage(nb_cpus);
     }
     Ok(threads_info)
-}
-
-pub fn _system_power() -> Result<f32, Error> {
-    let rate = unsafe {
-        let mut state: Power::SYSTEM_BATTERY_STATE = mem::zeroed();
-        Power::CallNtPowerInformation(
-            Power::SystemBatteryState,
-            None,
-            0,
-            Some((&mut state) as *mut Power::SYSTEM_BATTERY_STATE as _),
-            mem::size_of::<Power::SYSTEM_BATTERY_STATE>() as _,
-        )?;
-        state.Rate as i32
-    };
-
-    Ok(-rate.min(0) as f32 / 1000.)
-}
-
-pub fn system_power() -> Result<f32, Error> {
-    let mut rate = 0.;
-
-    unsafe {
-        let hdev = DeviceAndDriverInstallation::SetupDiGetClassDevsW(
-            Some(&DeviceAndDriverInstallation::GUID_DEVCLASS_BATTERY),
-            None,
-            None,
-            DeviceAndDriverInstallation::DIGCF_PRESENT
-                | DeviceAndDriverInstallation::DIGCF_DEVICEINTERFACE,
-        )?;
-
-        if hdev.is_invalid() {
-            return Ok(0.);
-        }
-
-        let mut did: DeviceAndDriverInstallation::SP_DEVICE_INTERFACE_DATA = mem::zeroed();
-        did.cbSize = mem::size_of_val(&did) as _;
-        if DeviceAndDriverInstallation::SetupDiEnumDeviceInterfaces(
-            hdev,
-            None,
-            &DeviceAndDriverInstallation::GUID_DEVCLASS_BATTERY,
-            0,
-            &mut did,
-        )
-        .as_bool()
-        {
-            let mut cb_required = 0;
-            let mut r = DeviceAndDriverInstallation::SetupDiGetDeviceInterfaceDetailW(
-                hdev,
-                &did,
-                None,
-                0,
-                Some(&mut cb_required),
-                None,
-            )
-            .as_bool();
-            assert!(!r);
-
-            let p = Memory::LocalAlloc(Memory::LPTR, cb_required as _);
-            assert!(p > 0);
-
-            let pdidd = &mut *(p as usize
-                as *mut DeviceAndDriverInstallation::SP_DEVICE_INTERFACE_DETAIL_DATA_W);
-            pdidd.cbSize = mem::size_of_val(pdidd) as _;
-            r = DeviceAndDriverInstallation::SetupDiGetDeviceInterfaceDetailW(
-                hdev,
-                &did,
-                Some(pdidd),
-                cb_required,
-                Some(&mut cb_required),
-                None,
-            )
-            .as_bool();
-            assert!(r);
-
-            let h_battery = FileSystem::CreateFileW(
-                PCWSTR::from_raw(pdidd.DevicePath.as_ptr()),
-                FileSystem::FILE_GENERIC_READ | FileSystem::FILE_GENERIC_WRITE,
-                FileSystem::FILE_SHARE_READ | FileSystem::FILE_SHARE_WRITE,
-                None,
-                FileSystem::OPEN_EXISTING,
-                FileSystem::FILE_ATTRIBUTE_NORMAL,
-                None,
-            )
-            .unwrap();
-            let h_battery = OwnedHandle::from_raw_handle(h_battery.0 as _);
-
-            let mut bqi: Power::BATTERY_QUERY_INFORMATION = mem::zeroed();
-            let mut dw_wait = 0;
-            let mut dw_out = 0;
-
-            r = IO::DeviceIoControl(
-                super::windows_raw_handle(h_battery.as_raw_handle()),
-                Power::IOCTL_BATTERY_QUERY_TAG,
-                Some(&dw_wait as *const i32 as _),
-                mem::size_of_val(&dw_wait) as _,
-                Some(&mut bqi.BatteryTag as *mut u32 as _),
-                mem::size_of::<u32>() as _,
-                Some(&mut dw_out),
-                None,
-            )
-            .as_bool();
-            assert!(r && bqi.BatteryTag > 0);
-
-            let mut bws: Power::BATTERY_WAIT_STATUS = mem::zeroed();
-            bws.BatteryTag = bqi.BatteryTag;
-            let mut bs: Power::BATTERY_STATUS = mem::zeroed();
-            r = IO::DeviceIoControl(
-                super::windows_raw_handle(h_battery.as_raw_handle()),
-                Power::IOCTL_BATTERY_QUERY_STATUS,
-                Some(&bws as *const Power::BATTERY_WAIT_STATUS as _),
-                mem::size_of_val(&bws) as _,
-                Some(&mut bs as *mut Power::BATTERY_STATUS as _),
-                mem::size_of::<Power::BATTERY_STATUS>() as _,
-                Some(&mut dw_out),
-                None,
-            )
-            .as_bool();
-            assert!(r);
-
-            rate = -bs.Rate.min(0) as f32 / 1000.;
-
-            Memory::LocalFree(p);
-        }
-
-        DeviceAndDriverInstallation::SetupDiDestroyDeviceInfoList(hdev);
-    }
-
-    Ok(rate)
 }
