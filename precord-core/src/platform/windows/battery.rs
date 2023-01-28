@@ -9,6 +9,7 @@ use windows::Win32::System::{Memory, Power, IO};
 pub struct Battery {
     handle: OwnedHandle,
     bws: Power::BATTERY_WAIT_STATUS,
+    relative: bool,
 }
 
 impl Battery {
@@ -103,28 +104,16 @@ impl Battery {
             }
             assert!(bqi.BatteryTag > 0);
 
-            let mut bws: Power::BATTERY_WAIT_STATUS = mem::zeroed();
-            bws.BatteryTag = bqi.BatteryTag;
-
-            Ok(Self {
-                handle: h_battery,
-                bws,
-            })
-        }
-    }
-
-    pub fn rate(&self) -> Result<f32, Error> {
-        let mut rate = 0.;
-
-        unsafe {
-            let mut bs: Power::BATTERY_STATUS = mem::zeroed();
+            // Battery information
+            let mut bi: Power::BATTERY_INFORMATION = mem::zeroed();
+            bqi.InformationLevel = Power::BatteryInformation;
             if !IO::DeviceIoControl(
-                super::windows_raw_handle(self.handle.as_raw_handle()),
-                Power::IOCTL_BATTERY_QUERY_STATUS,
-                Some(&self.bws as *const Power::BATTERY_WAIT_STATUS as _),
-                mem::size_of_val(&self.bws) as _,
-                Some(&mut bs as *mut Power::BATTERY_STATUS as _),
-                mem::size_of::<Power::BATTERY_STATUS>() as _,
+                super::windows_raw_handle(h_battery.as_raw_handle()),
+                Power::IOCTL_BATTERY_QUERY_INFORMATION,
+                Some(&bqi as *const Power::BATTERY_QUERY_INFORMATION as _),
+                mem::size_of_val(&bqi) as _,
+                Some(&mut bi as *mut Power::BATTERY_INFORMATION as _),
+                mem::size_of::<Power::BATTERY_INFORMATION>() as _,
                 None,
                 None,
             )
@@ -133,8 +122,41 @@ impl Battery {
                 return Err(Error::WinError(windows::core::Error::from_win32()));
             }
 
-            if bs.Rate != Power::BATTERY_UNKNOWN_RATE as i32 {
-                rate = -bs.Rate.min(0) as f32 / 1000.;
+            let mut bws: Power::BATTERY_WAIT_STATUS = mem::zeroed();
+            bws.BatteryTag = bqi.BatteryTag;
+
+            Ok(Self {
+                handle: h_battery,
+                bws,
+                relative: bi.Capabilities & Power::BATTERY_CAPACITY_RELATIVE > 0,
+            })
+        }
+    }
+
+    pub fn rate(&self) -> Result<f32, Error> {
+        let mut rate = 0.;
+
+        if !self.relative {
+            unsafe {
+                let mut bs: Power::BATTERY_STATUS = mem::zeroed();
+                if !IO::DeviceIoControl(
+                    super::windows_raw_handle(self.handle.as_raw_handle()),
+                    Power::IOCTL_BATTERY_QUERY_STATUS,
+                    Some(&self.bws as *const Power::BATTERY_WAIT_STATUS as _),
+                    mem::size_of_val(&self.bws) as _,
+                    Some(&mut bs as *mut Power::BATTERY_STATUS as _),
+                    mem::size_of::<Power::BATTERY_STATUS>() as _,
+                    None,
+                    None,
+                )
+                .as_bool()
+                {
+                    return Err(Error::WinError(windows::core::Error::from_win32()));
+                }
+
+                if bs.Rate != Power::BATTERY_UNKNOWN_RATE as i32 {
+                    rate = -bs.Rate.min(0) as f32 / 1000.;
+                }
             }
         }
 
