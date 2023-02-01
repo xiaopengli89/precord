@@ -43,6 +43,7 @@ features = ["serde"]
 [dependencies.precord-core]
 version = "0.7.5"
 path = "precord-core"
+features = ["dtrace"]
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 workspace = true

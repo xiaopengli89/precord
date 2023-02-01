@@ -31,8 +31,12 @@ pub enum Error {
     WinError(#[from] windows::core::Error),
     #[error("Access denied")]
     AccessDenied,
+    #[cfg(target_os = "windows")]
     #[error("Etw error")]
     Etw,
+    #[cfg(all(target_os = "macos", feature = "dtrace"))]
+    #[error("Dtrace")]
+    Dtrace,
     #[error("Unsupported features: {0}")]
     UnsupportedFeatures(Features),
 }

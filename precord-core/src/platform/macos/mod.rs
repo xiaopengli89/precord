@@ -18,6 +18,14 @@ use IOKit_sys::*;
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
+#[cfg(feature = "dtrace")]
+mod dtrace;
+#[cfg(feature = "dtrace")]
+mod dtrace_executor;
+#[allow(dead_code)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
 mod sysctl;
 mod top;
 mod types;
@@ -76,9 +84,13 @@ impl CommandSource {
 
         // Frame rate
         if frame_rate && !pids.is_empty() {
-            let frame_rate = FrameRateRunner::new(tx.clone());
-            let pids = pids.clone();
-            thread::spawn(move || frame_rate.run(pids));
+            #[cfg(feature = "dtrace")]
+            match FrameRateRunner::new(tx.clone(), pids.clone()) {
+                Ok(Some(frame_rate)) => {
+                    thread::spawn(move || frame_rate.run());
+                }
+                _ => {}
+            }
         };
 
         // Top
@@ -436,16 +448,18 @@ impl NetTopRunner {
     }
 }
 
+#[cfg(feature = "dtrace")]
 struct FrameRateRunner {
     tx: Sender<ProcessCommandResult>,
+    dtrace: dtrace_executor::Dtrace,
 }
 
+#[cfg(feature = "dtrace")]
 impl FrameRateRunner {
-    fn new(tx: Sender<ProcessCommandResult>) -> Self {
-        Self { tx }
-    }
-
-    fn run<T: IntoIterator<Item = Pid>>(self, pids: T) {
+    fn new(
+        tx: Sender<ProcessCommandResult>,
+        pids: impl IntoIterator<Item = Pid>,
+    ) -> Result<Option<Self>, Error> {
         let pids: Vec<_> = if csr_allow_unrestricted_dtrace() {
             pids.into_iter()
                 .filter(|&pid| unsafe { !proc_is_translated(pid) })
@@ -461,11 +475,8 @@ impl FrameRateRunner {
         };
 
         if pids.is_empty() {
-            return;
+            return Ok(None);
         }
-
-        let mut command = Command::new("script");
-        command.args(["-q", "/dev/null", "dtrace", "-Z", "-n"]);
 
         let mut methods = vec![];
         for pid in pids {
@@ -490,57 +501,33 @@ impl FrameRateRunner {
             methods.push(format!("objc{}:CAContext:-contextId:entry", pid));
         }
         let mut methods = methods.join(",");
-        methods.push_str("{trace(pid)}");
+        methods.push_str(r#"{printf("%d\r\n",pid)}"#);
 
-        command.arg(methods);
+        let scripts = std::ffi::CString::new(methods).unwrap();
+        let executor = dtrace_executor::Dtrace::new(scripts.as_ptr())?;
 
-        let mut child = command
-            .stdin(process::Stdio::piped())
-            .stdout(process::Stdio::piped())
-            .spawn()
-            .unwrap();
+        Ok(Some(Self {
+            tx,
+            dtrace: executor,
+        }))
+    }
 
-        let mut buf = BufReader::new(child.stdout.as_mut().unwrap());
-        let mut line = String::new();
-        let mut session_index = 0;
-        while let Ok(read) = buf.read_line(&mut line) {
-            if read == 0 {
-                break;
-            }
+    fn run(self) {
+        self.dtrace.run(|s| {
+            for line in s.lines() {
+                let pid: Pid = line.parse().unwrap();
 
-            if line.starts_with("CPU") {
-                if session_index < 1 {
-                    session_index += 1;
+                if let Err(_) = self.tx.send(ProcessCommandResult {
+                    pid,
+                    frame: 1,
+                    ..Default::default()
+                }) {
+                    return false;
                 }
-                line.clear();
-                continue;
             }
 
-            if session_index < 1 {
-                line.clear();
-                continue;
-            }
-
-            let data: Vec<_> = line.split_whitespace().collect();
-            if data.len() < 4 {
-                line.clear();
-                continue;
-            }
-
-            let pid: Pid = data.last().unwrap().parse().unwrap();
-
-            if let Err(_) = self.tx.send(ProcessCommandResult {
-                pid,
-                frame: 1,
-                ..Default::default()
-            }) {
-                break;
-            }
-
-            line.clear();
-        }
-
-        let _ = child.kill();
+            true
+        });
     }
 }
 
@@ -563,6 +550,7 @@ pub fn get_pid_responsible() -> Option<extern "C" fn(libc::pid_t) -> libc::pid_t
     }
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Entitlements {
     #[serde(rename = "com.apple.security.get-task-allow")]
@@ -570,6 +558,7 @@ struct Entitlements {
     get_task_allow: bool,
 }
 
+#[allow(dead_code)]
 fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
     let mut command = Command::new("script");
     command.args([
@@ -621,8 +610,10 @@ extern "C" {
     fn csr_get_active_config(config: *mut u32) -> i32;
 }
 
+#[allow(dead_code)]
 const CSR_ALLOW_UNRESTRICTED_DTRACE: u32 = 1 << 5;
 
+#[allow(dead_code)]
 fn csr_allow_unrestricted_dtrace() -> bool {
     let mut config = 0;
     unsafe {
@@ -669,6 +660,7 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
 }
 
 // https://opensource.apple.com/source/dtrace/dtrace-370.40.1/lib/libproc/libproc.c.auto.html
+#[allow(dead_code)]
 unsafe fn proc_is_translated(pid: Pid) -> bool {
     let mut mib = [
         libc::CTL_KERN,
