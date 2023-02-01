@@ -1,7 +1,7 @@
 use super::dtrace;
 use crate::Error;
-use std::ffi::{c_char, c_int, c_void, CStr};
-use std::{mem, ptr};
+use std::ffi::{c_char, c_int, c_void};
+use std::{mem, ptr, slice};
 
 pub struct Dtrace {
     dh: *mut dtrace::dtrace_hdl_t,
@@ -63,7 +63,7 @@ impl Dtrace {
         }
     }
 
-    pub fn run(self, mut cb: impl FnMut(String) -> bool) {
+    pub fn run(self, mut cb: impl FnMut(&str) -> bool) {
         unsafe {
             let mut buf = ptr::null_mut();
             let mut size = 0;
@@ -85,8 +85,11 @@ impl Dtrace {
                     }
                     dtrace::dtrace_workstatus_t_DTRACE_WORKSTATUS_OKAY => {
                         libc::fflush(f);
-                        if let Ok(s) = CStr::from_ptr(buf).to_str() {
-                            if !cb(s.to_string()) {
+
+                        if let Ok(s) =
+                            std::str::from_utf8(slice::from_raw_parts(buf as *const u8, size))
+                        {
+                            if !cb(s) {
                                 break;
                             }
                         }
