@@ -63,12 +63,9 @@ impl ThreadInfo {
     fn new(tid: u32) -> Result<Self, Error> {
         unsafe {
             let raw_handle = Threading::OpenThread(Threading::THREAD_QUERY_INFORMATION, false, tid)
-                .map_err(|err| {
-                    if Foundation::GetLastError() == Foundation::ERROR_ACCESS_DENIED {
-                        Error::AccessDenied
-                    } else {
-                        Error::WinError(err)
-                    }
+                .map_err(|err| match Foundation::WIN32_ERROR::from_error(&err) {
+                    Some(Foundation::ERROR_ACCESS_DENIED) => Error::AccessDenied,
+                    _ => Error::WinError(err),
                 })?;
             let handle = OwnedHandle::from_raw_handle(raw_handle.0 as _);
 

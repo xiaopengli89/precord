@@ -454,7 +454,7 @@ impl VmCounter {
         };
         unsafe {
             for pid in pids {
-                let options = Threading::PROCESS_QUERY_INFORMATION | Threading::PROCESS_VM_READ;
+                let options = Threading::PROCESS_QUERY_INFORMATION;
                 let r = Threading::OpenProcess(options, false, pid);
                 match r {
                     Ok(handle) => {
@@ -466,14 +466,11 @@ impl VmCounter {
                             alloc: 0,
                         });
                     }
-                    Err(_) => {
-                        let err = if Foundation::GetLastError() == Foundation::ERROR_ACCESS_DENIED {
-                            Error::AccessDenied
-                        } else {
-                            Error::ProcessHandle
-                        };
-
-                        return Err(err);
+                    Err(err) => {
+                        return Err(match Foundation::WIN32_ERROR::from_error(&err) {
+                            Some(Foundation::ERROR_ACCESS_DENIED) => Error::AccessDenied,
+                            _ => Error::ProcessHandle,
+                        });
                     }
                 }
             }

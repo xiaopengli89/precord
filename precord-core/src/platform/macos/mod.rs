@@ -610,7 +610,6 @@ extern "C" {
     fn csr_get_active_config(config: *mut u32) -> i32;
 }
 
-#[allow(dead_code)]
 const CSR_ALLOW_UNRESTRICTED_DTRACE: u32 = 1 << 5;
 
 #[allow(dead_code)]
