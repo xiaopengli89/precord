@@ -5,7 +5,6 @@ use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
-use std::fmt::{self, Display, Formatter};
 use std::mem;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
@@ -638,55 +637,5 @@ bitflags! {
         const SMC =             1 << 4;
         const NET_TRAFFIC =     1 << 5;
         const K_OBJECT =        1 << 6;
-    }
-}
-
-impl Display for Features {
-    #[allow(unused_assignments)]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut first = true;
-
-        if self.contains(Features::PROCESS) {
-            if !first {
-                write!(f, "|")?;
-            } else {
-                first = false;
-            }
-            write!(f, "PROCESS")?;
-        }
-        if self.contains(Features::GPU) {
-            if !first {
-                write!(f, "|")?;
-            } else {
-                first = false;
-            }
-            write!(f, "GPU")?;
-        }
-        if self.contains(Features::CPU_FREQUENCY) {
-            if !first {
-                write!(f, "|")?;
-            } else {
-                first = false;
-            }
-            write!(f, "CPU_FREQUENCY")?;
-        }
-        if self.contains(Features::FPS) {
-            if !first {
-                write!(f, "|")?;
-            } else {
-                first = false;
-            }
-            write!(f, "FPS")?;
-        }
-        if self.contains(Features::SMC) {
-            if !first {
-                write!(f, "|")?;
-            } else {
-                first = false;
-            }
-            write!(f, "SMC")?;
-        }
-
-        Ok(())
     }
 }

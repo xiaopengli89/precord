@@ -7,7 +7,7 @@ pub type Pid = u32;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Feature {0} missing")]
+    #[error("Feature {0:?} missing")]
     FeatureMissing(Features),
     #[cfg(target_os = "macos")]
     #[error(transparent)]
@@ -37,7 +37,7 @@ pub enum Error {
     #[cfg(all(target_os = "macos", feature = "dtrace"))]
     #[error("Dtrace")]
     Dtrace,
-    #[error("Unsupported features: {0}")]
+    #[error("Unsupported features: {0:?}")]
     UnsupportedFeatures(Features),
 }
 
