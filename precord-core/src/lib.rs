@@ -21,7 +21,7 @@ pub enum Error {
     #[error("Can't get com library")]
     ComLib,
     #[cfg(target_os = "windows")]
-    #[error("PDH_STATUS({})", 0.0)]
+    #[error("PDH_STATUS: {}", 0.0)]
     Pdh(windows::Win32::Foundation::WIN32_ERROR),
     #[cfg(target_os = "windows")]
     #[error("Can't open process handle")]
@@ -32,8 +32,8 @@ pub enum Error {
     #[error("Access denied")]
     AccessDenied,
     #[cfg(target_os = "windows")]
-    #[error("Etw error")]
-    Etw,
+    #[error("Etw error: {0:?}")]
+    Etw(ferrisetw::trace::TraceError),
     #[cfg(all(target_os = "macos", feature = "dtrace"))]
     #[error("Dtrace")]
     Dtrace,

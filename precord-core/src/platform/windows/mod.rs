@@ -343,9 +343,7 @@ impl EtwTrace {
             trace = trace.enable(provider);
         }
 
-        let Ok(trace_guard) = trace.start_and_process() else {
-            return Err(Error::Etw);
-        };
+        let trace_guard = trace.start_and_process().map_err(Error::Etw)?;
 
         Ok(Self {
             last_update: Instant::now(),
