@@ -625,6 +625,8 @@ fn csr_allow_unrestricted_dtrace() -> bool {
 }
 
 const PROC_PIDLISTFDS: libc::c_int = 1;
+const PROC_PIDTHREADINFO: libc::c_int = 5;
+const PROC_PIDLISTTHREADS: libc::c_int = 6;
 
 #[repr(C)]
 struct proc_fd_info {
@@ -686,11 +688,65 @@ unsafe fn proc_is_translated(pid: Pid) -> bool {
 }
 
 pub fn threads_info(pid: Pid, _nb_cpus: u32) -> Result<Vec<types::ThreadInfo>, Error> {
+    match threads_info_privilege(pid) {
+        Err(Error::AccessDenied) => {}
+        r @ _ => return r,
+    }
+
+    unsafe {
+        let mut buf: Vec<u64> = Vec::with_capacity(16);
+
+        loop {
+            let actual_buf_size = libc::proc_pidinfo(
+                pid as _,
+                PROC_PIDLISTTHREADS,
+                0,
+                buf.as_mut_ptr() as _,
+                8 * buf.capacity() as libc::c_int,
+            );
+            if actual_buf_size < 0 {
+                return Ok(vec![]);
+            }
+
+            if actual_buf_size as usize >= 8 * buf.capacity() {
+                buf.reserve(buf.capacity() * 2);
+                continue;
+            }
+
+            buf.set_len(actual_buf_size as usize / 8);
+            break;
+        }
+
+        let threads: Vec<_> = buf
+            .into_iter()
+            .filter_map(|tid| {
+                let mut ti: types::proc_threadinfo = mem::zeroed();
+
+                if libc::proc_pidinfo(
+                    pid as _,
+                    PROC_PIDTHREADINFO,
+                    tid,
+                    (&mut ti) as *mut types::proc_threadinfo as _,
+                    mem::size_of::<types::proc_threadinfo>() as _,
+                ) == mem::size_of::<types::proc_threadinfo>() as _
+                {
+                    Some(types::ThreadInfo::from(ti))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(threads)
+    }
+}
+
+fn threads_info_privilege(pid: Pid) -> Result<Vec<types::ThreadInfo>, Error> {
     unsafe {
         let mut task = 0;
         let mut r = traps::task_for_pid(traps::mach_task_self(), pid as _, &mut task);
         if r != kern_return::KERN_SUCCESS {
-            return Ok(vec![]);
+            return Err(Error::AccessDenied);
         }
         let task = types::MachPort::from_raw(task);
 
@@ -702,7 +758,7 @@ pub fn threads_info(pid: Pid, _nb_cpus: u32) -> Result<Vec<types::ThreadInfo>, E
         let mut threads = Vec::with_capacity(count as _);
         for i in 0..count {
             let threads_raw = threads_raw.add(i as _);
-            threads.push(types::ThreadInfo {
+            threads.push(types::ThreadInfoPrivilege {
                 id_info: mem::zeroed(),
                 basic_info: mem::zeroed(),
                 port: types::MachPort::from_raw(*threads_raw),
@@ -717,25 +773,30 @@ pub fn threads_info(pid: Pid, _nb_cpus: u32) -> Result<Vec<types::ThreadInfo>, E
         );
         assert_eq!(r, kern_return::KERN_SUCCESS);
 
-        for thread in threads.iter_mut() {
-            let mut id_size = libc::THREAD_IDENTIFIER_INFO_COUNT;
-            r = libc::thread_info(
-                thread.port.as_raw(),
-                libc::THREAD_IDENTIFIER_INFO as _,
-                &mut thread.id_info as libc::thread_identifier_info_t as *mut _,
-                &mut id_size,
-            );
-            assert_eq!(r, kern_return::KERN_SUCCESS);
+        let threads = threads
+            .into_iter()
+            .map(|mut thread| {
+                let mut id_size = libc::THREAD_IDENTIFIER_INFO_COUNT;
+                r = libc::thread_info(
+                    thread.port.as_raw(),
+                    libc::THREAD_IDENTIFIER_INFO as _,
+                    &mut thread.id_info as libc::thread_identifier_info_t as *mut _,
+                    &mut id_size,
+                );
+                assert_eq!(r, kern_return::KERN_SUCCESS);
 
-            let mut basic_size = libc::THREAD_BASIC_INFO_COUNT;
-            r = libc::thread_info(
-                thread.port.as_raw(),
-                libc::THREAD_BASIC_INFO as _,
-                &mut thread.basic_info as libc::thread_basic_info_t as *mut _,
-                &mut basic_size,
-            );
-            assert_eq!(r, kern_return::KERN_SUCCESS);
-        }
+                let mut basic_size = libc::THREAD_BASIC_INFO_COUNT;
+                r = libc::thread_info(
+                    thread.port.as_raw(),
+                    libc::THREAD_BASIC_INFO as _,
+                    &mut thread.basic_info as libc::thread_basic_info_t as *mut _,
+                    &mut basic_size,
+                );
+                assert_eq!(r, kern_return::KERN_SUCCESS);
+
+                types::ThreadInfo::from(thread)
+            })
+            .collect();
 
         Ok(threads)
     }
