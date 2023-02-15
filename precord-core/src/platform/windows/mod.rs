@@ -63,7 +63,7 @@ impl Drop for PdhHandle {
     fn drop(&mut self) {
         unsafe {
             let _r = Performance::PdhCloseQuery(self.0);
-            debug_assert_eq!(Foundation::WIN32_ERROR(_r as _), Foundation::ERROR_SUCCESS);
+            debug_assert_eq!(_r, Performance::PDH_CSTATUS_VALID_DATA);
         }
     }
 }
@@ -123,8 +123,8 @@ impl Pdh {
 
     pub fn update(&mut self) {
         unsafe {
-            let r = Foundation::WIN32_ERROR(Performance::PdhCollectQueryData(self.query.0) as _);
-            self.update_success = r == Foundation::ERROR_SUCCESS;
+            let r = Performance::PdhCollectQueryData(self.query.0);
+            self.update_success = r == Performance::PDH_CSTATUS_VALID_DATA;
         }
     }
 
@@ -181,7 +181,7 @@ impl Pdh {
                 return Some(0.0);
             }
 
-            if Foundation::WIN32_ERROR(r as _) != Foundation::ERROR_SUCCESS {
+            if r != Performance::PDH_CSTATUS_VALID_DATA {
                 return None;
             }
 
