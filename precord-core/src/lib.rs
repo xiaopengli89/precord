@@ -21,8 +21,8 @@ pub enum Error {
     #[error("Can't get com library")]
     ComLib,
     #[cfg(target_os = "windows")]
-    #[error("PDH_STATUS: {}", 0.0)]
-    Pdh(windows::Win32::Foundation::WIN32_ERROR),
+    #[error("PDH_STATUS: {0:#X}")]
+    Pdh(u32),
     #[cfg(target_os = "windows")]
     #[error("Can't open process handle")]
     ProcessHandle,

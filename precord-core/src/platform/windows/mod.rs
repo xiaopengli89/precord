@@ -72,9 +72,8 @@ impl Pdh {
     pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
         unsafe {
             let mut query = 0;
-            let mut r =
-                Foundation::WIN32_ERROR(Performance::PdhOpenQueryW(None, 0, &mut query) as _);
-            if r != Foundation::ERROR_SUCCESS {
+            let mut r = Performance::PdhOpenQueryW(None, 0, &mut query);
+            if r != Performance::PDH_CSTATUS_VALID_DATA {
                 return Err(Error::Pdh(r));
             }
 
@@ -87,29 +86,29 @@ impl Pdh {
                 read_buffer: Default::default(),
             };
 
-            r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
+            r = Performance::PdhAddCounterW(
                 pdh.query.0,
                 &HSTRING::from("\\GPU Engine(*)\\Utilization Percentage"),
                 0,
                 &mut pdh.total_gpu_counter,
-            ) as _);
-            if r != Foundation::ERROR_SUCCESS {
+            );
+            if r != Performance::PDH_CSTATUS_VALID_DATA {
                 return Err(Error::Pdh(r));
             }
 
             // vram counter
-            r = Foundation::WIN32_ERROR(Performance::PdhAddCounterW(
+            r = Performance::PdhAddCounterW(
                 pdh.query.0,
                 &HSTRING::from("\\GPU Process Memory(*)\\Local Usage"),
                 0,
                 &mut pdh.vram_counter,
-            ) as _);
-            if r != Foundation::ERROR_SUCCESS {
+            );
+            if r != Performance::PDH_CSTATUS_VALID_DATA {
                 return Err(Error::Pdh(r));
             }
 
-            r = Foundation::WIN32_ERROR(Performance::PdhCollectQueryData(pdh.query.0) as _);
-            if r != Foundation::ERROR_SUCCESS {
+            r = Performance::PdhCollectQueryData(pdh.query.0);
+            if r != Performance::PDH_CSTATUS_VALID_DATA {
                 return Err(Error::Pdh(r));
             }
 
