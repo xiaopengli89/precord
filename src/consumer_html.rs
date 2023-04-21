@@ -71,6 +71,9 @@ pub fn consume<P: AsRef<Path>>(
                 "markLine": {
                     "data": [{"type": "average"}],
                 },
+                "emphasis": {
+                    "focus": "series",
+                },
             }));
             legend_c.push(json!({
                 "name": &name,
@@ -99,6 +102,9 @@ pub fn consume<P: AsRef<Path>>(
                 "data": data,
                 "markLine": {
                     "data": [{"type": "average"}],
+                },
+                "emphasis": {
+                    "focus": "series",
                 },
             }));
             legend_c.push(json!({
@@ -175,6 +181,9 @@ pub fn consume<P: AsRef<Path>>(
                 "data": data,
                 "markLine": {
                     "data": [{"type": "average"}],
+                },
+                "emphasis": {
+                    "focus": "series",
                 },
             }));
             legend_c.push(json!({
