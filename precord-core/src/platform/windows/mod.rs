@@ -20,7 +20,7 @@ use std::os::windows::prelude::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandl
 use std::ptr;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-pub use utils::threads_info;
+pub use utils::{threads_count, threads_info};
 use windows::core::HSTRING;
 use windows::Win32::Foundation;
 use windows::Win32::System::{Performance, Threading};
