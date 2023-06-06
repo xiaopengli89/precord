@@ -15,3 +15,7 @@ impl ThreadInfo {
 pub fn threads_info(_pid: Pid, _nb_cpus: u32) -> Result<Vec<ThreadInfo>, Error> {
     Ok(vec![])
 }
+
+pub fn threads_count(_pid: Pid) -> Option<u32> {
+    None
+}

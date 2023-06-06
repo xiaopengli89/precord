@@ -314,6 +314,10 @@ impl System {
         }
     }
 
+    pub fn process_threads(&self, pid: Pid) -> Option<u32> {
+        platform::threads_count(pid)
+    }
+
     pub fn process_disk_read(&self, pid: Pid) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {

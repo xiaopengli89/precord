@@ -332,7 +332,7 @@ fn main() {
                     .join(", ")
             );
 
-            let mut metrics = &mut system_metrics[idx];
+            let metrics = &mut system_metrics[idx];
 
             if metrics.rows.is_empty() {
                 metrics.rows = rows.into_iter().map(|row| vec![row]).collect();

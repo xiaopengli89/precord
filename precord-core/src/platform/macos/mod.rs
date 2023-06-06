@@ -801,3 +801,32 @@ fn threads_info_privilege(pid: Pid) -> Result<Vec<types::ThreadInfo>, Error> {
         Ok(threads)
     }
 }
+
+pub fn threads_count(pid: Pid) -> Option<u32> {
+    let mut buf: Vec<u64> = Vec::with_capacity(16);
+
+    unsafe {
+        loop {
+            let actual_buf_size = libc::proc_pidinfo(
+                pid as _,
+                PROC_PIDLISTTHREADS,
+                0,
+                buf.as_mut_ptr() as _,
+                8 * buf.capacity() as libc::c_int,
+            );
+            if actual_buf_size < 0 {
+                return None;
+            }
+
+            if actual_buf_size as usize >= 8 * buf.capacity() {
+                buf.reserve(buf.capacity() * 2);
+                continue;
+            }
+
+            buf.set_len(actual_buf_size as usize / 8);
+            break;
+        }
+    }
+
+    Some(buf.len() as u32)
+}

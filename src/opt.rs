@@ -216,6 +216,7 @@ pub enum Category {
     DiskRead,
     DiskWrite,
     Kobject,
+    Thread,
     SysCpu,
     SysCPUFreq,
     SysCPUTemp,
@@ -237,6 +238,7 @@ impl Category {
             Category::DiskRead => Some(ProcessCategory::DiskRead),
             Category::DiskWrite => Some(ProcessCategory::DiskWrite),
             Category::Kobject => Some(ProcessCategory::Kobject),
+            Category::Thread => Some(ProcessCategory::Thread),
             _ => None,
         }
     }
@@ -267,6 +269,7 @@ pub enum ProcessCategory {
     DiskRead,
     DiskWrite,
     Kobject,
+    Thread,
 }
 
 impl ProcessCategory {
@@ -283,6 +286,7 @@ impl ProcessCategory {
             Self::DiskRead => "KBps",
             Self::DiskWrite => "KBps",
             Self::Kobject => "",
+            Self::Thread => "",
         }
     }
 
@@ -299,6 +303,7 @@ impl ProcessCategory {
             Self::DiskRead => Color::AnsiValue(143),
             Self::DiskWrite => Color::AnsiValue(136),
             Self::Kobject => Color::AnsiValue(215),
+            Self::Thread => Color::AnsiValue(84),
         }
     }
 
@@ -315,6 +320,7 @@ impl ProcessCategory {
             Self::DiskRead => (1 << 10) as _,
             Self::DiskWrite => (1 << 10) as _,
             Self::Kobject => 100.,
+            Self::Thread => 50.,
         }
     }
 
@@ -335,6 +341,7 @@ impl ProcessCategory {
             Self::DiskRead => system.process_disk_read(pid).map(|v| v / 1024.),
             Self::DiskWrite => system.process_disk_write(pid).map(|v| v / 1024.),
             Self::Kobject => system.process_kobject(pid).map(|v| v as _),
+            Self::Thread => system.process_threads(pid).map(|v| v as _),
         }
     }
 }

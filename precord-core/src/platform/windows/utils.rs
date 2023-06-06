@@ -180,3 +180,7 @@ pub fn threads_info(pid: Pid, nb_cpus: u32) -> Result<Vec<ThreadInfo>, Error> {
     }
     Ok(threads_info)
 }
+
+pub fn threads_count(pid: Pid) -> Option<u32> {
+    Some(threads(pid).len() as u32)
+}
