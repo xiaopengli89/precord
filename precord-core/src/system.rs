@@ -5,9 +5,8 @@ use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
-use std::mem;
 use std::time::{Duration, Instant};
-use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
+use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, SystemExt};
 
 pub struct System {
     last_update: Instant,
@@ -35,7 +34,6 @@ pub struct System {
 }
 
 impl System {
-    #[allow(unused_variables)]
     pub fn new<T: IntoIterator<Item = Pid> + Clone>(
         features: Features,
         pids: T,
@@ -93,7 +91,7 @@ impl System {
             }
             #[cfg(target_os = "windows")]
             {
-                system.pdh = Some(Pdh::new(pids)?);
+                system.pdh = Some(Pdh::new()?);
             }
         }
 
@@ -251,11 +249,11 @@ impl System {
     pub fn process_mem(&mut self, pid: Pid) -> Option<usize> {
         #[cfg(target_os = "macos")]
         unsafe {
-            let mut rusage_info_data: libc::rusage_info_v2 = mem::zeroed();
+            let mut rusage_info_data: libc::rusage_info_v2 = std::mem::zeroed();
             let r = libc::proc_pid_rusage(
                 pid as _,
                 libc::RUSAGE_INFO_V2,
-                mem::transmute(&mut rusage_info_data),
+                std::mem::transmute(&mut rusage_info_data),
             );
             if r == libc::KERN_SUCCESS {
                 Some(rusage_info_data.ri_phys_footprint as usize)
@@ -266,7 +264,17 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
-            self.vm_counter.as_mut()?.process_mem(pid)
+            let r = self.vm_counter.as_mut()?.process_mem(pid);
+            if r.is_some() {
+                return r;
+            }
+
+            Some(
+                self.sysinfo_system
+                    .as_ref()?
+                    .process(sysinfo::Pid::from_u32(pid))?
+                    .memory() as _,
+            )
         }
 
         #[cfg(target_os = "linux")]
@@ -283,6 +291,7 @@ impl System {
     pub fn process_alloc(&mut self, pid: Pid) -> Option<usize> {
         #[cfg(target_os = "macos")]
         {
+            let _ = pid;
             None
         }
 
@@ -293,6 +302,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -317,6 +327,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -340,11 +351,13 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             // TODO
+            let _ = pid;
             None
         }
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -364,11 +377,13 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             // TODO
+            let _ = pid;
             None
         }
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -404,11 +419,13 @@ impl System {
 
         #[cfg(target_os = "windows")]
         {
+            let _ = pid;
             None
         }
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -445,10 +462,10 @@ impl System {
         }
     }
 
-    #[allow(unused_variables)]
     pub fn process_gpu_usage(&mut self, pid: Pid, calc: GpuCalculation) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
+            let _ = (pid, calc);
             Some(0.0)
         }
 
@@ -463,6 +480,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = (pid, calc);
             None
         }
     }
@@ -470,6 +488,7 @@ impl System {
     pub fn process_vram(&mut self, pid: Pid, calc: GpuCalculation) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
+            let _ = (pid, calc);
             None
         }
 
@@ -484,11 +503,11 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = (pid, calc);
             None
         }
     }
 
-    #[allow(unused_variables)]
     pub fn process_fps(&mut self, pid: Pid) -> f32 {
         #[cfg(target_os = "macos")]
         {
@@ -506,6 +525,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             0.
         }
     }
@@ -522,6 +542,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -538,6 +559,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = pid;
             None
         }
     }
@@ -554,10 +576,10 @@ impl System {
             .collect())
     }
 
-    #[allow(unused_variables)]
     pub fn system_gpu_usage(&mut self, calc: GpuCalculation) -> Option<f32> {
         #[cfg(target_os = "macos")]
         {
+            let _ = calc;
             Some(self.ioreg.as_ref().unwrap().sys_gpu_usage())
         }
 
@@ -572,6 +594,7 @@ impl System {
 
         #[cfg(target_os = "linux")]
         {
+            let _ = calc;
             None
         }
     }

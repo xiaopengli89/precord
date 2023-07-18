@@ -69,7 +69,7 @@ impl Drop for PdhHandle {
 }
 
 impl Pdh {
-    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         unsafe {
             let mut query = 0;
             let mut r = Performance::PdhOpenQueryW(None, 0, &mut query);

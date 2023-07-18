@@ -6,7 +6,7 @@ use core_foundation::string::CFString;
 use mach2::{kern_return, mach_types, task, traps};
 use serde::Deserialize;
 use std::ffi::c_void;
-use std::io::{BufRead, BufReader, Cursor};
+use std::io::{BufRead, BufReader};
 use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
@@ -268,8 +268,7 @@ impl IOKitRegistry {
             if IOServiceGetMatchingServices(kIOMasterPortDefault, io_acc, &mut it)
                 == kIOReturnSuccess
             {
-                #[allow(unused_assignments)]
-                let mut entry: io_registry_entry_t = 0;
+                let mut entry: io_registry_entry_t;
                 loop {
                     entry = IOIteratorNext(it);
                     if entry == 0 {
@@ -558,7 +557,7 @@ struct Entitlements {
     get_task_allow: bool,
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "dtrace")]
 fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
     let mut command = Command::new("script");
     command.args([
@@ -581,7 +580,7 @@ fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
         Err(_) => return Some(entitlements),
     };
 
-    let mut buf = Cursor::new(child.stdout);
+    let mut buf = std::io::Cursor::new(child.stdout);
     let mut line = String::new();
 
     match buf.read_line(&mut line) {
@@ -606,13 +605,15 @@ fn get_entitlements_for_pid(pid: Pid) -> Option<Entitlements> {
     Some(entitlements)
 }
 
+#[cfg(feature = "dtrace")]
 extern "C" {
     fn csr_get_active_config(config: *mut u32) -> i32;
 }
 
+#[cfg(feature = "dtrace")]
 const CSR_ALLOW_UNRESTRICTED_DTRACE: u32 = 1 << 5;
 
-#[allow(dead_code)]
+#[cfg(feature = "dtrace")]
 fn csr_allow_unrestricted_dtrace() -> bool {
     let mut config = 0;
     unsafe {
@@ -661,7 +662,7 @@ pub fn proc_fds(pid: Pid) -> Option<u32> {
 }
 
 // https://opensource.apple.com/source/dtrace/dtrace-370.40.1/lib/libproc/libproc.c.auto.html
-#[allow(dead_code)]
+#[cfg(feature = "dtrace")]
 unsafe fn proc_is_translated(pid: Pid) -> bool {
     let mut mib = [
         libc::CTL_KERN,
