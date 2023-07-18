@@ -1281,7 +1281,7 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "precord"
-version = "0.7.8"
+version = "0.7.9"
 dependencies = [
  "bitflags",
  "chrono",
@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "precord-core"
-version = "0.7.8"
+version = "0.7.9"
 dependencies = [
  "IOKit-sys",
  "bitflags",
