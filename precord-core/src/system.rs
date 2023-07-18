@@ -265,8 +265,9 @@ impl System {
         #[cfg(target_os = "windows")]
         {
             let r = self.vm_counter.as_mut()?.process_mem(pid);
-            if r.is_some() {
-                return r;
+            match r {
+                Some(0) => {}
+                _ => return r,
             }
 
             Some(
