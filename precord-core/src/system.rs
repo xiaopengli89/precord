@@ -5,6 +5,7 @@ use crate::platform::macos::{get_pid_responsible, CommandSource, IOKitRegistry};
 use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
+use std::ops::Not;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, SystemExt};
 
@@ -78,8 +79,20 @@ impl System {
         if use_sysinfo_system {
             let mut sysinfo_system = sysinfo::System::new_with_specifics(system.refresh_kind);
             sysinfo_system.refresh_specifics(system.refresh_kind);
-            for pid in &system.pids {
-                sysinfo_system.refresh_process(sysinfo::Pid::from_u32(*pid));
+            if features.contains(Features::PROCESS) {
+                #[cfg(target_os = "macos")]
+                sysinfo_system.refresh_process_ex(
+                    system
+                        .pids
+                        .iter()
+                        .map(|pid| sysinfo::Pid::from_u32(*pid))
+                        .collect::<Vec<_>>(),
+                );
+
+                #[cfg(not(target_os = "macos"))]
+                for pid in &system.pids {
+                    sysinfo_system.refresh_process(sysinfo::Pid::from_u32(*pid));
+                }
             }
             system.sysinfo_system = Some(sysinfo_system);
         }
@@ -194,7 +207,16 @@ impl System {
 
         if let Some(sysinfo_system) = &mut self.sysinfo_system {
             sysinfo_system.refresh_specifics(self.refresh_kind);
-            if self.features.contains(Features::PROCESS) {
+            if self.features.contains(Features::PROCESS) && self.pids.is_empty().not() {
+                #[cfg(target_os = "macos")]
+                sysinfo_system.refresh_process_ex(
+                    &self
+                        .pids
+                        .iter()
+                        .map(|pid| sysinfo::Pid::from_u32(*pid))
+                        .collect::<Vec<_>>(),
+                );
+                #[cfg(not(target_os = "macos"))]
                 for pid in &self.pids {
                     sysinfo_system.refresh_process(sysinfo::Pid::from_u32(*pid));
                 }
