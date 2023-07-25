@@ -12,7 +12,6 @@ pub struct System {
     last_update: Instant,
     last_duration: Duration,
     features: Features,
-    pids: Vec<Pid>,
     sysinfo_system: Option<sysinfo::System>,
     refresh_kind: sysinfo::RefreshKind,
     #[cfg(target_os = "macos")]
@@ -39,7 +38,6 @@ impl System {
         pids: T,
     ) -> Result<Self, Error> {
         let mut system = System {
-            pids: pids.clone().into_iter().collect(),
             last_update: Instant::now(),
             last_duration: Duration::ZERO,
             features,
@@ -65,6 +63,9 @@ impl System {
 
         let mut use_sysinfo_system = false;
         if features.contains(Features::PROCESS) {
+            system.refresh_kind = system
+                .refresh_kind
+                .with_processes(ProcessRefreshKind::everything());
             use_sysinfo_system = true;
 
             #[cfg(target_os = "windows")]
@@ -78,9 +79,6 @@ impl System {
         if use_sysinfo_system {
             let mut sysinfo_system = sysinfo::System::new_with_specifics(system.refresh_kind);
             sysinfo_system.refresh_specifics(system.refresh_kind);
-            for pid in &system.pids {
-                sysinfo_system.refresh_process(sysinfo::Pid::from_u32(*pid));
-            }
             system.sysinfo_system = Some(sysinfo_system);
         }
 
@@ -194,11 +192,6 @@ impl System {
 
         if let Some(sysinfo_system) = &mut self.sysinfo_system {
             sysinfo_system.refresh_specifics(self.refresh_kind);
-            if self.features.contains(Features::PROCESS) {
-                for pid in &self.pids {
-                    sysinfo_system.refresh_process(sysinfo::Pid::from_u32(*pid));
-                }
-            }
         }
 
         #[cfg(target_os = "macos")]
