@@ -629,6 +629,7 @@ const PROC_PIDLISTFDS: libc::c_int = 1;
 const PROC_PIDTHREADINFO: libc::c_int = 5;
 const PROC_PIDLISTTHREADS: libc::c_int = 6;
 
+#[allow(non_camel_case_types)]
 #[repr(C)]
 struct proc_fd_info {
     pub proc_fd: i32,

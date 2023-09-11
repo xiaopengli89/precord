@@ -60,6 +60,7 @@ impl From<ThreadInfoPrivilege> for ThreadInfo {
     }
 }
 
+#[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct proc_threadinfo {
     pub pth_user_time: u64,   /* user run time */

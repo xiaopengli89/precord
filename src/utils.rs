@@ -5,6 +5,7 @@ use crossterm::terminal::{Clear, ClearType};
 use crossterm::{execute, terminal};
 use regex::Regex;
 use std::fs::OpenOptions;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
@@ -20,6 +21,10 @@ pub struct CommandPrompt {
 
 impl CommandPrompt {
     pub fn new() -> Option<Self> {
+        if !io::stdin().is_terminal() {
+            return None;
+        }
+
         terminal::enable_raw_mode().ok()?;
         let (tx, rx) = mpsc::channel();
 
