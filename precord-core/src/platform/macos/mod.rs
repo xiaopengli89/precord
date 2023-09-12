@@ -3,7 +3,7 @@ use core_foundation::base::{kCFAllocatorDefault, CFRelease, ToVoid};
 use core_foundation::dictionary::{CFDictionaryGetValueIfPresent, CFMutableDictionaryRef};
 use core_foundation::number::{kCFNumberCharType, CFNumberGetValue, CFNumberRef};
 use core_foundation::string::CFString;
-use mach2::{kern_return, mach_types, task, traps};
+use mach2::{kern_return, mach_types, task, task_info, traps};
 use serde::Deserialize;
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader};
@@ -12,6 +12,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Once};
 use std::time::Instant;
 use std::{mem, process, ptr, thread};
+pub use types::MachPort;
 use IOKit_sys::*;
 
 #[allow(dead_code)]
@@ -831,4 +832,37 @@ pub fn threads_count(pid: Pid) -> Option<u32> {
     }
 
     Some(buf.len() as u32)
+}
+
+#[link(name = "pmsample")]
+#[allow(dead_code)]
+extern "C" {
+    fn pm_sample_task_and_pid(
+        task: mach_types::task_port_t,
+        pid: libc::pid_t,
+        pm_energy: *mut types::pm_task_energy_data_t,
+        mach_time: u64,
+        flags: u8,
+    ) -> libc::c_int;
+}
+
+#[link(name = "sysmon")]
+extern "C" {}
+
+pub fn gpu_time_ns(target: &MachPort) -> u64 {
+    unsafe {
+        let mut info: types::task_power_info_v2 = mem::zeroed();
+        let mut size = mem::size_of::<types::task_power_info_v2>() as u32;
+        let r = task::task_info(
+            target.as_raw(),
+            task_info::TASK_POWER_INFO_V2,
+            (&mut info) as *mut types::task_power_info_v2 as _,
+            &mut size,
+        );
+        if r != kern_return::KERN_SUCCESS {
+            0
+        } else {
+            info.gpu_energy.task_gpu_utilisation
+        }
+    }
 }

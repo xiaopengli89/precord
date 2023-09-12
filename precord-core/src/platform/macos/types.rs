@@ -81,3 +81,29 @@ pub struct ThreadInfoPrivilege {
     pub basic_info: libc::thread_basic_info,
     pub port: MachPort,
 }
+
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct gpu_energy_data {
+    pub task_gpu_utilisation: u64,
+    pub _data: [u64; 3],
+}
+
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct task_power_info_v2 {
+    pub cpu_energy: [u64; 6],
+    pub gpu_energy: gpu_energy_data,
+    #[cfg(target_arch = "aarch64")]
+    pub task_energy: u64,
+    pub task_ptime: u64,
+    pub task_pset_switches: u64,
+}
+
+// https://github.com/llvm/llvm-project/blob/main/lldb/tools/debugserver/source/MacOSX/MachTask.mm
+// https://source.chromium.org/chromium/chromium/src/+/main:base/process/process_metrics_mac.cc
+#[allow(non_camel_case_types, dead_code)]
+#[repr(C)]
+pub struct pm_task_energy_data_t {
+    pub data: [u8; 408],
+}
