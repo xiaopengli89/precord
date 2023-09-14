@@ -6,10 +6,9 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-const CHART_WIDTH: usize = 900;
 const CHART_HEIGHT: usize = 800;
-const CHART_PADDING_LEFT: usize = 100;
-const CHART_PADDING_RIGHT: usize = 50;
+const CHART_PADDING_LEFT: usize = 50;
+const CHART_PADDING_RIGHT: usize = 300;
 const CHART_PADDING_TOP_BOTTOM: usize = 100;
 
 pub fn consume<P: AsRef<Path>>(
@@ -126,15 +125,14 @@ pub fn consume<P: AsRef<Path>>(
         }));
         titles.push(json!({
             "text": category_title,
-            "textAlign": "center",
+            "textAlign": "left",
             "top": format!("{}px", 800 * grids.len() + 20),
-            "left": "450px",
+            "left": CHART_PADDING_LEFT - 10,
         }));
         legends.push(json!({
             "type": "scroll",
             "orient": "vertical",
-            "left": "900px",
-            "bottom": 0,
+            "right": 0,
             "top": format!("{}px", 800 * grids.len() + 100),
             "data": legend_c,
             "tooltip": {
@@ -147,10 +145,10 @@ pub fn consume<P: AsRef<Path>>(
             "top": format!("{}px", 800 * grids.len() + 730),
         }));
         grids.push(json!({
-            "width": format!("{}px", CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT),
             "height": format!("{}px", CHART_HEIGHT - CHART_PADDING_TOP_BOTTOM * 2),
-            "left": format!("{}px", CHART_PADDING_LEFT),
+            "left": CHART_PADDING_LEFT,
             "top": format!("{}px", CHART_HEIGHT * grids.len() + CHART_PADDING_TOP_BOTTOM),
+            "right": CHART_PADDING_RIGHT,
         }));
         tooltips.push(tooltip);
     }
@@ -205,15 +203,14 @@ pub fn consume<P: AsRef<Path>>(
         }));
         titles.push(json!({
             "text": category_title,
-            "textAlign": "center",
+            "textAlign": "left",
             "top": format!("{}px", 800 * grids.len()),
-            "left": "450px",
+            "left": CHART_PADDING_LEFT - 10,
         }));
         legends.push(json!({
             "type": "scroll",
             "orient": "vertical",
-            "left": "900px",
-            "bottom": 0,
+            "right": 0,
             "top": format!("{}px", 800 * grids.len() + 100),
             "data": legend_c,
             "tooltip": {
@@ -226,10 +223,10 @@ pub fn consume<P: AsRef<Path>>(
             "top": format!("{}px", 800 * grids.len() + 730),
         }));
         grids.push(json!({
-            "width": format!("{}px", CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT),
             "height": format!("{}px", CHART_HEIGHT - CHART_PADDING_TOP_BOTTOM * 2),
-            "left": format!("{}px", CHART_PADDING_LEFT),
+            "left": CHART_PADDING_LEFT,
             "top": format!("{}px", CHART_HEIGHT * grids.len() + CHART_PADDING_TOP_BOTTOM),
+            "right": CHART_PADDING_RIGHT,
         }));
         tooltips.push(tooltip);
     }
@@ -262,7 +259,7 @@ pub fn consume<P: AsRef<Path>>(
     </style>
   </head>
   <body>
-    <div id="main" style="width: 1200px; height: "#
+    <div id="main" style="height: "#
         .to_string()
         + &(800 * grid_len).to_string()
         + &r#"px;"></div>
@@ -286,6 +283,9 @@ pub fn consume<P: AsRef<Path>>(
       });
 
       myChart.setOption(option);
+      window.addEventListener('resize', function() {
+        myChart.resize();
+      });
     </script>
   </body>
 </html>
