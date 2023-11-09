@@ -653,6 +653,20 @@ impl System {
             Err(Error::UnsupportedFeatures(Features::SMC))
         }
     }
+
+    pub fn system_npu_power(&self) -> Result<f32, Error> {
+        #[cfg(target_os = "macos")]
+        {
+            Ok(self
+                .command_source
+                .as_ref()
+                .ok_or(Error::FeatureMissing(Features::CPU_FREQUENCY))?
+                .ane_power()
+                / 1000.)
+        }
+        #[cfg(not(target_os = "macos"))]
+        Err(Error::UnsupportedFeatures(Features::CPU_FREQUENCY))
+    }
 }
 
 bitflags! {

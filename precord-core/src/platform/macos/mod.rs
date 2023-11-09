@@ -182,6 +182,10 @@ impl CommandSource {
         }
     }
 
+    pub fn ane_power(&self) -> f32 {
+        self.power_metrics_result.processor.ane_power
+    }
+
     pub fn process_net_traffic_in(&self, pid: Pid) -> Option<u32> {
         self.process_command_result
             .iter()
@@ -217,6 +221,8 @@ struct ProcessorInfo {
     clusters: Vec<Cluster>,
     #[serde(default)]
     packages: Vec<Package>,
+    #[serde(default)]
+    ane_power: f32,
 }
 
 #[derive(Debug, Deserialize)]

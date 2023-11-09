@@ -70,7 +70,9 @@ fn main() {
     if proc_category.contains(&ProcessCategory::Kobject) {
         features.insert(Features::K_OBJECT);
     }
-    if sys_category.contains(&SystemCategory::CpuFreq) {
+    if sys_category.contains(&SystemCategory::CpuFreq)
+        || sys_category.contains(&SystemCategory::NpuPower)
+    {
         features.insert(Features::CPU_FREQUENCY);
     }
     if sys_category.contains(&SystemCategory::CpuTemp)
