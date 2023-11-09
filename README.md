@@ -44,6 +44,7 @@ precord -h
   - `sys_cpu_temp` - CPU temperature of system
   - `sys_gpu` - GPU usage of system
   - `sys_power` - Power usage of system
+  - `sys_npu_power` - Power usage of npu
 - `-p / --process` - ID of processes
 - `--name` - Name of processes
 - `-o / --output` - Specify the output file, possible extensions:
@@ -119,6 +120,7 @@ fn main() {
 | sys_cpu_temp         | :white_check_mark: | :white_check_mark: |                    |
 | sys_gpu              | :white_check_mark: | :white_check_mark: |                    |
 | sys_power            | :white_check_mark: | :white_check_mark: |                    |
+| sys_npu_power        | :white_check_mark: |                    |                    |
 
 ## Privileges
 
@@ -139,6 +141,7 @@ fn main() {
 | sys_cpu_temp                                       |                                |               |       |
 | sys_gpu                                            |                                |               |       |
 | sys_power                                          |                                |               |       |
+| sys_npu_power                                      | Administrator                  |               |       |
 | system processes<br/>(WindowServer, dwm.exe, etc.) | Administrator                  | Administrator |       |
 
 
