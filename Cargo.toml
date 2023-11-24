@@ -31,6 +31,7 @@ sysinfo.workspace = true
 regex = "1.5.4"
 crossterm = "0.25.0"
 humantime = "2.1.0"
+signal-hook = "0.3.17"
 
 [dependencies.clap]
 version = "4.1.1"

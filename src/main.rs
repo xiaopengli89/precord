@@ -6,6 +6,8 @@ use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
 use std::fmt::Write;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 
@@ -199,6 +201,12 @@ fn main() {
     }
 
     let mut end_time = None;
+    let shutdown = Arc::new(AtomicBool::new(false));
+    for &sig in signal_hook::consts::TERM_SIGNALS {
+        if let Err(err) = signal_hook::flag::register(sig, shutdown.clone()) {
+            eprintln!("signal_hook({sig}): {err}\r");
+        }
+    }
 
     for i in -(opts.skip as isize).. {
         let mut command_mode = false;
@@ -372,6 +380,10 @@ fn main() {
             if now > end_time {
                 break;
             }
+        }
+
+        if shutdown.load(std::sync::atomic::Ordering::Acquire) {
+            break;
         }
     }
 
