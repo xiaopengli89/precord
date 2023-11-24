@@ -60,6 +60,8 @@ precord -h
 - `--gpu-calc` - Gpu calculation, possible values:
   - `max`
   - `sum`
+- `--interactive` - Interactive mode
+- `--auto-save` - Interval of auto saving
 
 ### Command Mode
 Type `:` during recording will enter the command mode, and press `Esc` will back to recording. The supported commands are:
