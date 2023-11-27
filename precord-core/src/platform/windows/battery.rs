@@ -1,6 +1,7 @@
 use crate::Error;
 use std::mem;
 use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle};
+use std::ptr;
 use windows::core::PCWSTR;
 use windows::Win32::Devices::DeviceAndDriverInstallation;
 use windows::Win32::Storage::FileSystem;
@@ -75,7 +76,7 @@ impl Battery {
             }
 
             let h_battery = FileSystem::CreateFileW(
-                PCWSTR::from_raw(pdidd.DevicePath.as_ptr()),
+                PCWSTR::from_raw(ptr::addr_of!(pdidd.DevicePath) as _),
                 FileSystem::FILE_GENERIC_READ | FileSystem::FILE_GENERIC_WRITE,
                 FileSystem::FILE_SHARE_READ | FileSystem::FILE_SHARE_WRITE,
                 None,
