@@ -15,6 +15,8 @@ impl WinRing0 {
         let dll_name = "WinRing0x64.dll";
         #[cfg(target_arch = "x86")]
         let dll_name = "WinRing0.dll";
+        #[cfg(target_arch = "aarch64")]
+        let dll_name = "WinRing0arm64.dll";
 
         unsafe {
             let lib = libloading::Library::new(dll_name)?;
