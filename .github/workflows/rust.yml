@@ -21,41 +21,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - uses: hustcer/setup-nu@v3
+        with:
+          version: '0.95.0'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: caching
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - name: Build
+
+      - name: Check
         if: "!startsWith(github.ref, 'refs/tags/')"
         run: |
-          cargo build
-          cargo test
-      - name: Build Release macOS
+          nu -n -c "overlay use action.nu; check"
+
+      - name: Build macOS
         if: "startsWith(github.ref, 'refs/tags/') && matrix.os == 'macos-latest'"
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.11"
         run : |
-          rustup target add aarch64-apple-darwin
-          cargo build --release
-          cargo test --release
-          cargo build --release --target aarch64-apple-darwin
-          tar -C target/release -czvf target/precord-macos-x86_64-${{ github.ref_name }}.tar.gz precord
-          tar -C target/aarch64-apple-darwin/release -czvf target/precord-macos-aarch64-${{ github.ref_name }}.tar.gz precord
-      - name: Build Release Windows x86_64
+          nu -n -c "overlay use action.nu; build --version ${{ github.ref_name }} aarch64-apple-darwin x86_64-apple-darwin"
+
+      - name: Build Windows
         if: "startsWith(github.ref, 'refs/tags/') && matrix.os == 'windows-latest'"
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
         run : |
-          cargo build --release --target x86_64-pc-windows-msvc
-          cargo test --release --target x86_64-pc-windows-msvc
-          mv ./target/x86_64-pc-windows-msvc/release/precord.exe ./target/precord-windows-x86_64-${{ github.ref_name }}.exe
+          nu -n -c "overlay use action.nu; build --version ${{ github.ref_name }} x86_64-pc-windows-msvc"
 
-      - name: Build Release Linux x86_64
+      - name: Build Linux
         if: "startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'"
         run: |
-          cargo build --release
-          cargo test --release
-          tar -C target/release -czvf target/precord-linux-x86_64-${{ github.ref_name }}.tar.gz precord
+          nu -n -c "overlay use action.nu; build --version ${{ github.ref_name }} x86_64-unknown-linux-gnu"
 
       - name: Release
         if: "startsWith(github.ref, 'refs/tags/')"
