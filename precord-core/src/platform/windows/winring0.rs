@@ -4,6 +4,7 @@ use std::mem;
 const IA32_TEMPERATURE_TARGET: c_uint = 0x1a2;
 const IA32_PACKAGE_THERM_STATUS: c_uint = 0x1b1;
 
+// https://github.com/GermanAizek/WinRing0
 pub struct WinRing0 {
     rdmsr: libloading::Symbol<'static, Rdmsr>,
     lib: libloading::Library,
@@ -11,12 +12,13 @@ pub struct WinRing0 {
 
 impl WinRing0 {
     pub fn new() -> Result<Self, libloading::Error> {
-        #[cfg(target_arch = "x86_64")]
-        let dll_name = "WinRing0x64.dll";
-        #[cfg(target_arch = "x86")]
-        let dll_name = "WinRing0.dll";
-        #[cfg(target_arch = "aarch64")]
-        let dll_name = "WinRing0arm64.dll";
+        let dll_name = if cfg!(target_arch = "x86_64") {
+            "WinRing0x64.dll"
+        } else if cfg!(target_arch = "x86") {
+            "WinRing0.dll"
+        } else {
+            return Err(libloading::Error::DlOpenUnknown);
+        };
 
         unsafe {
             let lib = libloading::Library::new(dll_name)?;
