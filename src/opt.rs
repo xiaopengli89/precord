@@ -7,7 +7,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::iter;
 use std::path::PathBuf;
-use sysinfo::{PidExt, ProcessExt, ProcessStatus, SystemExt};
+use sysinfo::ProcessStatus;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]

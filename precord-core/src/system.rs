@@ -6,7 +6,7 @@ use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::time::{Duration, Instant};
-use sysinfo::{CpuExt, CpuRefreshKind, PidExt, ProcessExt, ProcessRefreshKind, SystemExt};
+use sysinfo::{CpuRefreshKind, ProcessRefreshKind};
 
 pub struct System {
     last_update: Instant,
