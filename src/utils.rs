@@ -58,13 +58,14 @@ impl CommandPrompt {
             KeyEvent {
                 code: KeyCode::Char(':'),
                 modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Release,
+                kind: KeyEventKind::Press,
                 state: KeyEventState::NONE,
             }
         };
         match key_event {
             KeyEvent {
                 code: KeyCode::Char(':'),
+                kind: KeyEventKind::Press,
                 ..
             } => {
                 execute!(&self.stdout, Print(':'),).unwrap();
@@ -74,6 +75,7 @@ impl CommandPrompt {
                     match self.rx.recv().unwrap() {
                         KeyEvent {
                             code: KeyCode::Char('c'),
+                            kind: KeyEventKind::Press,
                             modifiers: KeyModifiers::CONTROL,
                             ..
                         } => {
@@ -81,6 +83,7 @@ impl CommandPrompt {
                         }
                         KeyEvent {
                             code: KeyCode::Char(c),
+                            kind: KeyEventKind::Press,
                             ..
                         } => {
                             self.current_command.push(c);
@@ -88,6 +91,7 @@ impl CommandPrompt {
                         }
                         KeyEvent {
                             code: KeyCode::Backspace,
+                            kind: KeyEventKind::Press,
                             ..
                         } => {
                             if self.current_command.pop().is_some() {
@@ -100,13 +104,16 @@ impl CommandPrompt {
                             }
                         }
                         KeyEvent {
-                            code: KeyCode::Esc, ..
+                            code: KeyCode::Esc,
+                            kind: KeyEventKind::Press,
+                            ..
                         } => {
                             execute!(&self.stdout, Print("\r\n"),).unwrap();
                             break Command::Continue;
                         }
                         KeyEvent {
                             code: KeyCode::Enter,
+                            kind: KeyEventKind::Press,
                             ..
                         } => {
                             execute!(&self.stdout, Print("\r\n"),).unwrap();
@@ -118,6 +125,7 @@ impl CommandPrompt {
             }
             KeyEvent {
                 code: KeyCode::Char('c'),
+                kind: KeyEventKind::Press,
                 modifiers: KeyModifiers::CONTROL,
                 ..
             } => Command::Quit,
