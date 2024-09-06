@@ -70,7 +70,7 @@ impl System {
 
             #[cfg(target_os = "windows")]
             {
-                system.vm_counter = Some(VmCounter::new(pids.clone())?);
+                system.vm_counter = Some(VmCounter::new(pids.clone()));
             }
         }
         if features.contains(Features::SMC) | features.contains(Features::CPU_FREQUENCY) {

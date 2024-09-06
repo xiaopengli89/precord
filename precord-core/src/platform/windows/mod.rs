@@ -445,35 +445,25 @@ pub struct VmCounter {
 }
 
 impl VmCounter {
-    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Result<Self, Error> {
-        let mut vm_counter = Self {
-            process_counters: vec![],
-        };
-        unsafe {
-            for pid in pids {
-                let options = Threading::PROCESS_QUERY_INFORMATION;
-                let r = Threading::OpenProcess(options, false, pid);
-                match r {
-                    Ok(handle) => {
-                        vm_counter.process_counters.push(ProcessVmCounter {
-                            pid,
-                            handle: OwnedHandle::from_raw_handle(handle.0 as _),
-                            valid: true,
-                            mem: 0,
-                            alloc: 0,
-                        });
+    pub fn new<T: IntoIterator<Item = Pid>>(pids: T) -> Self {
+        Self {
+            process_counters: pids
+                .into_iter()
+                .filter_map(|pid| {
+                    let h = unsafe {
+                        Threading::OpenProcess(Threading::PROCESS_QUERY_INFORMATION, false, pid)
                     }
-                    Err(err) => {
-                        return Err(match Foundation::WIN32_ERROR::from_error(&err) {
-                            Some(Foundation::ERROR_ACCESS_DENIED) => Error::AccessDenied,
-                            _ => Error::ProcessHandle,
-                        });
-                    }
-                }
-            }
+                    .ok()?;
+                    Some(ProcessVmCounter {
+                        pid,
+                        handle: unsafe { OwnedHandle::from_raw_handle(h.0 as _) },
+                        valid: true,
+                        mem: 0,
+                        alloc: 0,
+                    })
+                })
+                .collect(),
         }
-
-        Ok(vm_counter)
     }
 
     pub fn update(&mut self) {
