@@ -19,10 +19,6 @@ use IOKit_sys::*;
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
-#[cfg(feature = "dtrace")]
-mod dtrace;
-#[cfg(feature = "dtrace")]
-mod dtrace_executor;
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
@@ -457,7 +453,7 @@ impl NetTopRunner {
 #[cfg(feature = "dtrace")]
 struct FrameRateRunner {
     tx: Sender<ProcessCommandResult>,
-    dtrace: dtrace_executor::Dtrace,
+    dt: dtrace::Dtrace,
 }
 
 #[cfg(feature = "dtrace")]
@@ -507,33 +503,36 @@ impl FrameRateRunner {
             methods.push(format!("objc{}:CAContext:-contextId:entry", pid));
         }
         let mut methods = methods.join(",");
-        methods.push_str(r#"{printf("%d\r\n",pid)}"#);
+        methods.push_str(r#"{printf("%d",pid)}"#);
 
-        let scripts = std::ffi::CString::new(methods).unwrap();
-        let executor = dtrace_executor::Dtrace::new(scripts.as_ptr())?;
+        let mut dt = dtrace::Dtrace::new()?;
+        dt.setopt_c(c"strsize", c"4096")?;
+        dt.setopt_c(c"bufsize", c"4m")?;
+        dt.exec_program(&methods)?;
 
-        Ok(Some(Self {
-            tx,
-            dtrace: executor,
-        }))
+        Ok(Some(Self { tx, dt }))
     }
 
-    fn run(self) {
-        self.dtrace.run(|s| {
-            for line in s.lines() {
-                let pid: Pid = line.parse().unwrap();
+    fn run(mut self) {
+        if self.dt.go().is_err() {
+            return;
+        }
+
+        let mut cont = true;
+        while cont {
+            let r = self.dt.work(|output| {
+                let pid: Pid = output.parse().unwrap();
 
                 if let Err(_) = self.tx.send(ProcessCommandResult {
                     pid,
                     frame: 1,
                     ..Default::default()
                 }) {
-                    return false;
+                    cont = false;
                 }
-            }
-
-            true
-        });
+            });
+            cont &= matches!(r, Ok(false));
+        }
     }
 }
 

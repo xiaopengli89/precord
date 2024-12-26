@@ -35,8 +35,8 @@ pub enum Error {
     #[error("Etw error: {0:?}")]
     Etw(ferrisetw::trace::TraceError),
     #[cfg(all(target_os = "macos", feature = "dtrace"))]
-    #[error("Dtrace")]
-    Dtrace,
+    #[error(transparent)]
+    Dtrace(#[from] dtrace::Error),
     #[error("Unsupported features: {0:?}")]
     UnsupportedFeatures(Features),
 }

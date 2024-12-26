@@ -167,24 +167,16 @@ impl From<&str> for Command {
             "w" => {
                 let mut ps = vec![];
                 while let Some(p) = tokens.next() {
-                    if let Ok(p) = p.parse::<PathBuf>() {
-                        ps.push(p);
-                    } else {
-                        eprintln!("Invalid output path\r");
-                        return Self::Unknown;
-                    }
+                    let Ok(p) = p.parse::<PathBuf>();
+                    ps.push(p);
                 }
                 Self::Write(ps)
             }
             "wq" => {
                 let mut ps = vec![];
                 while let Some(p) = tokens.next() {
-                    if let Ok(p) = p.parse::<PathBuf>() {
-                        ps.push(p);
-                    } else {
-                        eprintln!("Invalid output path\r");
-                        return Self::Unknown;
-                    }
+                    let Ok(p) = p.parse::<PathBuf>();
+                    ps.push(p);
                 }
                 Self::WriteThenQuit(ps)
             }
