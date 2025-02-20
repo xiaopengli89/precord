@@ -4,7 +4,6 @@ use clap::Parser;
 use crossterm::style::Stylize;
 use precord_core::{Error, Features, Pid, System};
 use regex::Regex;
-use std::fmt::Write;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -305,6 +304,21 @@ fn main() {
             }
         }
 
+        if i != 0 {
+            println!();
+        }
+        print!("-[RECORD {}]", i + 1);
+
+        if let Some(count) = opts.count {
+            let _ = print!(" [{}]", count);
+        }
+
+        if let Some(end_time) = end_time {
+            let _ = print!(" [{}]", end_time);
+        }
+
+        println!("------\r");
+
         // Process
         if !proc_category.is_empty() {
             for process in processes.iter_mut() {
@@ -315,13 +329,13 @@ fn main() {
                         process.valid = true;
                         process.values[idx].push(v);
                         message.push_str(&format!(
-                            " / {}",
+                            " [{}]",
                             format!("{:?} {:.2}{}", c, v, c.unit()).with(c.color())
                         ));
                     } else {
                         process.valid = false;
                         process.values[idx].push(0.0);
-                        message.push_str(&format!(" / {}", format!("{:?} Lost", c).dark_red()));
+                        message.push_str(&format!(" [{}]", format!("{:?} Lost", c).dark_red()));
                     }
                 }
 
@@ -334,7 +348,7 @@ fn main() {
             let rows = c.sample(&mut system, opts.gpu_calc);
 
             println!(
-                "{:?}: [{}]\r",
+                "{:?} [{}]\r",
                 c,
                 rows.iter()
                     .map(|f| format!("{:.2}{}", f, c.unit()).with(c.color()).to_string())
@@ -352,18 +366,6 @@ fn main() {
                 }
             }
         }
-
-        let mut progress = format!("================ {}", i + 1);
-
-        if let Some(count) = opts.count {
-            let _ = write!(&mut progress, " / {}", count);
-        }
-
-        if let Some(end_time) = end_time {
-            let _ = write!(&mut progress, " / {}", end_time);
-        }
-
-        println!("{}\r", progress);
 
         // let _ = utils::drain_filter_vec(&mut processes, |p| !p.valid);
 
