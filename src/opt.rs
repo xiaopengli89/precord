@@ -220,6 +220,7 @@ pub enum Category {
     SysCpu,
     SysCPUFreq,
     SysCPUTemp,
+    SysMem,
     SysGPU,
     SysPower,
     SysNpuPower,
@@ -249,6 +250,7 @@ impl Category {
             Category::SysCpu => Some(SystemCategory::Cpu),
             Category::SysCPUFreq => Some(SystemCategory::CpuFreq),
             Category::SysCPUTemp => Some(SystemCategory::CpuTemp),
+            Category::SysMem => Some(SystemCategory::Mem),
             Category::SysGPU => Some(SystemCategory::Gpu),
             Category::SysPower => Some(SystemCategory::Power),
             Category::SysNpuPower => Some(SystemCategory::NpuPower),
@@ -352,6 +354,7 @@ impl ProcessCategory {
 #[serde(rename_all = "snake_case")]
 pub enum SystemCategory {
     Cpu,
+    Mem,
     CpuFreq,
     CpuTemp,
     Gpu,
@@ -365,6 +368,7 @@ impl SystemCategory {
             Self::Cpu => "%",
             Self::CpuFreq => "MHz",
             Self::CpuTemp => "°C",
+            Self::Mem => "M",
             Self::Gpu => "%",
             Self::Power => "W",
             Self::NpuPower => "W",
@@ -376,6 +380,7 @@ impl SystemCategory {
             Self::Cpu => Color::DarkGreen,
             Self::CpuFreq => Color::DarkCyan,
             Self::CpuTemp => Color::AnsiValue(208),
+            Self::Mem => Color::AnsiValue(140),
             Self::Gpu => Color::AnsiValue(64),
             Self::Power => Color::AnsiValue(78),
             Self::NpuPower => Color::AnsiValue(160),
@@ -387,6 +392,7 @@ impl SystemCategory {
             Self::Cpu => 100.,
             Self::CpuFreq => 1000.,
             Self::CpuTemp => 100.,
+            Self::Mem => 10.,
             Self::Gpu => 100.,
             Self::Power => 50.,
             Self::NpuPower => 10.,
@@ -398,6 +404,10 @@ impl SystemCategory {
             Self::Cpu => system.system_cpu_usage().unwrap_or_default(),
             Self::CpuFreq => system.system_cpu_frequency().unwrap_or_default(),
             Self::CpuTemp => system.system_cpu_temperature().unwrap_or_default(),
+            Self::Mem => vec![system
+                .system_mem()
+                .map(|v| (v >> 10) as f32 / 1024.)
+                .unwrap_or(0.)],
             Self::Gpu => {
                 vec![system.system_gpu_usage(gpu_calc.into()).unwrap_or(0.0)]
             }

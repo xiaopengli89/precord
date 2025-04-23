@@ -6,7 +6,7 @@ use crate::platform::windows::{EtwTrace, Pdh, ProcessorInfo, VmCounter};
 use crate::{Error, GpuCalculation, Pid};
 use bitflags::bitflags;
 use std::time::{Duration, Instant};
-use sysinfo::{CpuRefreshKind, ProcessRefreshKind};
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, ProcessRefreshKind};
 
 pub struct System {
     last_update: Instant,
@@ -42,7 +42,9 @@ impl System {
             last_duration: Duration::ZERO,
             features,
             sysinfo_system: None,
-            refresh_kind: sysinfo::RefreshKind::default().with_cpu(CpuRefreshKind::everything()),
+            refresh_kind: sysinfo::RefreshKind::default()
+                .with_cpu(CpuRefreshKind::everything())
+                .with_memory(MemoryRefreshKind::everything()),
             #[cfg(target_os = "macos")]
             command_source: None,
             #[cfg(target_os = "macos")]
@@ -628,6 +630,14 @@ impl System {
         {
             Err(Error::UnsupportedFeatures(Features::SMC))
         }
+    }
+
+    pub fn system_mem(&self) -> Result<u64, Error> {
+        let sysinfo_system = self
+            .sysinfo_system
+            .as_ref()
+            .ok_or(Error::FeatureMissing(Features::PROCESS))?;
+        Ok(sysinfo_system.total_memory() - sysinfo_system.available_memory())
     }
 
     pub fn system_power(&self) -> Result<f32, Error> {
