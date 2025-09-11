@@ -8,7 +8,6 @@ pub use battery::Battery;
 use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
 use ferrisetw::trace::UserTrace;
-use ntapi::ntpsapi;
 use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
@@ -22,6 +21,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 pub use utils::{threads_count, threads_info};
 use windows::core::HSTRING;
+use windows::Wdk;
 use windows::Win32::Foundation;
 use windows::Win32::System::{Performance, Threading};
 
@@ -36,16 +36,6 @@ pub struct ProcessorInfo {
 #[serde(rename_all = "PascalCase")]
 pub struct ThermalZoneInformation {
     pub temperature: f32,
-}
-
-#[allow(non_camel_case_types)]
-#[allow(non_snake_case)]
-#[allow(dead_code)]
-#[repr(C)]
-struct VM_COUNTERS_EX2 {
-    CountersEx: ntpsapi::VM_COUNTERS_EX,
-    PrivateWorkingSetSize: usize,
-    SharedCommitUsage: u64,
 }
 
 pub struct Pdh {
@@ -474,12 +464,12 @@ impl VmCounter {
 
             if is_proc_running(p.handle.as_handle()) {
                 unsafe {
-                    let mut info: VM_COUNTERS_EX2 = mem::zeroed();
-                    let r = Threading::NtQueryInformationProcess(
+                    let mut info: Wdk::System::SystemServices::VM_COUNTERS_EX2 = Default::default();
+                    let r = Wdk::System::Threading::NtQueryInformationProcess(
                         windows_raw_handle(p.handle.as_raw_handle()),
-                        Threading::PROCESSINFOCLASS(ntpsapi::ProcessVmCounters as _),
-                        mem::transmute(&mut info),
-                        mem::size_of::<VM_COUNTERS_EX2>() as _,
+                        Wdk::System::Threading::ProcessVmCounters,
+                        (&mut info as *mut Wdk::System::SystemServices::VM_COUNTERS_EX2).cast(),
+                        mem::size_of_val(&info) as _,
                         ptr::null_mut(),
                     );
                     if r.is_ok() {
@@ -522,7 +512,7 @@ impl VmCounter {
                 windows_raw_handle(p.handle.as_raw_handle()),
                 &mut count,
             );
-            if r.as_bool() {
+            if r.is_ok() {
                 Some(count)
             } else {
                 None
@@ -545,7 +535,7 @@ fn is_proc_running(handle: BorrowedHandle) -> bool {
     let ret = unsafe {
         Threading::GetExitCodeProcess(windows_raw_handle(handle.as_raw_handle()), &mut exit_code)
     };
-    !(!ret.as_bool() || Foundation::NTSTATUS(exit_code as _) != Foundation::STATUS_PENDING)
+    !(ret.is_err() || Foundation::NTSTATUS(exit_code as _) != Foundation::STATUS_PENDING)
 }
 
 thread_local! {

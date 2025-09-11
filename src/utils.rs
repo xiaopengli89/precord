@@ -252,7 +252,7 @@ pub fn adjust_privileges() {
 mod platform_windows {
     use std::mem;
     use std::os::windows::prelude::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
-    use windows::Win32::System::{SystemServices, Threading};
+    use windows::Win32::System::Threading;
     use windows::Win32::{Foundation, Security};
 
     pub fn adjust_privileges() {
@@ -263,16 +263,14 @@ mod platform_windows {
                 Security::TOKEN_ADJUST_PRIVILEGES,
                 &mut token_handle,
             );
-            if !r.as_bool() {
+            if r.is_err() {
                 eprintln!("OpenProcessToken failed");
                 return;
             }
             let token_handle = OwnedHandle::from_raw_handle(token_handle.0 as _);
 
             let mut luid: Foundation::LUID = mem::zeroed();
-            if !Security::LookupPrivilegeValueW(None, SystemServices::SE_DEBUG_NAME, &mut luid)
-                .as_bool()
-            {
+            if Security::LookupPrivilegeValueW(None, Security::SE_DEBUG_NAME, &mut luid).is_err() {
                 eprintln!("LookupPrivilegeValueW failed");
                 return;
             }
@@ -282,7 +280,7 @@ mod platform_windows {
             new_state.Privileges[0].Luid = luid;
             new_state.Privileges[0].Attributes = Security::SE_PRIVILEGE_ENABLED;
 
-            if !Security::AdjustTokenPrivileges(
+            if Security::AdjustTokenPrivileges(
                 windows_raw_handle(token_handle.as_raw_handle()),
                 false,
                 Some(&mut new_state),
@@ -290,8 +288,11 @@ mod platform_windows {
                 None,
                 None,
             )
-            .as_bool()
-                || Foundation::GetLastError() == Foundation::ERROR_NOT_ALL_ASSIGNED
+            .is_err()
+                || matches!(
+                    Foundation::WIN32_ERROR::from_error(&windows::core::Error::from_win32()),
+                    Some(Foundation::ERROR_NOT_ALL_ASSIGNED)
+                )
             {
                 eprintln!("AdjustTokenPrivileges failed");
             }

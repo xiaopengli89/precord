@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{fs, thread};
+use std::{env, fs, thread};
 
 mod consumer_csv;
 mod consumer_html;
@@ -120,6 +120,8 @@ fn main() {
         return;
     }
 
+    let version = env!("CARGO_PKG_VERSION");
+    let cmd_args: Vec<_> = env::args().skip(1).collect();
     let write_result = |proc_categories: &[ProcessCategory],
                         sys_categories: &[SystemCategory],
                         timestamps: &[chrono::DateTime<chrono::Local>],
@@ -169,6 +171,8 @@ fn main() {
                     valid = true;
                 } else if ext == "html" {
                     consumer_html::consume(
+                        version,
+                        &cmd_args,
                         &swp_file,
                         proc_categories,
                         sys_categories,

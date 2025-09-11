@@ -12,6 +12,8 @@ const CHART_PADDING_RIGHT: usize = 300;
 const CHART_PADDING_TOP_BOTTOM: usize = 100;
 
 pub fn consume<P: AsRef<Path>>(
+    version: &str,
+    cmd_args: &[String],
     output: P,
     proc_category: &[ProcessCategory],
     sys_category: &[SystemCategory],
@@ -256,17 +258,38 @@ pub fn consume<P: AsRef<Path>>(
         #main {
             margin: 20px auto;
         }
+        #info, #info td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 0 0.5em;
+        }
+        #info tr td:first-child {
+            font-weight: bold;
+        }
     </style>
   </head>
   <body>
-    <div id="main" style="height: "#
+    <table id="info">
+        <tr>
+            <td>Version</td>
+            <td>"#
         .to_string()
+        + version
+        + r#"</td>
+        </tr>
+        <tr>
+            <td>Command Args</td>
+            <td>"#
+        + &format!("{:?}", cmd_args)
+        + r#"</td>
+        </tr>
+    </table>
+    <div id="main" style="height: "#
         + &(800 * grid_len).to_string()
-        + &r#"px;"></div>
+        + r#"px;"></div>
     <script>
       var myChart = echarts.init(document.getElementById('main'), null, { renderer: 'svg' });
       var option = "#
-            .to_string()
         + &option.to_string()
         + r#";
 

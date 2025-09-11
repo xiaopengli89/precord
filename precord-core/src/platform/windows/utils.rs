@@ -19,11 +19,11 @@ fn threads(pid: Pid) -> Vec<u32> {
 
         let mut entry: ToolHelp::THREADENTRY32 = mem::zeroed();
         entry.dwSize = mem::size_of::<ToolHelp::THREADENTRY32>() as _;
-        if !ToolHelp::Thread32First(
+        if ToolHelp::Thread32First(
             super::windows_raw_handle(snapshot.as_raw_handle()),
             &mut entry,
         )
-        .as_bool()
+        .is_err()
         {
             return vec![];
         }
@@ -39,7 +39,7 @@ fn threads(pid: Pid) -> Vec<u32> {
             super::windows_raw_handle(snapshot.as_raw_handle()),
             &mut entry,
         )
-        .as_bool()
+        .is_ok()
         {
             if entry.th32OwnerProcessID == pid {
                 threads.push(entry.th32ThreadID);
@@ -75,9 +75,8 @@ impl ThreadInfo {
             let mut g_fsys = mem::zeroed();
             let mut g_fuser = mem::zeroed();
 
-            Threading::GetThreadTimes(raw_handle, &mut ignore, &mut ignore, &mut fsys, &mut fuser)
-                .ok()?;
-            Threading::GetSystemTimes(None, Some(&mut g_fsys), Some(&mut g_fuser)).ok()?;
+            Threading::GetThreadTimes(raw_handle, &mut ignore, &mut ignore, &mut fsys, &mut fuser)?;
+            Threading::GetSystemTimes(None, Some(&mut g_fsys), Some(&mut g_fuser))?;
 
             let mut sys: winnt::ULARGE_INTEGER = mem::zeroed();
             ptr::copy(&fsys, &mut sys as *mut winnt::ULARGE_INTEGER as *mut _, 1);
