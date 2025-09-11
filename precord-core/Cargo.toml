@@ -1,6 +1,6 @@
 [package]
 name = "precord-core"
-version = "0.7.14-20250423"
+version = "0.7.15-20250911"
 edition = "2021"
 authors = ["Xiaopeng Li <x.friday@outlook.com>"]
 description = "Library for retrieving process or system performance data"
