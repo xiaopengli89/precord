@@ -441,7 +441,11 @@ impl VmCounter {
                 .into_iter()
                 .filter_map(|pid| {
                     let h = unsafe {
-                        Threading::OpenProcess(Threading::PROCESS_QUERY_INFORMATION, false, pid)
+                        Threading::OpenProcess(
+                            Threading::PROCESS_QUERY_LIMITED_INFORMATION,
+                            false,
+                            pid,
+                        )
                     }
                     .ok()?;
                     Some(ProcessVmCounter {
